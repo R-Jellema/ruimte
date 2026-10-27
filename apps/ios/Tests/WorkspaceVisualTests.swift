@@ -28,14 +28,13 @@ final class WorkspaceVisualTests: XCTestCase {
                         }
                     }.listStyle(.insetGrouped).navigationTitle("Projects")
                 }.dynamicTypeSize(typeSize))
-            let window = makeWindow(host, size: CGSize(width: 402, height: 874))
+            let window = UIWindow.showing(host, size: CGSize(width: 402, height: 874))
             defer {
-                window.isHidden = true
-                window.rootViewController = nil
+                window.close()
                 runtime.connections.shutdown()
             }
-            for _ in 0..<20 { await displayFrame() }
-            let list = try XCTUnwrap(descendant(UICollectionView.self, in: host.view))
+            await displayFrames(20)
+            let list = try XCTUnwrap(host.view.descendant(of: UICollectionView.self))
             let heights = list.visibleCells.map(\.bounds.height)
             XCTAssertEqual(heights.count, 2)
             XCTAssertEqual(try XCTUnwrap(heights.min()), try XCTUnwrap(heights.max()), accuracy: 1)
@@ -86,10 +85,10 @@ final class WorkspaceVisualTests: XCTestCase {
                     .dynamicTypeSize(typeSize)
                     .environment(\.horizontalSizeClass, horizontalClass))
             host.traitOverrides.horizontalSizeClass = horizontalClass == .regular ? .regular : .compact
-            let window = makeWindow(host, size: size)
-            for _ in 0..<20 { await displayFrame() }
+            let window = UIWindow.showing(host, size: size)
+            await displayFrames(20)
             XCTAssertTrue(containsList(host.view), "The real workspace sidebar must be mounted")
-            let list = try XCTUnwrap(descendant(UICollectionView.self, in: host.view))
+            let list = try XCTUnwrap(host.view.descendant(of: UICollectionView.self))
             let expected = [
                 ["Overview of the workspace and all its running projects"],
                 ["Native iOS app", "Project checks"],
@@ -103,7 +102,7 @@ final class WorkspaceVisualTests: XCTestCase {
                     let index = IndexPath(item: row, section: section)
                     list.scrollToItem(at: index, at: .centeredVertically, animated: false)
                     list.layoutIfNeeded()
-                    await displayFrame()
+                    await displayFrames()
                     if NativePresentationProbe.labels(in: host.view).contains(where: { $0.contains("Build & run") }) {
                         headingShown = true
                     }
@@ -117,17 +116,8 @@ final class WorkspaceVisualTests: XCTestCase {
             XCTAssertTrue(headingShown, name)
             XCTAssertEqual(wire.client.pendingRequestCount, 0)
             capture(window, name: name)
-            window.isHidden = true
-            window.rootViewController = nil
+            window.close()
         }
-    }
-
-    @MainActor private func descendant<ViewType: UIView>(_ type: ViewType.Type, in view: UIView) -> ViewType? {
-        if let found = view as? ViewType { return found }
-        for child in view.subviews {
-            if let found = descendant(type, in: child) { return found }
-        }
-        return nil
     }
 
     private var snapshot: JSONValue {
@@ -178,37 +168,6 @@ final class WorkspaceVisualTests: XCTestCase {
         view is UICollectionView || view is UITableView || view.subviews.contains(where: containsList)
     }
 
-    @MainActor private func makeWindow(_ host: UIViewController, size: CGSize) -> UIWindow {
-        guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else {
-            fatalError("Visual tests require an active window scene")
-        }
-        let window = UIWindow(windowScene: scene)
-        window.frame = CGRect(origin: .zero, size: size)
-        window.rootViewController = host
-        window.windowLevel = .alert + 1
-        window.makeKeyAndVisible()
-        host.view.frame = window.bounds
-        host.view.setNeedsLayout()
-        host.view.layoutIfNeeded()
-        return window
-    }
-
-    @MainActor private func capture(_ window: UIWindow, name: String) {
-        window.layoutIfNeeded()
-        let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
-            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
-        }
-        let attachment = XCTAttachment(image: image)
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
-    }
-
-    @MainActor private func displayFrame() async {
-        await withCheckedContinuation { continuation in
-            _ = WorkspaceVisualFrame { continuation.resume() }
-        }
-    }
 }
 
 @MainActor private final class WorkspaceVisualWire {
@@ -232,25 +191,6 @@ final class WorkspaceVisualTests: XCTestCase {
         }
         let answer = JSONValue.object(["id": frame["id"]!, "ok": .bool(true), "result": result])
         client.receive(String(decoding: try answer.encoded(), as: UTF8.self))
-    }
-}
-
-@MainActor private final class WorkspaceVisualFrame: NSObject {
-    private var link: CADisplayLink?
-    private var completion: (() -> Void)?
-
-    init(completion: @escaping () -> Void) {
-        self.completion = completion
-        super.init()
-        let link = CADisplayLink(target: self, selector: #selector(frame))
-        self.link = link
-        link.add(to: .main, forMode: .common)
-    }
-    @objc private func frame() {
-        link?.invalidate()
-        link = nil
-        completion?()
-        completion = nil
     }
 }
 

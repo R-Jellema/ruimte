@@ -122,7 +122,7 @@ final class FilePreviewTests: XCTestCase {
         ] {
             let machine = FileMachine(path: "/files/\(name)", data: try fixture(name), mime: mime)
             let opened = try await open(machine, name: name) { view in
-                guard let zooming = self.descendant(ZoomingImageView.self, in: view) else { return false }
+                guard let zooming = view.descendant(of: ZoomingImageView.self) else { return false }
                 let dimensions = name == "image.ico" ? "48 × 48" : "64 × 48"
                 let labels = NativePresentationProbe.labels(in: view).joined(separator: "\n")
                 return zooming.imageView.image != nil && zooming.maximumZoomScale > zooming.minimumZoomScale
@@ -136,7 +136,7 @@ final class FilePreviewTests: XCTestCase {
         let machine = FileMachine(
             path: "/files/document.pdf", data: try fixture("document.pdf"), mime: "application/pdf")
         let opened = try await open(machine, name: "document.pdf") { view in
-            self.descendant(PDFView.self, in: view)?.document?.pageCount == 2
+            view.descendant(of: PDFView.self)?.document?.pageCount == 2
         }
         XCTAssertTrue(opened)
     }
@@ -179,7 +179,7 @@ final class FilePreviewTests: XCTestCase {
         let machine = FileMachine(path: "/files/broken.png", data: Data("not a picture".utf8), mime: "image/png")
         let fallback = try await open(machine, name: "broken.png") { view in
             let labels = NativePresentationProbe.labels(in: view)
-            return self.descendant(ZoomingImageView.self, in: view) == nil
+            return view.descendant(of: ZoomingImageView.self) == nil
                 && labels.contains("Quick Look") && labels.contains("Share")
         }
         XCTAssertTrue(fallback)
@@ -246,20 +246,17 @@ final class FilePreviewTests: XCTestCase {
         try NativePresentationProbe.enableAccessibility()
         let host = UIHostingController(
             rootView: NavigationStack { FileContentPage(client: machine, path: machine.path) })
-        let window = makeWindow(host, size: CGSize(width: 402, height: 874))
-        defer {
-            window.isHidden = true
-            window.rootViewController = nil
-        }
+        let window = UIWindow.showing(host, size: CGSize(width: 402, height: 874))
+        defer { window.close() }
         var found = false
         for _ in 0..<frames {
-            await displayFrame()
+            await displayFrames()
             if ready(host.view) {
                 found = true
                 break
             }
         }
-        for _ in 0..<10 { await displayFrame() }
+        await displayFrames(10)
         capture(window, name: "file-\(name)")
         return found
     }
@@ -272,49 +269,12 @@ final class FilePreviewTests: XCTestCase {
         return try Data(contentsOf: url)
     }
 
-    @MainActor private func descendant<ViewType: UIView>(_ type: ViewType.Type, in view: UIView) -> ViewType? {
-        if let found = view as? ViewType { return found }
-        for child in view.subviews {
-            if let found = descendant(type, in: child) { return found }
-        }
-        return nil
-    }
-
     @MainActor private func playerController(in controller: UIViewController?) -> AVPlayerViewController? {
         if let player = controller as? AVPlayerViewController { return player }
         for child in controller?.children ?? [] {
             if let player = playerController(in: child) { return player }
         }
         return nil
-    }
-
-    @MainActor private func makeWindow(_ host: UIViewController, size: CGSize) -> UIWindow {
-        guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else {
-            fatalError("Visual tests require an active window scene")
-        }
-        let window = UIWindow(windowScene: scene)
-        window.frame = CGRect(origin: .zero, size: size)
-        window.rootViewController = host
-        window.windowLevel = .alert + 1
-        window.makeKeyAndVisible()
-        return window
-    }
-
-    @MainActor private func capture(_ window: UIWindow, name: String) {
-        window.layoutIfNeeded()
-        let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
-            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
-        }
-        let attachment = XCTAttachment(image: image)
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
-    }
-
-    @MainActor private func displayFrame() async {
-        await withCheckedContinuation { continuation in
-            _ = FilePreviewFrame { continuation.resume() }
-        }
     }
 }
 
@@ -364,24 +324,4 @@ final class FilePreviewTests: XCTestCase {
     }
 
     func subscribe(_ event: String, handler: @escaping @MainActor @Sendable (JSONValue) -> Void) -> () -> Void { {} }
-}
-
-@MainActor private final class FilePreviewFrame: NSObject {
-    private var link: CADisplayLink?
-    private var completion: (() -> Void)?
-
-    init(completion: @escaping () -> Void) {
-        self.completion = completion
-        super.init()
-        let link = CADisplayLink(target: self, selector: #selector(frame))
-        self.link = link
-        link.add(to: .main, forMode: .common)
-    }
-
-    @objc private func frame() {
-        link?.invalidate()
-        link = nil
-        completion?()
-        completion = nil
-    }
 }

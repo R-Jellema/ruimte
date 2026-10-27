@@ -364,19 +364,14 @@ final class IntelligentUIPresentationTests: XCTestCase {
         let context = UiRenderContext(
             model: model, local: UiBlockLocal(), host: UiHost(), written: [], headID: nil, catalogVersion: 1)
         let host = UIHostingController(rootView: ScrollView { UiMapView(node: evaluated, context: context) })
-        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
-        let window = UIWindow(windowScene: scene)
-        window.frame = CGRect(x: 0, y: 0, width: 402, height: 874)
-        window.rootViewController = host
-        window.makeKeyAndVisible()
+        let window = UIWindow.showing(host, size: CGSize(width: 402, height: 874))
         defer {
-            window.isHidden = true
-            window.rootViewController = nil
+            window.close()
             model.stop()
         }
         var caption: NSObject?
         for _ in 0..<120 {
-            await NativePresentationProbe.frame()
+            await displayFrames()
             if let scroll = NativePresentationProbe.elements(in: host.view).compactMap({ $0 as? UIScrollView }).first {
                 scroll.setContentOffset(
                     CGPoint(x: 0, y: max(0, scroll.contentSize.height - scroll.bounds.height)), animated: false)

@@ -287,10 +287,7 @@ private final class ChatHostingFixture: NSObject, UICollectionViewDataSource {
         configuration.showsSeparators = false
         let layout = UICollectionViewCompositionalLayout.list(using: configuration)
         list = ChatTimelineCollection(frame: CGRect(x: 0, y: 0, width: 320, height: 600), collectionViewLayout: layout)
-        guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else {
-            fatalError("Chat scroll tests require an active window scene")
-        }
-        window = UIWindow(windowScene: scene)
+        window = UIWindow(windowScene: testScene)
         super.init()
         list.contentInsetAdjustmentBehavior = .never
         list.register(ChatHostingCell.self, forCellWithReuseIdentifier: "hosted")
@@ -302,17 +299,10 @@ private final class ChatHostingFixture: NSObject, UICollectionViewDataSource {
     }
 
     func close() {
-        window.isHidden = true
-        window.rootViewController = nil
+        window.close()
     }
 
-    func renderFrames() async {
-        for _ in 0..<8 {
-            await withCheckedContinuation { continuation in
-                _ = ChatLayoutFrame { continuation.resume() }
-            }
-        }
-    }
+    func renderFrames() async { await displayFrames(8) }
 
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int { 2 }
 
@@ -328,27 +318,6 @@ private final class ChatHostingFixture: NSObject, UICollectionViewDataSource {
             }
         }
         return cell
-    }
-}
-
-@MainActor
-private final class ChatLayoutFrame: NSObject {
-    private var link: CADisplayLink?
-    private var completion: (() -> Void)?
-
-    init(completion: @escaping () -> Void) {
-        self.completion = completion
-        super.init()
-        let link = CADisplayLink(target: self, selector: #selector(frame))
-        self.link = link
-        link.add(to: .main, forMode: .common)
-    }
-
-    @objc private func frame() {
-        link?.invalidate()
-        link = nil
-        completion?()
-        completion = nil
     }
 }
 

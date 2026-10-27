@@ -59,8 +59,7 @@ final class GitSheetTests: XCTestCase {
                 client: machine, repositories: repositories, checkout: checkout("api", ahead: 2, behind: 1),
                 named: false))
         defer {
-            window.isHidden = true
-            window.rootViewController = nil
+            window.close()
         }
         XCTAssertTrue(machine.sent.isEmpty)
         let sent = expectation(description: "The chosen pull reaches the checkout")
@@ -92,17 +91,12 @@ final class GitSheetTests: XCTestCase {
 
     private func host<Content: View>(_ content: Content) throws -> UIWindow {
         try NativePresentationProbe.enableAccessibility()
-        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
-        let window = UIWindow(windowScene: scene)
-        window.frame = CGRect(x: 0, y: 0, width: 402, height: 874)
-        window.rootViewController = UIHostingController(rootView: content)
-        window.makeKeyAndVisible()
-        return window
+        return UIWindow.showing(UIHostingController(rootView: content), size: CGSize(width: 402, height: 874))
     }
 
     private func activate(_ label: String, in window: UIWindow) async -> Bool {
         for _ in 0..<120 {
-            await NativePresentationProbe.frame()
+            await displayFrames()
             for element in NativePresentationProbe.elements(in: window) {
                 if element.accessibilityLabel == label, element.accessibilityActivate() { return true }
             }

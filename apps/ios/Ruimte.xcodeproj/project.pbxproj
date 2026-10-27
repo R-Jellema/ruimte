@@ -95,6 +95,7 @@
 		36FDA8A2969517F544C26207 /* DocumentSceneTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0416D221A1F144614E3E9A43 /* DocumentSceneTests.swift */; };
 		3707A14399CA29EFABEE41BA /* AboutPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC1024E7E46E63BA81DAFAD5 /* AboutPage.swift */; };
 		3760C5DDD3133E07A429B593 /* document-scenes.json in Resources */ = {isa = PBXBuildFile; fileRef = 75DA6517FBC9FBF6C79776E2 /* document-scenes.json */; };
+		37B322A69AE7B8A3227A249F /* TestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB39136C6329B1B4CFD39289 /* TestSupport.swift */; };
 		397C943D1175F19383822284 /* ChatPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29EB1C15C9B520845CD3BB82 /* ChatPresentationTests.swift */; };
 		3A14706A245BD3CAEF68250C /* GitChanges.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8F739B280E46A7FADF011B9 /* GitChanges.swift */; };
 		3A580D1A13AD08B9E927CEA4 /* ChatContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 207A88BAF2E56E0957CB1944 /* ChatContent.swift */; };
@@ -797,6 +798,7 @@
 		B8BC4353277A4019C10B096E /* ChatSheetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatSheetTests.swift; sourceTree = "<group>"; };
 		BA99A22023E8D96C7CD68450 /* ChatComposerAccessory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatComposerAccessory.swift; sourceTree = "<group>"; };
 		BB0518AA3DFD50B0CA18AF8A /* ScheduledModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduledModel.swift; sourceTree = "<group>"; };
+		BB39136C6329B1B4CFD39289 /* TestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSupport.swift; sourceTree = "<group>"; };
 		BBBD76A62FF092943652861E /* react-bits-license.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "react-bits-license.txt"; sourceTree = "<group>"; };
 		BDC7F1DC56F0B5F307881B99 /* tone.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = tone.wav; sourceTree = "<group>"; };
 		BF96EC87E6B24E01AC048549 /* ChatPromptStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatPromptStateTests.swift; sourceTree = "<group>"; };
@@ -1378,6 +1380,7 @@
 				B552D197FAB780A005F5985B /* TaskPresentationTests.swift */,
 				AA81AFC7F3E726AB38C0EE96 /* TerminalCompatibilityTests.swift */,
 				6B7A654255DD50FB3F9AD760 /* TerminalKeysTests.swift */,
+				BB39136C6329B1B4CFD39289 /* TestSupport.swift */,
 				F056296AB12E6228D09966E2 /* UnifiedProjectsTests.swift */,
 				D74F291DD8E4AE6C0AC54175 /* UsageMoneyTests.swift */,
 				2D13983F349B623F11B9F14E /* VoiceCoordinatorTests.swift */,
@@ -2025,6 +2028,7 @@
 				88C1D0B0A0BAC420A397836A /* TaskPresentationTests.swift in Sources */,
 				1D2828131C689B78A675A365 /* TerminalCompatibilityTests.swift in Sources */,
 				140F404CA349E9BC0978B639 /* TerminalKeysTests.swift in Sources */,
+				37B322A69AE7B8A3227A249F /* TestSupport.swift in Sources */,
 				2BBA3A08D2566FBC4229CC85 /* UnifiedProjectsTests.swift in Sources */,
 				9DE1A20BEBFF846DDB83A793 /* UsageMoneyTests.swift in Sources */,
 				4CC6342774BC9BB612382475 /* VoiceCoordinatorTests.swift in Sources */,

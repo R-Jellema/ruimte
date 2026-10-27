@@ -24,11 +24,10 @@ final class SessionVisualTests: XCTestCase {
             let host = UIHostingController(
                 rootView: NavigationStack { ChatScreen(client: client, chatID: name, title: "Native iOS app") }
                     .tint(MobileStyle.accent).preferredColorScheme(dark ? .dark : .light).dynamicTypeSize(typeSize))
-            let window = makeWindow(host, size: size)
+            let window = UIWindow.showing(host, size: size)
             await client.waitFor("provider.list")
             // Capture after the highlighter's streaming coalescence window and native cell layout.
-            for _ in 0..<20 { await displayFrame() }
-            await displayFrame()
+            await displayFrames(21)
             capture(window, name: name)
             XCTAssertTrue(host.view.recursiveContains(identifier: "chat.timeline"))
             let timeline = try XCTUnwrap(host.view.descendant(of: ChatTimelineCollection.self))
@@ -41,8 +40,7 @@ final class SessionVisualTests: XCTestCase {
                 timeline.gestureRecognizers?.contains {
                     $0 is UITapGestureRecognizer && !$0.cancelsTouchesInView
                 } == true)
-            window.isHidden = true
-            window.rootViewController = nil
+            window.close()
         }
     }
 
@@ -65,21 +63,18 @@ final class SessionVisualTests: XCTestCase {
             rootView: NavigationStack {
                 ChatScreen(client: client, chatID: "scroll-regression", title: "Scrolling")
             })
-        let window = makeWindow(controller, size: CGSize(width: 402, height: 874))
-        defer {
-            window.isHidden = true
-            window.rootViewController = nil
-        }
+        let window = UIWindow.showing(controller, size: CGSize(width: 402, height: 874))
+        defer { window.close() }
         await client.waitFor("provider.list")
-        for _ in 0..<24 { await displayFrame() }
+        await displayFrames(24)
         let timeline = try XCTUnwrap(controller.view.descendant(of: ChatTimelineCollection.self))
         timeline.beginUserScroll()
         timeline.setContentOffset(CGPoint(x: 0, y: 120), animated: false)
-        for _ in 0..<4 { await displayFrame() }
+        await displayFrames(4)
         let before = pixelRegion(window, rect: CGRect(x: 36, y: 240, width: 300, height: 300))
         capture(window, name: "chat-scroll-before")
         timeline.setContentOffset(CGPoint(x: 0, y: 200), animated: false)
-        for _ in 0..<4 { await displayFrame() }
+        await displayFrames(4)
         let after = pixelRegion(window, rect: CGRect(x: 36, y: 160, width: 300, height: 300))
         capture(window, name: "chat-scroll-after")
         XCTAssertEqual(timeline.contentOffset.y, 200, accuracy: 1)
@@ -166,9 +161,10 @@ final class SessionVisualTests: XCTestCase {
             let host = UIHostingController(
                 rootView: AppHome(runtime: runtime, projects: model).tint(MobileStyle.accent)
                     .preferredColorScheme(dark ? .dark : .light).dynamicTypeSize(typeSize))
-            let window = makeWindow(host, size: size)
-            for _ in 0..<20 { await displayFrame() }
-            capture(window, name: name)
+            let window = UIWindow.showing(host, size: size)
+            await displayFrames(20)
+            let image = capture(window, name: name)
+            if !signedIn { assertLogoVisible(image, name: name) }
             if signedIn {
                 XCTAssertEqual(model.open.map { $0.summary.text("name") }, ["Ruimte", "Flux", "Homey dashboard"])
                 let recentHost = UIHostingController(
@@ -177,11 +173,10 @@ final class SessionVisualTests: XCTestCase {
                         .preferredColorScheme(dark ? .dark : .light).dynamicTypeSize(typeSize))
                 window.rootViewController = recentHost
                 recentHost.view.frame = window.bounds
-                for _ in 0..<20 { await displayFrame() }
+                await displayFrames(20)
                 capture(window, name: name.replacingOccurrences(of: "projects", with: "recent-projects"))
             }
-            window.isHidden = true
-            window.rootViewController = nil
+            window.close()
             model.stop()
         }
         runtime.connections.shutdown()
@@ -201,14 +196,13 @@ final class SessionVisualTests: XCTestCase {
                     EmptyView()
                 }
             }.tint(MobileStyle.accent))
-        let window = makeWindow(host, size: CGSize(width: 402, height: 874))
-        for _ in 0..<20 { await displayFrame() }
+        let window = UIWindow.showing(host, size: CGSize(width: 402, height: 874))
+        await displayFrames(20)
         XCTAssertTrue(NativePresentationProbe.contains("projects.loading", in: host.view))
         XCTAssertTrue(NativePresentationProbe.labels(in: host.view).contains { $0.contains("Loading projects") })
         capture(window, name: "projects-loading")
         runtime.loading = false
-        window.isHidden = true
-        window.rootViewController = nil
+        window.close()
         runtime.connections.shutdown()
     }
 
@@ -232,10 +226,10 @@ final class SessionVisualTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: suite) }
         let runtime = AppRuntime(defaults: defaults, connections: MachineConnections(monitorPaths: false))
         let host = UIHostingController(rootView: AddMachineSheet(runtime: runtime).tint(MobileStyle.accent))
-        let window = makeWindow(host, size: CGSize(width: 402, height: 874))
+        let window = UIWindow.showing(host, size: CGSize(width: 402, height: 874))
         var labels: [String] = []
         for _ in 0..<20 {
-            await displayFrame()
+            await displayFrames()
             labels = NativePresentationProbe.labels(in: host.view)
             if labels.contains(where: { $0.contains("npx ruimte login") }) { break }
         }
@@ -251,8 +245,7 @@ final class SessionVisualTests: XCTestCase {
             XCTAssertTrue(window.convert(window.bounds, to: nil).contains(check.accessibilityFrame))
         }
         capture(window, name: "add-machine-iphone")
-        window.isHidden = true
-        window.rootViewController = nil
+        window.close()
     }
 
     @MainActor func testTerminalSnapshotAtPhoneWidth() async throws {
@@ -261,21 +254,19 @@ final class SessionVisualTests: XCTestCase {
             rootView: NavigationStack {
                 TerminalScreen(client: client, sessionID: "terminal", title: "Project terminal")
             }.tint(MobileStyle.accent))
-        let window = makeWindow(host, size: CGSize(width: 402, height: 874))
+        let window = UIWindow.showing(host, size: CGSize(width: 402, height: 874))
         await client.waitFor("session.list")
-        await displayFrame()
-        await displayFrame()
+        await displayFrames(2)
         capture(window, name: "terminal-iphone")
         XCTAssertTrue(host.view.recursiveContains(identifier: "terminal.screen"))
-        window.isHidden = true
-        window.rootViewController = nil
+        window.close()
     }
 
     @MainActor func testCanvasOverviewAtTabletWidth() async {
         let controller = UIViewController()
         let canvas = CanvasScrollView()
         controller.view = canvas
-        let window = makeWindow(controller, size: CGSize(width: 1024, height: 768))
+        let window = UIWindow.showing(controller, size: CGSize(width: 1024, height: 768))
         let nodes: [JSONValue] = [
             .object([
                 "id": .string("chat"), "kind": .string("chat"), "title": .string("Native iOS app"), "x": .number(0),
@@ -300,38 +291,11 @@ final class SessionVisualTests: XCTestCase {
         canvas.setAttention(
             statuses: ["chat": .running, "terminal": .needsYou], unseen: [], needingYou: ["terminal"])
         canvas.layoutIfNeeded()
-        await displayFrame()
+        await displayFrames()
         capture(window, name: "canvas-ipad")
         XCTAssertGreaterThan(canvas.contentSize.width, 0)
         XCTAssertEqual(canvas.visibleNodeCount, 3)
-        window.isHidden = true
-        window.rootViewController = nil
-    }
-
-    @MainActor private func makeWindow(_ controller: UIViewController, size: CGSize) -> UIWindow {
-        guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else {
-            fatalError("Visual tests require an active window scene")
-        }
-        let window = UIWindow(windowScene: scene)
-        window.frame = CGRect(origin: .zero, size: size)
-        window.rootViewController = controller
-        window.windowLevel = .alert + 1
-        window.makeKeyAndVisible()
-        controller.view.frame = window.bounds
-        controller.view.setNeedsLayout()
-        controller.view.layoutIfNeeded()
-        return window
-    }
-
-    @MainActor private func capture(_ window: UIWindow, name: String) {
-        window.layoutIfNeeded()
-        let renderer = UIGraphicsImageRenderer(bounds: window.bounds)
-        let image = renderer.image { _ in window.drawHierarchy(in: window.bounds, afterScreenUpdates: true) }
-        if name.hasPrefix("welcome-") { assertLogoVisible(image, name: name) }
-        let attachment = XCTAttachment(image: image)
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        window.close()
     }
 
     @MainActor private func assertLogoVisible(_ image: UIImage, name: String) {
@@ -367,10 +331,6 @@ final class SessionVisualTests: XCTestCase {
         XCTAssertGreaterThan(navy, 200, "Missing navy logo shape: \(name)")
         XCTAssertGreaterThan(silver, 200, "Missing silver logo shape: \(name)")
     }
-
-    @MainActor private func displayFrame() async {
-        await withCheckedContinuation { continuation in _ = VisualFrameWaiter { continuation.resume() } }
-    }
 }
 
 @MainActor enum NativePresentationProbe {
@@ -397,12 +357,6 @@ final class SessionVisualTests: XCTestCase {
         } catch {
             dlclose(handle)
             throw error
-        }
-    }
-
-    static func frame() async {
-        await withCheckedContinuation { continuation in
-            _ = VisualFrameWaiter { continuation.resume() }
         }
     }
 
@@ -447,30 +401,7 @@ private struct EmptySessionStore: SessionStore {
     func write(_ session: StoredSession?) {}
 }
 
-@MainActor private final class VisualFrameWaiter: NSObject {
-    private var link: CADisplayLink?
-    private var completion: (() -> Void)?
-    init(completion: @escaping () -> Void) {
-        self.completion = completion
-        super.init()
-        let link = CADisplayLink(target: self, selector: #selector(frame))
-        self.link = link
-        link.add(to: .main, forMode: .common)
-    }
-    @objc private func frame() {
-        link?.invalidate()
-        link = nil
-        completion?()
-        completion = nil
-    }
-}
-
 extension UIView {
-    fileprivate func descendant<T: UIView>(of type: T.Type) -> T? {
-        if let match = self as? T { return match }
-        return subviews.lazy.compactMap { $0.descendant(of: type) }.first
-    }
-
     fileprivate func recursiveContains(identifier: String) -> Bool {
         accessibilityIdentifier == identifier || subviews.contains { $0.recursiveContains(identifier: identifier) }
     }

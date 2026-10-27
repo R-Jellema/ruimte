@@ -44,17 +44,12 @@ final class ProjectArtworkTests: XCTestCase {
     }
 
     @MainActor func testSVGRendersOriginalColorsIntoNativeImage() async throws {
-        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
-        let window = UIWindow(windowScene: scene)
-        window.rootViewController = UIViewController()
-        window.rootViewController?.view.backgroundColor = .white
-        window.makeKeyAndVisible()
+        let controller = UIViewController()
+        controller.view.backgroundColor = .white
+        let window = UIWindow.showing(controller)
         window.layoutIfNeeded()
         XCTAssertGreaterThan(window.safeAreaInsets.top, 0, "Exercise the phone's real top safe area")
-        defer {
-            window.isHidden = true
-            window.rootViewController = nil
-        }
+        defer { window.close() }
         let data = Data(
             ##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g"><stop stop-color="#0000ff"/><stop offset="1" stop-color="#00ffff"/></linearGradient></defs><path fill="#ff0000" d="M0 0h50v100H0z"/><path fill="url(#g)" d="M50 0h50v100H50z"/></svg>"##
                 .utf8)

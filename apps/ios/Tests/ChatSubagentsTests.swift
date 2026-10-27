@@ -243,7 +243,8 @@ final class ChatSubagentsTests: XCTestCase {
 
     func testTheChipCountsProgressWhileMoreThanOneWorks() {
         XCTAssertEqual(
-            ChatSubagents.chipLabel([.done, .running, .waiting, .paused], words: [.done, .running, .running, .running]),
+            ChatSubagents.chipLabel(
+                [.done, .running, .waiting, .paused], words: [.done, .running, .running, .running]),
             "1 of 4 sub-agents done, 1 needs you")
         XCTAssertEqual(
             ChatSubagents.chipLabel([.done, .done, .running], words: [.done, .done, .running]),
@@ -276,42 +277,16 @@ final class ChatSubagentsTests: XCTestCase {
         let crumb = SubagentCrumb(agent("one"))
         let host = UIHostingController(
             rootView: NavigationStack { SubagentConversationPage(model: model, crumb: crumb, session: session) })
-        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
-        let window = UIWindow(windowScene: scene)
-        window.rootViewController = host
-        window.makeKeyAndVisible()
-        for _ in 0..<10 { await HeldChatFrame.next() }
+        let window = UIWindow.showing(host)
+        await displayFrames(10)
 
         session.releaseChat(model)
-        for _ in 0..<10 { await HeldChatFrame.next() }
+        await displayFrames(10)
         XCTAssertFalse(machine.requests.contains("chat.detach"))
 
-        window.isHidden = true
-        window.rootViewController = nil
-        for _ in 0..<10 { await HeldChatFrame.next() }
+        window.close()
+        await displayFrames(10)
         XCTAssertTrue(machine.requests.contains("chat.detach"))
-    }
-}
-
-@MainActor private final class HeldChatFrame: NSObject {
-    private var link: CADisplayLink?
-    private var completion: (() -> Void)?
-
-    static func next() async {
-        await withCheckedContinuation { continuation in
-            let frame = HeldChatFrame()
-            frame.completion = { continuation.resume() }
-            let link = CADisplayLink(target: frame, selector: #selector(fire))
-            frame.link = link
-            link.add(to: .main, forMode: .common)
-        }
-    }
-
-    @objc private func fire() {
-        link?.invalidate()
-        link = nil
-        completion?()
-        completion = nil
     }
 }
 
