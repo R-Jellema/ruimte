@@ -1,10 +1,9 @@
 name: Bench
 
 # The bench ships with a release, never with a push: release.yml dispatches this once it published a
-# release as Latest. CI already passed on the tagged commit before that release was published.
+# release as Latest. CI already passed on the tagged commit before that release was published. Only a
+# dispatch starts it, so a release of an older line published by hand never takes the bench back.
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       version:
@@ -18,14 +17,12 @@ concurrency:
 
 jobs:
   deploy:
-    # A pre-release is not what the bench shows; a dispatch names its release on purpose.
-    if: ${{ github.event_name != 'release' || !github.event.release.prerelease }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
     env:
       CLOUDFLARE_ACCOUNT_ID: 5e565cf9fa55b0eae1f8131903da2ca9
-      RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || format('v{0}', inputs.version) }}
+      RELEASE_TAG: v${{ inputs.version }}
     defaults:
       run:
         working-directory: apps/bench

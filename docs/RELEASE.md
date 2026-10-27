@@ -236,7 +236,8 @@ deleted and the page's stack traces stay minified. The station and the bench shi
 never with a push: once `release.yml` published a release as Latest it dispatches `station.yml` and
 `bench.yml` for that tag (by hand: `gh workflow run station.yml -f version=0.2.0`). Each builds the
 tag, uploads its maps under the same `ruimte@<version>` and deploys, and `.assetsignore` keeps a map
-out of its assets. A pre-release deploys neither.
+out of its assets. A pre-release deploys neither, and since only a dispatch starts them, nor does a
+release of an older line published by hand.
 
 A native crash of the shell arrives as a minidump in an envelope, without Electron's symbols: the
 module, the process and the crash reason say whether it is ours, and the shell has no native module of

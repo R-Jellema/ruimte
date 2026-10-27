@@ -53,6 +53,8 @@ export function installUsage(ipc: AppIpc, options: UsageOptions): UsageHandle {
     usage.load();
     const url = usageIngestUrl(TELEMETRY_DSN.desktop);
     const flush = (): void => {
+        // A switch a person turned off a moment ago holds before anything leaves, not a minute later.
+        settingReadAt = Number.NEGATIVE_INFINITY;
         void flushDesktopUsage(usage, {
             send: (batch) => sendDesktopUsage(url, batch, (input, init) => net.fetch(input as string, init)),
             signedIn: options.signedIn,

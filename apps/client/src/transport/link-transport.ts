@@ -120,7 +120,7 @@ const NO_METER: LinkMeter = { connected: () => undefined, reconnecting: () => un
 interface Pending {
     type: RequestType;
     sentAt: number;
-    callSite: Error;
+    callSite: Error | undefined;
     resolve(result: unknown): void;
     reject(error: TransportError): void;
     // Asked by `readBytes`, which resolves with the `BytesPiece` of a binary reply; a JSON answer is no reply to it.
@@ -465,8 +465,12 @@ export class LinkTransport implements PooledTransport {
             return Promise.reject(new TransportError('not-connected', i18next.t('machines:connection.notConnected')));
         }
         const id = String(this.nextId++);
-        const callSite = new Error(`${type} was asked here`);
-        callSite.name = 'RequestCallSite';
+        // A stack per request costs; `bytes.read` asks dozens a second while a video plays, and its callers catch.
+        const callSite = type === 'bytes.read' ? undefined : new Error(`${type} was asked here`);
+
+        if (callSite !== undefined) {
+            callSite.name = 'RequestCallSite';
+        }
 
         const promise = new Promise<R>((resolve, reject) => {
             const entry: Pending = {
