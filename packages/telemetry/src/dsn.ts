@@ -2,7 +2,8 @@
 export const TELEMETRY_DSN = {
     daemon: 'https://ace29cdab42746249e5753874d74c401@ingest.bmnw.nl/3',
     desktop: 'https://1b7ea4823fd6466f9de7f4c6bee0fc8d@ingest.bmnw.nl/4',
-    station: 'https://313c4ee0419c4e3eac2e8c92be270bb2@ingest.bmnw.nl/5'
+    station: 'https://313c4ee0419c4e3eac2e8c92be270bb2@ingest.bmnw.nl/5',
+    bench: 'https://a28d4e1c79fb49cd9704267b9ac05638@ingest.bmnw.nl/10'
 };
 
 export type TelemetrySurface = keyof typeof TELEMETRY_DSN;

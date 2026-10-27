@@ -16,7 +16,7 @@ import { CLIENT_TAGS, connectionEvent, storageDedupeStore, type ConnectionProble
 import type { PageMetric } from './metrics';
 
 interface ReporterOptions {
-    readonly surface: 'desktop' | 'station';
+    readonly surface: 'desktop' | 'station' | 'bench';
     /* The version a release build was stamped with. */
     readonly version: string;
     /* What the desktop shell says it runs on; null on the station. */
@@ -24,7 +24,7 @@ interface ReporterOptions {
 }
 
 /*
- * The SDK behind the page's reports and measurements. Errors, the station's sessions and the metrics in
+ * The SDK behind the page's reports and measurements. Errors, the sessions of the station and the bench and the metrics in
  * `report.ts`: no tracing, no breadcrumbs, no replays, no logs, and the page's address never goes along.
  * A desktop window has no session of its own, since the shell's main process holds the session of the whole app.
  */
@@ -45,7 +45,7 @@ export function startReporter(options: ReporterOptions): void {
             functionToStringIntegration(),
             linkedErrorsIntegration(),
             dedupeIntegration(),
-            ...(options.surface === 'station' ? [browserSessionIntegration()] : [])
+            ...(options.surface === 'desktop' ? [] : [browserSessionIntegration()])
         ],
         attachStacktrace: false,
         maxBreadcrumbs: 0,

@@ -16,8 +16,11 @@ const VERSION: string = import.meta.env.RUIMTE_TELEMETRY_VERSION ?? '';
 
 let loading: Promise<Reporter | null> | null = null;
 
-/* Only the desktop app and the station report; any other page of a release build stays silent. */
-function surface(): 'desktop' | 'station' | null {
+/* Only the desktop app, the station and the bench report; any other page of a release build stays silent. */
+function surface(): 'desktop' | 'station' | 'bench' | null {
+    if (import.meta.env.MODE === 'bench') {
+        return 'bench';
+    }
     if (IS_STATION) {
         return 'station';
     }

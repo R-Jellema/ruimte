@@ -1,8 +1,8 @@
-import { cspString, withHeaders } from '@ruimte/csp';
+import { cspString, TELEMETRY_INGEST, withHeaders } from '@ruimte/csp';
 
 /*
- * The client's policy, narrowed to what the comparison does: it reads the address book and nothing
- * else, draws its marks inline and frames nothing. Nothing may frame it or post out of it.
+ * The client's policy, narrowed to what the comparison does: it reads the address book, reports its
+ * errors and sessions to Observatory, draws its marks inline and frames nothing. Nothing may frame it or post out of it.
  */
 export const CONTENT_SECURITY_POLICY = cspString({
     'base-uri': ["'none'"],
@@ -12,7 +12,7 @@ export const CONTENT_SECURITY_POLICY = cspString({
     'script-src': ["'self'"],
     'img-src': ["'self'", 'data:'],
     'media-src': ["'none'"],
-    'connect-src': ["'self'", 'https://pulsar.ruimte.app'],
+    'connect-src': ["'self'", 'https://pulsar.ruimte.app', TELEMETRY_INGEST],
     'worker-src': ["'none'"],
     'manifest-src': ["'self'"]
 });

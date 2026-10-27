@@ -19,7 +19,7 @@ describe('the bench headers', () => {
     });
 
     test('connect to the address book only', () => {
-        expect(directive('connect-src')).toEqual(["'self'", 'https://pulsar.ruimte.app']);
+        expect(directive('connect-src')).toEqual(["'self'", 'https://pulsar.ruimte.app', 'https://ingest.bmnw.nl']);
     });
 
     test('every answer carries the policy and HSTS, and hashed assets are cached for good', () => {
