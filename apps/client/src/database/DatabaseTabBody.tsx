@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useEffectEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronRight, Database, Unplug } from 'lucide-react';
 import { StructureView, TableDesigner, TableView, useDatabaseClient, type Connection } from '@adecore/database';
@@ -112,12 +112,7 @@ export function DatabaseTabBody({ tab }: { tab: DatabaseTab }) {
 /* What the database says the table is, which corrects a tab that was opened without knowing or before the table became a view. */
 function TableKindCheck({ connection, schema, table, onKind }: { connection: Connection; schema: string; table: string; onKind: (kind: TableKind) => void }) {
     const client = useDatabaseClient();
-    // Read when the answer comes, so a caller's new function never asks the database again.
-    const kindRef = useRef(onKind);
-
-    useEffect(() => {
-        kindRef.current = onKind;
-    });
+    const report = useEffectEvent(onKind);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -127,7 +122,7 @@ function TableKindCheck({ connection, schema, table, onKind }: { connection: Con
             .then((tables) => {
                 const kind = tables.find((entry) => entry.name === table)?.kind;
                 if (kind !== undefined) {
-                    kindRef.current(kind);
+                    report(kind);
                 }
             })
             .catch(() => undefined);

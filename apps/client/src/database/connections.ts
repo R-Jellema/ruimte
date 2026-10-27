@@ -83,6 +83,11 @@ interface SecretFailure {
     error: unknown;
 }
 
+/* What a connection is called on screen, also before a person named it. */
+export function connectionName(connection: { name: string }): string {
+    return connection.name === '' ? i18next.t('databases:console.untitled') : connection.name;
+}
+
 /* Whether a connection cannot go into the shared file: a SQLite file outside the project folder, which the machine refuses to share. */
 export function isOutsideProject(folder: string | null, connection: DatabaseConnection): boolean {
     if (connection.config.engine !== 'sqlite' || !isAbsolutePath(connection.config.path)) {
@@ -152,8 +157,11 @@ export function createDatabaseConnections(deps: ConnectionsDeps): DatabaseConnec
     const sayFailed = (kind: 'readFailed' | 'writeFailed' | 'removeFailed', failed: readonly SecretFailure[]): void => {
         const [first] = failed;
         if (first !== undefined) {
-            const name = first.name || i18next.t('databases:console.untitled');
-            deps.notify(i18next.t(`databases:secrets.${kind}`, { count: failed.length, name }), messageOf(first.error), `database-secrets-${kind}`);
+            deps.notify(
+                i18next.t(`databases:secrets.${kind}`, { count: failed.length, name: connectionName(first) }),
+                messageOf(first.error),
+                `database-secrets-${kind}`
+            );
         }
     };
 

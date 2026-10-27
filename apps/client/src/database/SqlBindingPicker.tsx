@@ -5,7 +5,7 @@ import { storedPathOf, type DatabaseConnection, type SqlBinding } from '@ruimte/
 import { Button, Icon, Menu } from '@adecore/ui';
 import { formatMoment } from '@adecore/ui/format';
 import { databaseClientFor } from '@/database/client';
-import { asViewConnections, ensureDatabaseConnections, useDatabaseConnectionList } from '@/database/connections';
+import { asViewConnections, connectionName, ensureDatabaseConnections, useDatabaseConnectionList } from '@/database/connections';
 import { useDatabasePanel } from '@/database/state';
 import {
     choiceOf,
@@ -25,10 +25,6 @@ import { useConnection } from '@/transport/context';
 const DEFAULT = 'default:';
 const NONE = 'none:';
 const CONNECTION = 'connection:';
-
-function nameOf(connection: DatabaseConnection | undefined, untitled: string): string {
-    return connection === undefined || connection.name === '' ? untitled : connection.name;
-}
 
 /* The databases of a server connection, read when its submenu opens; empty for a SQLite file and while they are on their way. */
 function useDatabases(connection: DatabaseConnection, open: boolean): string[] {
@@ -85,13 +81,12 @@ export function SqlBindingPicker({ path }: { path: string }) {
     }
     const bound = choice.source === 'none' || choice.source === 'unbound' ? null : choice;
     const connection = bound === null ? undefined : connections.find((entry) => entry.id === bound.connectionId);
-    const untitled = t('console.untitled');
     const label =
         connection === undefined || bound === null
             ? t('sql.none')
             : bound.database === null || bound.database === startDatabaseOf(connection)
-              ? nameOf(connection, untitled)
-              : t('sql.connectionDatabase', { name: nameOf(connection, untitled), database: bound.database });
+              ? connectionName(connection)
+              : t('sql.connectionDatabase', { name: connectionName(connection), database: bound.database });
     const own = sql.files?.[stored];
     const value = own === undefined ? DEFAULT : own.connectionId === null ? NONE : `${CONNECTION}${own.connectionId}`;
     const fallback = sql.default === undefined ? undefined : connections.find((entry) => entry.id === sql.default?.connectionId);
@@ -120,7 +115,7 @@ export function SqlBindingPicker({ path }: { path: string }) {
                         }}
                     >
                         <Menu.RadioItem value={DEFAULT}>
-                            {fallback === undefined ? t('sql.projectDefaultNone') : t('sql.projectDefault', { name: nameOf(fallback, untitled) })}
+                            {fallback === undefined ? t('sql.projectDefaultNone') : t('sql.projectDefault', { name: connectionName(fallback) })}
                         </Menu.RadioItem>
                         <Menu.RadioItem value={NONE}>{t('sql.noneItem')}</Menu.RadioItem>
                         {connections.map((entry) =>
@@ -134,7 +129,7 @@ export function SqlBindingPicker({ path }: { path: string }) {
                                 />
                             ) : (
                                 <Menu.RadioItem key={entry.id} value={`${CONNECTION}${entry.id}`}>
-                                    {nameOf(entry, untitled)}
+                                    {connectionName(entry)}
                                 </Menu.RadioItem>
                             )
                         )}
@@ -185,7 +180,7 @@ function DatabaseSubmenu({
             <Menu.SubmenuTrigger>
                 <span className="flex min-w-0 grow items-center gap-2">
                     <Menu.Check kind="radio" checked={checked} />
-                    <span className="truncate">{nameOf(connection, t('console.untitled'))}</span>
+                    <span className="truncate">{connectionName(connection)}</span>
                 </span>
             </Menu.SubmenuTrigger>
             <Menu.Popup className="min-w-48">
@@ -226,7 +221,7 @@ function SnapshotStatus({
         <Menu.Group>
             <Menu.Label>
                 {snapshot === null
-                    ? t('sql.noSnapshot', { name: nameOf(connection, t('console.untitled')) })
+                    ? t('sql.noSnapshot', { name: connectionName(connection) })
                     : t('sql.snapshot', { count: snapshot.tables, time: formatMoment(new Date(snapshot.takenAt)) })}
             </Menu.Label>
             <Menu.Item onClick={() => void refreshSqlSchemas(connection.id)}>{t('sql.refresh')}</Menu.Item>

@@ -7,6 +7,7 @@ import type { DatabaseConnection } from '@ruimte/contracts';
 import { Button, ButtonGroup, Icon, IconButton, ListRow, PanelEmpty, SectionLabel } from '@adecore/ui';
 import {
     asViewConnections,
+    connectionName,
     databaseConnections,
     ensureDatabaseConnections,
     fromViewConnections,
@@ -125,9 +126,7 @@ function WithheldPasswords({ connections }: { connections: readonly DatabaseConn
                 return (
                     <div key={connection.id} className="flex shrink-0 items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
                         <Icon icon={KeyRound} size={14} className="shrink-0 text-status-needs-you" />
-                        <span className="min-w-0 grow text-xs text-text">
-                            {t(`panel.withheld.${reason}`, { name: connection.name || t('console.untitled') })}
-                        </span>
+                        <span className="min-w-0 grow text-xs text-text">{t(`panel.withheld.${reason}`, { name: connectionName(connection) })}</span>
                         <Button size="sm" variant="secondary" onClick={() => useDatabasePanel.getState().openConnections(connection.id)}>
                             {t('panel.withheld.enter')}
                         </Button>

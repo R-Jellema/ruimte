@@ -1,11 +1,11 @@
-import { useEffect, useImperativeHandle, useRef, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useEffectEvent, useImperativeHandle, useSyncExternalStore, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, Database } from 'lucide-react';
 import type { Editor } from '@adecore/editor';
 import { QueryConsole, runScopeOf, type QueryConsoleEditorProps } from '@adecore/database';
 import { storedPathOf } from '@ruimte/contracts';
 import { Button, Icon, Menu, Select } from '@adecore/ui';
-import { asViewConnections, ensureDatabaseConnections, useDatabaseConnectionList } from '@/database/connections';
+import { asViewConnections, connectionName, ensureDatabaseConnections, useDatabaseConnectionList } from '@/database/connections';
 import { setConsoleSchema, switchConsoleConnection } from '@/database/console-file';
 import { RuimteDatabaseProvider } from '@/database/RuimteDatabaseProvider';
 import { ensureSqlBindings, sqlBindings, useSqlBindings } from '@/database/sql-bindings';
@@ -52,8 +52,10 @@ export function SqlConsole({ tabKey, binding, editor, text, readOnly, children }
     const own = sql.files?.[storedPath];
     const schema = binding?.schema ?? (own?.connectionId === binding?.connectionId ? own?.database : undefined);
 
-    useEffect(() => ensureDatabaseConnections(), []);
-    useEffect(() => ensureSqlBindings(), []);
+    useEffect(() => {
+        ensureDatabaseConnections();
+        ensureSqlBindings();
+    }, []);
 
     useEffect(() => {
         if (binding === undefined || schema === undefined || (own?.connectionId === binding.connectionId && own.database === schema)) {
@@ -119,7 +121,7 @@ function RunOnConnection({ path }: { path: string }) {
             <Menu.Popup align="end">
                 {connections.map((entry) => (
                     <Menu.Item key={entry.id} onClick={() => void switchConsoleConnection(path, entry.id)}>
-                        {entry.name === '' ? t('console.untitled') : entry.name}
+                        {connectionName(entry)}
                     </Menu.Item>
                 ))}
             </Menu.Popup>
@@ -129,11 +131,7 @@ function RunOnConnection({ path }: { path: string }) {
 
 /* Hands the console the selection of the file's editor and runs on its two keys, which only a tab in console mode binds. */
 function ConsoleEditor({ ref, run, value, editor, children }: QueryConsoleEditorProps & { editor: Editor | null; children: ReactNode }) {
-    const runRef = useRef(run);
-
-    useEffect(() => {
-        runRef.current = run;
-    });
+    const runScope = useEffectEvent(run);
 
     useImperativeHandle(
         ref,
@@ -161,7 +159,7 @@ function ConsoleEditor({ ref, run, value, editor, children }: QueryConsoleEditor
             if (scope === null) {
                 return false;
             }
-            runRef.current(scope);
+            runScope(scope);
             return true;
         });
     }, [editor]);
@@ -174,8 +172,6 @@ function SqlConsolePicker({ path, binding }: { path: string; binding: ConsoleBin
     const { t } = useTranslation('databases');
     const connections = useDatabaseConnectionList();
 
-    useEffect(() => ensureDatabaseConnections(), []);
-
     if (connections.length === 0) {
         return null;
     }
@@ -187,7 +183,7 @@ function SqlConsolePicker({ path, binding }: { path: string; binding: ConsoleBin
             value={binding?.connectionId ?? null}
             items={[
                 ...(binding === undefined ? [] : [{ value: AS_FILE, label: t('console.asFile') }]),
-                ...connections.map((entry) => ({ value: entry.id, label: entry.name === '' ? t('console.untitled') : entry.name }))
+                ...connections.map((entry) => ({ value: entry.id, label: connectionName(entry) }))
             ]}
             onValueChange={(id) => {
                 if (id === AS_FILE) {
