@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isRecord } from '@adecore/agent-contracts';
 import { AgentKindSchema } from './agent.ts';
 import { GitDiffScopeSchema } from './git.ts';
 import { RuntimeModeSchema } from './model.ts';
@@ -50,10 +51,6 @@ function pickKeepingUnknown<S extends z.ZodObject, M extends { [K in keyof S['sh
             }
             return rest;
         }) as never;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function finiteOr(value: unknown, fallback: number): number {

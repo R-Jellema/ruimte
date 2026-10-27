@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileExists } from '@adecore/agents';
 import { DIAGRAM_LIMITS, EMPTY_DIAGRAM, type DiagramContent, type DiagramNode, type ProjectContent } from '@ruimte/contracts';
 import { FakeWatch } from '@adecore/agents/testing';
 import type { SessionEvent } from '../sessions/manager.ts';
@@ -55,15 +56,6 @@ function diagramFile(viewId: string): string {
     return join(diagramsDir(), `${viewId}.json`);
 }
 
-async function exists(path: string): Promise<boolean> {
-    try {
-        await stat(path);
-        return true;
-    } catch {
-        return false;
-    }
-}
-
 beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), 'ruimte-diagrams-'));
     home = join(root, 'home');
@@ -96,7 +88,7 @@ describe('DiagramStore', () => {
             groups: [],
             edges: []
         });
-        expect(await exists(diagramFile('view-a'))).toBe(false);
+        expect(await fileExists(diagramFile('view-a'))).toBe(false);
     });
 
     test('the first save writes rev 1 with one node and one edge per line, and the rev rises', async () => {
@@ -115,20 +107,20 @@ describe('DiagramStore', () => {
         const refused = diagrams.save(projectId, 'view-a', 0, graph([node('a')], [['a', 'ghost']]), 'c1');
         await expect(refused).rejects.toMatchObject({ code: 'diagram-invalid' });
         await expect(refused).rejects.toThrow('"ghost"');
-        expect(await exists(diagramFile('view-a'))).toBe(false);
+        expect(await fileExists(diagramFile('view-a'))).toBe(false);
     });
 
     test('a diagram past the limits is refused on a save and on a read, and its file stays where it is', async () => {
         const many = Array.from({ length: DIAGRAM_LIMITS.nodes + 1 }, (_, index) => node(`n${index}`));
         await diagrams.open(projectId, 'view-a');
         await expect(diagrams.save(projectId, 'view-a', 0, graph(many), 'c1')).rejects.toMatchObject({ code: 'diagram-invalid' });
-        expect(await exists(diagramFile('view-a'))).toBe(false);
+        expect(await fileExists(diagramFile('view-a'))).toBe(false);
         diagrams.closeAll();
 
         await mkdir(diagramsDir(), { recursive: true });
         await writeFile(diagramFile('view-a'), serializeDiagram({ version: 1, rev: 1, ...graph(many) }));
         await expect(diagrams.open(projectId, 'view-a')).rejects.toThrow(`at most ${DIAGRAM_LIMITS.nodes} nodes`);
-        expect(await exists(diagramFile('view-a'))).toBe(true);
+        expect(await fileExists(diagramFile('view-a'))).toBe(true);
     });
 
     test('a view that is not a diagram, a drawing among them, and a project that is not open, are refused', async () => {
@@ -166,11 +158,11 @@ describe('DiagramStore', () => {
 
         await writeFile(diagramFile('view-a'), JSON.stringify({ version: 1, rev: 1, elements: [] }));
         await expect(diagrams.open(projectId, 'view-a')).rejects.toMatchObject({ code: 'diagram-invalid' });
-        expect(await exists(diagramFile('view-a'))).toBe(true);
+        expect(await fileExists(diagramFile('view-a'))).toBe(true);
 
         await writeFile(diagramFile('view-a'), serializeDiagram({ version: 1, rev: 1, ...graph([node('a')], [['a', 'nowhere']]) }));
         await expect(diagrams.open(projectId, 'view-a')).rejects.toThrow('"nowhere"');
-        expect(await exists(diagramFile('view-a'))).toBe(true);
+        expect(await fileExists(diagramFile('view-a'))).toBe(true);
     });
 
     test('a save that drops the view removes its file, and leaves the other diagrams alone', async () => {
@@ -181,8 +173,8 @@ describe('DiagramStore', () => {
         await diagrams.save(projectId, 'view-b', 0, graph([node('b')]), 'c1');
 
         await projects.save(projectId, 2, content('view-b'));
-        expect(await exists(diagramFile('view-a'))).toBe(false);
-        expect(await exists(diagramFile('view-b'))).toBe(true);
+        expect(await fileExists(diagramFile('view-a'))).toBe(false);
+        expect(await fileExists(diagramFile('view-b'))).toBe(true);
     });
 
     test('copy writes the same graph at rev 0, and copying nothing writes nothing', async () => {
@@ -197,7 +189,7 @@ describe('DiagramStore', () => {
         expect(await diagrams.open(projectId, 'view-b')).toMatchObject({ rev: 0 });
 
         await diagrams.copy(projectId, 'view-c', 'view-c');
-        expect(await exists(diagramFile('view-c'))).toBe(false);
+        expect(await fileExists(diagramFile('view-c'))).toBe(false);
     });
 });
 

@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileExists } from '@adecore/agents';
 import { PairedWriteRaced, PairedWriteStuck, recoverPaired, writePaired } from './paired-write.ts';
 import { PROJECT_WRITE_IO, type ProjectWriteIO } from './project-write.ts';
 
@@ -22,13 +23,6 @@ function failingOn(call: number): ProjectWriteIO {
             await PROJECT_WRITE_IO.write(...args);
         }
     };
-}
-
-async function exists(path: string): Promise<boolean> {
-    return await stat(path).then(
-        () => true,
-        () => false
-    );
 }
 
 beforeEach(async () => {
@@ -56,7 +50,7 @@ describe('paired write', () => {
 
         expect(await readFile(first, 'utf8')).toBe('shared-1');
         expect(await readFile(second, 'utf8')).toBe('own-1');
-        expect(await exists(intent)).toBe(false);
+        expect(await fileExists(intent)).toBe(false);
     });
 
     test('a failure before the intent landed leaves both files as they were', async () => {
@@ -74,7 +68,7 @@ describe('paired write', () => {
         const state = [await readFile(first, 'utf8'), await readFile(second, 'utf8')];
         expect(outcome).toBe('recovered');
         expect(state).toEqual(['shared-1', 'own-1']);
-        expect(await exists(intent)).toBe(false);
+        expect(await fileExists(intent)).toBe(false);
     });
 
     test('an edit after the intent leaves recovery stuck and the files alone', async () => {
@@ -93,7 +87,7 @@ describe('paired write', () => {
         await expect(writePaired(intent, files())).rejects.toBeInstanceOf(PairedWriteRaced);
 
         expect(await readFile(first, 'utf8')).toBe('shared-0');
-        expect(await exists(intent)).toBe(false);
+        expect(await fileExists(intent)).toBe(false);
     });
 
     test('an after of null leaves that file alone', async () => {

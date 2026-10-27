@@ -2,6 +2,7 @@ import { realpath, stat } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, relative, resolve } from 'node:path';
 import type { ChatInfo } from '@ruimte/contracts';
 import type { UiLinkResolution, UiLinkTarget } from '@adecore/intelligent-ui/links';
+import { fileExists } from '@adecore/agents';
 import { ChatUiRefusal } from '@adecore/agents/chat';
 import { checkCwd, isInside } from '../canvas/project-paths.ts';
 import { locateFile } from '../fs/locate.ts';
@@ -83,20 +84,11 @@ async function resolveCommit(host: UiSourceHosts, place: LinkPlace, access: UiAc
 /* Where the agent's own folder has no such file, the first of the other folders `fs.locate` tries that holds it. */
 async function locatedPath(place: LinkPlace, access: UiAccess, wanted: string): Promise<string> {
     const own = resolve(access.cwd, wanted);
-    if (isAbsolute(wanted) || (await pathExists(own))) {
+    if (isAbsolute(wanted) || (await fileExists(own))) {
         return own;
     }
     const { matches } = await locateFile({ path: wanted, cwd: access.cwd, folder: place.folder });
     return matches[0] ?? own;
-}
-
-async function pathExists(path: string): Promise<boolean> {
-    try {
-        await stat(path);
-        return true;
-    } catch {
-        return false;
-    }
 }
 
 async function resolvePath(

@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { fileExists } from '@adecore/agents';
 import type { DrawingContent, DrawingElement, ProjectContent } from '@ruimte/contracts';
 import { FakeWatch } from '@adecore/agents/testing';
 import type { SessionEvent } from '../sessions/manager.ts';
@@ -52,15 +53,6 @@ function drawingFile(viewId: string): string {
     return join(drawingsDir(), `${viewId}.json`);
 }
 
-async function exists(path: string): Promise<boolean> {
-    try {
-        await stat(path);
-        return true;
-    } catch {
-        return false;
-    }
-}
-
 beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), 'ruimte-drawings-'));
     home = join(root, 'home');
@@ -85,7 +77,7 @@ afterEach(async () => {
 describe('DrawingStore', () => {
     test('opening a drawing nobody drew gives an empty one and writes nothing', async () => {
         expect(await drawings.open(projectId, 'view-a')).toEqual({ version: 1, rev: 0, elements: [] });
-        expect(await exists(drawingFile('view-a'))).toBe(false);
+        expect(await fileExists(drawingFile('view-a'))).toBe(false);
     });
 
     test('the first save writes rev 1 with one element per line, and the rev rises', async () => {
@@ -103,7 +95,7 @@ describe('DrawingStore', () => {
         await expect(drawings.save(projectId, 'view-a', 0, drawn(element('el-1'), element('el-1', 40)), 'c1')).rejects.toMatchObject({
             code: 'drawing-invalid'
         });
-        expect(await exists(drawingFile('view-a'))).toBe(false);
+        expect(await fileExists(drawingFile('view-a'))).toBe(false);
     });
 
     test('drawing element ids may name project views and nodes across saves, sharing and reopen', async () => {
@@ -181,7 +173,7 @@ describe('DrawingStore', () => {
 
         await writeFile(drawingFile('view-a'), JSON.stringify({ version: 1, rev: 1, elements: [{ kind: 'star' }] }));
         await expect(drawings.open(projectId, 'view-a')).rejects.toMatchObject({ code: 'drawing-invalid' });
-        expect(await exists(drawingFile('view-a'))).toBe(true);
+        expect(await fileExists(drawingFile('view-a'))).toBe(true);
     });
 
     test('a save right after an outside write is refused, and the write is taken in', async () => {
@@ -227,8 +219,8 @@ describe('DrawingStore', () => {
         await drawings.save(projectId, 'view-b', 0, drawn(element('el-2')), 'c1');
 
         await projects.save(projectId, 2, content('view-b'));
-        expect(await exists(drawingFile('view-a'))).toBe(false);
-        expect(await exists(drawingFile('view-b'))).toBe(true);
+        expect(await fileExists(drawingFile('view-a'))).toBe(false);
+        expect(await fileExists(drawingFile('view-b'))).toBe(true);
 
         // A pull that drops a shared view may run ahead of the drawing's own file, which is someone's work.
         await projects.save(projectId, 3, content('view-b', 'view-c'), ['view-b', 'view-c']);
@@ -238,11 +230,11 @@ describe('DrawingStore', () => {
         fake.on(dirname(sharedFile)).emit('project.json');
         await fake.settle();
         expect(projects.isDrawingView(projectId, 'view-b')).toBe(false);
-        expect(await exists(join(sharedDrawingsDir(), 'view-b.json'))).toBe(true);
+        expect(await fileExists(join(sharedDrawingsDir(), 'view-b.json'))).toBe(true);
 
         // Nor does the next save of a client that took the pull in.
         await projects.save(projectId, 5, content('view-c'));
-        expect(await exists(join(sharedDrawingsDir(), 'view-b.json'))).toBe(true);
+        expect(await fileExists(join(sharedDrawingsDir(), 'view-b.json'))).toBe(true);
     });
 
     test('copy writes the same elements at rev 0, and copying nothing writes nothing', async () => {
@@ -257,7 +249,7 @@ describe('DrawingStore', () => {
         expect(await drawings.open(projectId, 'view-b')).toMatchObject({ rev: 0 });
 
         await drawings.copy(projectId, 'view-c', 'view-c');
-        expect(await exists(drawingFile('view-c'))).toBe(false);
+        expect(await fileExists(drawingFile('view-c'))).toBe(false);
     });
 });
 
@@ -308,7 +300,7 @@ describe('an edit by element id', () => {
     test('a dry run checks everything and writes nothing; a bad edit is refused by its path', async () => {
         const dry = await drawings.edit(projectId, 'view-a', 0, { add: [{ kind: 'rect', x: 0, y: 0, w: 10, h: 10 }] }, { dryRun: true, mint: mint() });
         expect(dry).toEqual({ rev: 0, added: ['new-1'], elements: 1 });
-        expect(await exists(drawingFile('view-a'))).toBe(false);
+        expect(await fileExists(drawingFile('view-a'))).toBe(false);
 
         const bad = drawings.edit(projectId, 'view-a', 0, { update: [{ id: 'nope', x: 1 }] }, { dryRun: false, mint: mint() });
         await expect(bad).rejects.toMatchObject({ code: 'bad-edit', lines: ['problem\tupdate[0].id\tthe drawing has no element nope'] });

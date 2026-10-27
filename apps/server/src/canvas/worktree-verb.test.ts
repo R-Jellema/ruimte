@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from 'bun:test';
-import { readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fileExists } from '@adecore/agents';
 import type { ChatTurnItem, ProjectContent } from '@ruimte/contracts';
 import { Checkpoints } from '../git/checkpoints.ts';
 import { gitIn, initRepo, repoTemplate, type RepoTemplate, NO_WORKTREE_AGENTS } from '../git/test-repo.ts';
@@ -36,13 +37,6 @@ let root: string;
 let folder: string;
 let store: ProjectStore;
 let daemon: TestDaemon;
-
-function exists(path: string): Promise<boolean> {
-    return stat(path).then(
-        () => true,
-        () => false
-    );
-}
 
 beforeAll(async () => {
     template = await repoTemplate('ruimte-worktree-verb', async (dir) => {
@@ -138,7 +132,7 @@ test('a node that is not an opener of the worktree gets not-yours, and nothing i
     const refused = await runVerb(daemon, 'chat-stranger', 'worktree', ['merge', 'lexer']);
 
     expect(refused[0]?.startsWith('refused\tnot-yours\t')).toBe(true);
-    expect(await exists(join(folder, 'lexer.txt'))).toBe(false);
+    expect(await fileExists(join(folder, 'lexer.txt'))).toBe(false);
 });
 
 test('a conflict is taken back and refused, leaving the target clean', async () => {
@@ -162,6 +156,6 @@ test('a target checkout with uncommitted files of its own is refused', async () 
     const refused = await runVerb(daemon, 'chat-lead', 'worktree', ['merge', 'lexer']);
 
     expect(refused[0]?.startsWith('refused\ttarget-dirty\t')).toBe(true);
-    expect(await exists(join(folder, 'lexer.txt'))).toBe(false);
+    expect(await fileExists(join(folder, 'lexer.txt'))).toBe(false);
     expect(await readFile(join(folder, 'shared.txt'), 'utf8')).toBe('a person is working here\n');
 });

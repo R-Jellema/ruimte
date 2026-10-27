@@ -1,20 +1,13 @@
 import { createHash } from 'node:crypto';
-import { link, lstat, mkdir, rename, unlink, writeFile } from 'node:fs/promises';
+import { link, mkdir, rename, unlink, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { basename, extname, join } from 'node:path';
-import { CodedError } from '@adecore/agents';
+import { CodedError, entryExists } from '@adecore/agents';
 import { RECYCLE_BIN_SOURCE, RecycleBinExit, recycleBinCommand } from './recycle-bin.ts';
 
 type TrashErrorCode = 'trash-unsupported' | 'trash-failed';
 
 class TrashError extends CodedError<TrashErrorCode> {}
-
-function exists(path: string): Promise<boolean> {
-    return lstat(path).then(
-        () => true,
-        () => false
-    );
-}
 
 /* `name.ext`, then `name 2.ext`, `name 3.ext`: the first that is free in the trash. */
 async function freeName(name: string, taken: (candidate: string) => Promise<boolean>): Promise<string> {
@@ -81,14 +74,14 @@ const RECYCLE_BIN_VERSION = createHash('sha256').update(RECYCLE_BIN_SOURCE).dige
 async function recycleBinHelper(env: NodeJS.ProcessEnv): Promise<{ source: string; assembly: string }> {
     const folder = join(env.LOCALAPPDATA || tmpdir(), 'Ruimte', 'recycle-bin');
     const source = join(folder, `recycle-bin-${RECYCLE_BIN_VERSION}.cs`);
-    if (!(await exists(source))) {
+    if (!(await entryExists(source))) {
         await mkdir(folder, { recursive: true });
         const draft = `${source}.${process.pid}`;
         await writeFile(draft, RECYCLE_BIN_SOURCE);
         // Another delete may have put it there first, and be compiling from it.
         await rename(draft, source).catch(async (e: unknown) => {
             await unlink(draft).catch(() => undefined);
-            if (!(await exists(source))) {
+            if (!(await entryExists(source))) {
                 throw e;
             }
         });
@@ -180,7 +173,7 @@ export async function trashPath(
         case 'darwin': {
             const folder = join(home, '.Trash');
             await mkdir(folder, { recursive: true });
-            await move(path, join(folder, await freeName(basename(path), (candidate) => exists(join(folder, candidate)))));
+            await move(path, join(folder, await freeName(basename(path), (candidate) => entryExists(join(folder, candidate)))));
             return;
         }
         case 'linux':

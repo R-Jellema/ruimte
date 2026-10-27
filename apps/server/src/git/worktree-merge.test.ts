@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
-import { chmod, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fileExists } from '@adecore/agents';
 import type { WorktreeMergePayload } from '@ruimte/contracts';
 import { documentPathInFolder } from '../projects/project-files.ts';
 import { UsageCounter } from '../stats/usage-counter.ts';
@@ -17,13 +18,6 @@ let worktrees: Worktrees;
 let agents: FakeAgents;
 let merges: WorktreeMerge;
 let actions = 0;
-
-function exists(path: string): Promise<boolean> {
-    return stat(path).then(
-        () => true,
-        () => false
-    );
-}
 
 class FakeAgents implements WorktreeAgents {
     rows: WorktreeAgent[] = [];
@@ -110,7 +104,7 @@ describe('WorktreeMerge', () => {
         expect(await readFile(join(repo, 'notes.txt'), 'utf8')).toBe('new\n');
         expect(await count(`${before}..main`, '--merges')).toBe(1);
         expect(await gitIn(repo, ['log', '--format=%s', 'main'])).toContain('Lexer: work of the agent');
-        expect(await exists(path)).toBe(false);
+        expect(await fileExists(path)).toBe(false);
         expect(await worktrees.list(repo)).toEqual([]);
     });
 
@@ -138,7 +132,7 @@ describe('WorktreeMerge', () => {
         expect(result).toMatchObject({ removed: true, branchDeleted: true });
         expect(await count(`${before}..main`)).toBe(1);
         expect((await gitIn(repo, ['log', '-1', '--format=%s'])).trim()).toBe('Lexer');
-        expect(await exists(join(repo, 'more.txt'))).toBe(true);
+        expect(await fileExists(join(repo, 'more.txt'))).toBe(true);
         expect((await gitIn(repo, ['branch', '--list', 'lexer'])).trim()).toBe('');
     });
 
@@ -160,7 +154,7 @@ describe('WorktreeMerge', () => {
 
         const result = await run(path, { commitFirst: true });
         expect(result.removed).toBeUndefined();
-        expect(await exists(path)).toBe(true);
+        expect(await fileExists(path)).toBe(true);
     });
 
     test('rebase on a main that moved on leaves a linear history', async () => {
@@ -172,7 +166,7 @@ describe('WorktreeMerge', () => {
         await run(path, { strategy: 'rebase' });
 
         expect(await count('main', '--merges')).toBe(0);
-        expect(await exists(join(repo, 'lexer.txt'))).toBe(true);
+        expect(await fileExists(join(repo, 'lexer.txt'))).toBe(true);
         expect((await gitIn(repo, ['log', '--format=%s', 'main'])).split('\n').slice(0, 3)).toEqual(['lexer', 'later on main', 'init']);
     });
 
@@ -185,11 +179,11 @@ describe('WorktreeMerge', () => {
 
         expect(result.conflicts).toEqual(['shared.txt']);
         expect(result.removed).toBeUndefined();
-        expect(await exists(join(repo, '.git', 'MERGE_HEAD'))).toBe(true);
-        expect(await exists(path)).toBe(true);
+        expect(await fileExists(join(repo, '.git', 'MERGE_HEAD'))).toBe(true);
+        expect(await fileExists(path)).toBe(true);
 
         await merges.abort(repo);
-        expect(await exists(join(repo, '.git', 'MERGE_HEAD'))).toBe(false);
+        expect(await fileExists(join(repo, '.git', 'MERGE_HEAD'))).toBe(false);
         expect((await gitIn(repo, ['status', '--porcelain'])).trim()).toBe('');
     });
 
@@ -321,7 +315,7 @@ describe('WorktreeMerge', () => {
         const again = await run(path, { strategy: 'squash', subject: 'Lexer' });
 
         expect(again.summary).toBe('main already has everything in lexer.');
-        expect(await exists(join(repo, '.git', 'SQUASH_MSG'))).toBe(false);
+        expect(await fileExists(join(repo, '.git', 'SQUASH_MSG'))).toBe(false);
         expect((await gitIn(repo, ['rev-parse', 'main'])).trim()).toBe(squashed);
         await expect(run(path, { strategy: 'squash', subject: 'Lexer' })).resolves.toMatchObject({ into: 'main' });
     });
@@ -378,7 +372,7 @@ describe('WorktreeMerge', () => {
             const result = await run(path);
 
             expect(result.conflicts).toEqual([]);
-            expect(await exists(join(repo, '.git', 'MERGE_HEAD'))).toBe(true);
+            expect(await fileExists(join(repo, '.git', 'MERGE_HEAD'))).toBe(true);
             expect(mergesCounted()).toBe(0);
         });
 

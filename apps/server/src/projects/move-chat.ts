@@ -1,5 +1,6 @@
 import { realpath } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
+import { entryExists } from '@adecore/agents';
 import { ChatError as AgentChatError } from '@adecore/agents/chat';
 import type { AgentLineageStore } from '@adecore/agents/coordination';
 import {
@@ -20,7 +21,7 @@ import { ownFileConflicts, ownFileNames } from './move-info.ts';
 import type { SnoozeStore } from '../push/snoozes.ts';
 import { movedNote } from './move-note.ts';
 import type { MoveJournal } from './move-journal.ts';
-import { entryExists, moveOwnFiles } from './own-files.ts';
+import { moveOwnFiles } from './own-files.ts';
 import { DEFAULT_COLOR, type MutationApply } from './project-store.ts';
 
 const REFUSAL_SENTENCES: Record<ChatMoveRefusal['reason'], string> = {

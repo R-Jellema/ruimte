@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileExists } from '@adecore/agents';
 import type { ChatItem, Plan, ProjectContent } from '@ruimte/contracts';
 import { PLAN_RESUME_PREAMBLE, RESUME_PROMPT } from '../chat/chat-manager.ts';
 import { ManualClock } from '@adecore/agents/testing';
@@ -99,13 +100,6 @@ async function planOf(daemon: TestDaemon, planId: string): Promise<Plan> {
 
 function stepOf(plan: Plan, id: string) {
     return plan.items.find((item) => item.id === id) as Extract<Plan['items'][number], { type: 'step' }>;
-}
-
-function exists(path: string): Promise<boolean> {
-    return stat(path).then(
-        () => true,
-        () => false
-    );
 }
 
 describe('plan verbs', () => {
@@ -331,7 +325,7 @@ describe('plans and the chat they belong to', () => {
 
         const events = listen(daemon);
         expect(await daemon.request('chat.clear', { chatId: 'chat-lead' })).toMatchObject({ ok: true });
-        expect(await exists(path)).toBe(false);
+        expect(await fileExists(path)).toBe(false);
         expect(events).toEqual([{ event: 'plan.removed', payload: { chatId: 'chat-lead', planId } }]);
         expect(await daemon.request('plan.list', {})).toMatchObject({ ok: true, result: { plans: [] } });
     });
@@ -345,7 +339,7 @@ describe('plans and the chat they belong to', () => {
 
         const events = listen(daemon);
         expect(await daemon.request('chat.kill', { chatId: 'chat-lead' })).toMatchObject({ ok: true });
-        expect(await exists(path)).toBe(false);
+        expect(await fileExists(path)).toBe(false);
         expect(events).toEqual([{ event: 'plan.removed', payload: { chatId: 'chat-lead', planId } }]);
         expect(await daemon.request('plan.list', {})).toMatchObject({ ok: true, result: { plans: [] } });
     });

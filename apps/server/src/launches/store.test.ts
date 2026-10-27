@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileExists } from '@adecore/agents';
 import type { LaunchConfigEntry } from '@ruimte/contracts';
 import { FakeWatch } from '@adecore/agents/testing';
 import { CommandApprovals } from '../sessions/command-approvals.ts';
@@ -20,13 +21,6 @@ function sharedPath(): string {
 }
 function privatePath(): string {
     return join(folder, '.ruimte', 'private', 'launches.json');
-}
-
-function exists(path: string): Promise<boolean> {
-    return stat(path).then(
-        () => true,
-        () => false
-    );
 }
 
 const server: LaunchConfigEntry = {
@@ -66,7 +60,7 @@ afterEach(async () => {
 describe('LaunchStore', () => {
     test('a project without launches reads empty and writes nothing', async () => {
         expect(await store.read('p1')).toEqual({ rev: 0, launches: [], approved: [] });
-        expect(await exists(sharedPath())).toBe(false);
+        expect(await fileExists(sharedPath())).toBe(false);
     });
 
     test('a save splits the launches over the two files and approves what it sets', async () => {
@@ -110,8 +104,8 @@ describe('LaunchStore', () => {
 
     test('only private launches leave the shared file unwritten', async () => {
         await store.save('p1', 0, [tests]);
-        expect(await exists(sharedPath())).toBe(false);
-        expect(await exists(privatePath())).toBe(true);
+        expect(await fileExists(sharedPath())).toBe(false);
+        expect(await fileExists(privatePath())).toBe(true);
     });
 
     test('a command changed on disk needs approval again, and a save against the old rev is refused', async () => {

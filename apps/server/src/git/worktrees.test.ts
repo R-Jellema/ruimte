@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import { mkdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fileExists } from '@adecore/agents';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { checkpointIndexFile, Checkpoints } from './checkpoints.ts';
 import { forgetBase } from './status.ts';
@@ -16,12 +17,6 @@ let worktrees: Worktrees;
 
 function git(args: string[]): Promise<string> {
     return gitIn(repo, args);
-}
-function exists(path: string): Promise<boolean> {
-    return stat(path).then(
-        () => true,
-        () => false
-    );
 }
 async function branchList(): Promise<string[]> {
     return (await git(['branch', '--list', '--format=%(refname:short)'])).split('\n').filter(Boolean).sort();
@@ -76,12 +71,12 @@ describe('Worktrees', () => {
 
         const onMain = await worktrees.add(repo, 'from-main', { madeBy: 'client' }, { base: 'main' });
         expect(onMain.worktree.from?.branch).toBe('main');
-        expect(await exists(join(onMain.worktree.path, 'later.txt'))).toBe(true);
+        expect(await fileExists(join(onMain.worktree.path, 'later.txt'))).toBe(true);
     });
 
     test('a base that is no ref makes nothing, and neither does a base for a branch that exists', async () => {
         await expect(worktrees.add(repo, 'nope', { madeBy: 'client' }, { base: 'no-such-ref' })).rejects.toMatchObject({ code: 'ref-not-found' });
-        expect(await exists(join(home, 'worktrees'))).toBe(false);
+        expect(await fileExists(join(home, 'worktrees'))).toBe(false);
         expect(await branchList()).toEqual(['main']);
 
         await git(['branch', 'old']);
@@ -216,7 +211,7 @@ describe('Worktrees', () => {
         const refused = worktrees.remove(repo, worktree.path);
         await expect(refused).rejects.toMatchObject({ code: 'worktree-has-work' });
         await expect(refused).rejects.toThrow('lexer holds 0 uncommitted files, 1 new file and 0 commits that main lacks');
-        expect(await exists(join(worktree.path, 'notes.md'))).toBe(true);
+        expect(await fileExists(join(worktree.path, 'notes.md'))).toBe(true);
         expect((await worktrees.list(repo)).map((entry) => entry.branch)).toEqual(['lexer']);
     });
 
@@ -256,7 +251,7 @@ describe('Worktrees', () => {
         try {
             await worktrees.remove(repo, worktree.path, { force: true });
             expect(reached).toBe(true);
-            expect(await exists(worktree.path)).toBe(false);
+            expect(await fileExists(worktree.path)).toBe(false);
         } finally {
             removing.mockRestore();
         }
@@ -283,7 +278,7 @@ describe('Worktrees', () => {
 
         await worktrees.remove(repo, worktree.path, { stopAgent: true });
         expect(stopped).toEqual(['chat-a']);
-        expect(await exists(worktree.path)).toBe(false);
+        expect(await fileExists(worktree.path)).toBe(false);
     });
 
     test('with force the folder, the branch, the register entry and the checkpoint index all go, and the answer says where the branch was', async () => {
@@ -295,15 +290,15 @@ describe('Worktrees', () => {
         await writeFile(join(worktree.path, 'more.md'), 'more');
         await new Checkpoints(home).take(worktree.path);
         const index = join(home, 'checkpoints', checkpointIndexFile(worktree.path));
-        expect(await exists(index)).toBe(true);
+        expect(await fileExists(index)).toBe(true);
 
         await expect(worktrees.remove(repo, worktree.path)).rejects.toMatchObject({ code: 'worktree-has-work' });
         expect(await worktrees.remove(repo, worktree.path, { force: true })).toEqual({ branchDeleted: true, branchCommit: tip });
 
-        expect(await exists(worktree.path)).toBe(false);
+        expect(await fileExists(worktree.path)).toBe(false);
         expect(await branchList()).toEqual(['main']);
         expect((await worktrees.registerOf(repo).read()).size).toBe(0);
-        expect(await exists(index)).toBe(false);
+        expect(await fileExists(index)).toBe(false);
     });
 
     test('a branch whose commits are merged into the from branch goes without force', async () => {
@@ -349,7 +344,7 @@ describe('Worktrees', () => {
         expect((await worktrees.list(repo))[0]).toMatchObject({ locked: true });
         await expect(worktrees.remove(repo, worktree.path)).rejects.toMatchObject({ code: 'worktree-locked' });
         await worktrees.remove(repo, worktree.path, { force: true });
-        expect(await exists(worktree.path)).toBe(false);
+        expect(await fileExists(worktree.path)).toBe(false);
     });
 
     test('a worktree whose agent switched to another branch keeps both branches', async () => {

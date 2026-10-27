@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileExists } from '@adecore/agents';
 import { VISUAL_LIMITS, type ChatItem, type ChatVisual, type ProjectContent } from '@ruimte/contracts';
 import { visualFileName } from '@adecore/agents/chat';
 import { ManualClock } from '@adecore/agents/testing';
@@ -112,13 +113,6 @@ async function shown(daemon: TestDaemon, title: string, page = PAGE): Promise<st
 
 function refusalCode(lines: string[]): string | undefined {
     return lines[0]!.startsWith('refused\t') ? lines[0]!.split('\t')[1] : undefined;
-}
-
-function exists(path: string): Promise<boolean> {
-    return stat(path).then(
-        () => true,
-        () => false
-    );
 }
 
 function pagePath(chatId: string, visualId: string): string {
@@ -238,7 +232,7 @@ describe('visual verbs', () => {
 
         const events = listen(daemon);
         expect(await runVerb(daemon, 'chat-lead', 'visual', ['remove', first])).toEqual([`removed\t${first}\tBars`]);
-        expect(await exists(pagePath('chat-lead', first))).toBe(false);
+        expect(await fileExists(pagePath('chat-lead', first))).toBe(false);
         expect(visualEvents(events)).toEqual([[two!]]);
 
         const gone = await runVerb(daemon, 'chat-lead', 'visual', ['remove', first]);
@@ -419,7 +413,7 @@ describe('visuals and the chat they belong to', () => {
         await runVerb(daemon, 'chat-lead', 'visual', ['write', '--name', 'chart.html', '--html=<p>Updated</p>']);
         expect(await readFile(path, 'utf8')).toBe('<p>Updated</p>');
         expect(await daemon.chats.listVisuals('chat-lead')).toEqual([]);
-        expect(await exists(join(folder, 'chart.html'))).toBe(false);
+        expect(await fileExists(join(folder, 'chart.html'))).toBe(false);
         expect(refusalCode(await runVerb(daemon, 'chat-lead', 'visual', ['write', '--name', '../other.html', `--html=${PAGE}`]))).toBe('visual-invalid');
         expect(refusalCode(await runVerb(daemon, 'term-lead', 'visual', ['write', '--name', 'chart.html', `--html=${PAGE}`]))).toBe('visual-needs-chat');
         const off = await bootWithChat({ visualReplies: false });
@@ -453,7 +447,7 @@ describe('visuals and the chat they belong to', () => {
         expect(await readFile(pagePath(nodeId, kept.id), 'utf8')).toBe(await readFile(pagePath('chat-lead', kept.id), 'utf8'));
         // Removing it from the original leaves the fork's page where it is.
         await daemon.chats.removeVisual('chat-lead', kept.id);
-        expect(await exists(pagePath(nodeId, kept.id))).toBe(true);
+        expect(await fileExists(pagePath(nodeId, kept.id))).toBe(true);
     });
 
     test('clearing a chat removes its visuals and their pages, and the attached client hears an empty list', async () => {
@@ -465,10 +459,10 @@ describe('visuals and the chat they belong to', () => {
         const events = listen(daemon);
 
         expect(await daemon.request('chat.clear', { chatId: 'chat-lead' })).toMatchObject({ ok: true });
-        expect(await exists(join(home, 'chats', visualFileName('chat-lead')))).toBe(false);
-        expect(await exists(pagePath('chat-lead', id))).toBe(false);
-        expect(await exists(source)).toBe(false);
-        expect(await exists(preview)).toBe(false);
+        expect(await fileExists(join(home, 'chats', visualFileName('chat-lead')))).toBe(false);
+        expect(await fileExists(pagePath('chat-lead', id))).toBe(false);
+        expect(await fileExists(source)).toBe(false);
+        expect(await fileExists(preview)).toBe(false);
         expect(visualEvents(events)).toEqual([[]]);
         expect(await daemon.chats.listVisuals('chat-lead')).toEqual([]);
     });
@@ -479,9 +473,9 @@ describe('visuals and the chat they belong to', () => {
         const id = await shown(daemon, 'Bars');
 
         expect(await daemon.request('chat.kill', { chatId: 'chat-lead' })).toMatchObject({ ok: true });
-        expect(await exists(join(home, 'chats', visualFileName('chat-lead')))).toBe(false);
-        expect(await exists(pagePath('chat-lead', id))).toBe(false);
-        expect(await exists(source)).toBe(false);
+        expect(await fileExists(join(home, 'chats', visualFileName('chat-lead')))).toBe(false);
+        expect(await fileExists(pagePath('chat-lead', id))).toBe(false);
+        expect(await fileExists(source)).toBe(false);
     });
 
     test('after a restart the page is found by its id before anyone opened the chat, and goes out as a download', async () => {

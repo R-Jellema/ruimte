@@ -1,6 +1,7 @@
-import { cp, lstat, mkdir, readdir, rm, rmdir } from 'node:fs/promises';
+import { cp, mkdir, readdir, rm, rmdir } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { basename, dirname, join } from 'node:path';
+import { entryExists } from '@adecore/agents';
 import { ChatError } from '../chat/errors.ts';
 import { errorText } from '../error-text.ts';
 import { renameNoReplace } from '../fs/no-replace-rename.ts';
@@ -61,11 +62,6 @@ function codeOf(error: unknown): string | undefined {
 function isTaken(error: unknown): boolean {
     const code = codeOf(error);
     return code === 'EEXIST' || code === 'ERR_FS_CP_EEXIST';
-}
-
-/* Whether anything is at the path, a link that leads nowhere included. */
-export async function entryExists(path: string): Promise<boolean> {
-    return (await lstat(path).catch(() => null)) !== null;
 }
 
 /* One entry back to where it came from: a rename, else (another volume) a copy and then the delete. */

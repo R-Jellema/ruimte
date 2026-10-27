@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, sep } from 'node:path';
+import { fileExists } from '@adecore/agents';
 import { AgentIntegrations, IntegrationsFixed } from './integrations.ts';
 import { ANTIGRAVITY_RULES, CODEX_RULES, hookEntry, installHooks } from './install.ts';
 
@@ -22,13 +23,6 @@ async function tree(folder: string): Promise<string[]> {
 
 function settingsPath(): string {
     return join(env.CLAUDE_CONFIG_DIR!, 'settings.json');
-}
-
-async function exists(path: string): Promise<boolean> {
-    return await stat(path).then(
-        () => true,
-        () => false
-    );
 }
 
 beforeEach(async () => {
@@ -135,7 +129,7 @@ describe('AgentIntegrations', () => {
 
         expect(reports).toEqual([{ path: settingsPath(), kind: 'hooks', outcome: 'written' }]);
         expect(await readFile(settingsPath(), 'utf8')).toContain('RUIMTE_HOOK_URL');
-        expect(await exists(join(env.CODEX_HOME!, 'hooks.json'))).toBe(false);
+        expect(await fileExists(join(env.CODEX_HOME!, 'hooks.json'))).toBe(false);
     });
 
     test("turning off after an install into a file with a person's hook keeps theirs and removes Ruimte's", async () => {
@@ -180,7 +174,7 @@ describe('AgentIntegrations', () => {
         const reports = await subject.set('claude', false);
 
         expect(reports).toEqual([{ path: settingsPath(), kind: 'hooks', outcome: 'deleted' }]);
-        expect(await exists(settingsPath())).toBe(false);
+        expect(await fileExists(settingsPath())).toBe(false);
     });
 
     test('Codex hooks and rule go together, and an edited rules file is kept', async () => {
@@ -197,7 +191,7 @@ describe('AgentIntegrations', () => {
             { path: join(env.CODEX_HOME!, 'hooks.json'), kind: 'hooks', outcome: 'deleted' },
             { path: rules, kind: 'rules', outcome: 'kept-edited' }
         ]);
-        expect(await exists(rules)).toBe(true);
+        expect(await fileExists(rules)).toBe(true);
     });
 
     test("Antigravity's rule joins a person's settings and leaves with only Ruimte's entries", async () => {
@@ -231,7 +225,7 @@ describe('AgentIntegrations', () => {
             { path: settings, kind: 'rules', outcome: 'removed' },
             { path: hooks, kind: 'hooks', outcome: 'deleted' }
         ]);
-        expect(await exists(hooks)).toBe(false);
+        expect(await fileExists(hooks)).toBe(false);
         expect(JSON.parse(await readFile(settings, 'utf8'))).toEqual({
             theme: 'dark',
             permissions: { allow: ['command(git)'], deny: ['command(sudo)'] }
@@ -251,7 +245,7 @@ describe('AgentIntegrations', () => {
             { path: settings, kind: 'rules', outcome: 'deleted' },
             { path: join(env.GEMINI_HOME!, 'config', 'hooks.json'), kind: 'hooks', outcome: 'deleted' }
         ]);
-        expect(await exists(settings)).toBe(false);
+        expect(await fileExists(settings)).toBe(false);
     });
 
     test("Antigravity's hook joins a person's hooks under a name of its own, and an edited one stays", async () => {
@@ -285,7 +279,7 @@ describe('AgentIntegrations', () => {
 
         expect(await subject.set('grok', false)).toEqual([{ path: grok, kind: 'hooks', outcome: 'deleted' }]);
         expect(await subject.set('copilot', false)).toEqual([{ path: copilot, kind: 'hooks', outcome: 'deleted' }]);
-        expect([await exists(grok), await exists(copilot)]).toEqual([false, false]);
+        expect([await fileExists(grok), await fileExists(copilot)]).toEqual([false, false]);
     });
 
     test('a Grok home that already has the hooks counts as on, in GROK_HOME', async () => {
@@ -356,13 +350,13 @@ describe('AgentIntegrations', () => {
         const subject = integrations();
         await subject.load();
         await subject.installFolder('claude', account);
-        expect(await exists(account)).toBe(false);
+        expect(await fileExists(account)).toBe(false);
 
         await subject.set('claude', true);
         await rm(account, { recursive: true, force: true });
         await subject.installFolder('claude', account);
 
-        expect(await exists(join(account, 'settings.json'))).toBe(true);
+        expect(await fileExists(join(account, 'settings.json'))).toBe(true);
     });
 
     test('a settings file that is not an object is refused and left alone', async () => {

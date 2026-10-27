@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileExists } from '@adecore/agents';
 import type { DatabaseConnection } from '@ruimte/contracts';
 import { FakeWatch } from '@adecore/agents/testing';
 import type { SessionEvent } from '../sessions/manager.ts';
@@ -21,13 +22,6 @@ function sharedPath(): string {
 
 function privatePath(): string {
     return join(folder, '.ruimte', 'private', 'databases.json');
-}
-
-function exists(path: string): Promise<boolean> {
-    return stat(path).then(
-        () => true,
-        () => false
-    );
 }
 
 async function readJson(path: string): Promise<Record<string, unknown>> {
@@ -71,8 +65,8 @@ afterEach(async () => {
 describe('DatabaseConnectionStore', () => {
     test('a project without connections reads empty and writes nothing', async () => {
         expect(await store.read('p1', 'c1')).toEqual({ rev: 0, connections: [] });
-        expect(await exists(sharedPath())).toBe(false);
-        expect(await exists(privatePath())).toBe(false);
+        expect(await fileExists(sharedPath())).toBe(false);
+        expect(await fileExists(privatePath())).toBe(false);
     });
 
     test('a client that does not hold the project reads nothing', async () => {
@@ -108,13 +102,13 @@ describe('DatabaseConnectionStore', () => {
     test('a SQLite file outside the folder stays absolute and cannot be shared', async () => {
         const outside: DatabaseConnection = { id: 'local', name: 'Local', config: { engine: 'sqlite', path: join(root, 'elsewhere.sqlite') }, shared: true };
         await expect(store.save('p1', 0, [outside], 'c1')).rejects.toMatchObject({ code: 'path-outside-project' });
-        expect(await exists(privatePath())).toBe(false);
+        expect(await fileExists(privatePath())).toBe(false);
 
         await store.save('p1', 0, [{ ...outside, shared: false }], 'c1');
         expect((await readJson(privatePath())).connections).toEqual([
             { id: 'local', name: 'Local', config: { engine: 'sqlite', path: join(root, 'elsewhere.sqlite') } }
         ]);
-        expect(await exists(sharedPath())).toBe(false);
+        expect(await fileExists(sharedPath())).toBe(false);
     });
 
     test('a folder that only shares its name with the project is outside it', async () => {
@@ -264,7 +258,7 @@ describe('DatabaseConnectionStore, a save cut off between its two files', () => 
         const read = await restarted.read('p1', 'c1');
         expect(read.connections.map((connection) => [connection.id, connection.shared])).toEqual([['shop', false]]);
         expect((await readJson(sharedPath())).connections).toEqual([]);
-        expect(await exists(join(folder, '.ruimte', 'private', 'pending-databases.json'))).toBe(false);
+        expect(await fileExists(join(folder, '.ruimte', 'private', 'pending-databases.json'))).toBe(false);
         restarted.closeAll();
         crashing.closeAll();
     });
