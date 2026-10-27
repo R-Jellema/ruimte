@@ -1,11 +1,9 @@
 import type { ActionOutput } from '@ruimte/actions';
 import { z } from 'zod';
-import { defineActionVerb, runAction } from './action-verb.ts';
+import { JSON_PARAM, defineActionVerb, jsonLines as json, runAction } from './action-verb.ts';
 import { SCOPE_LINE, field, orNote } from './verb.ts';
 
 const PATH_PARAM = { syntax: '<path>', need: 'required', field: 'path' } as const;
-
-const JSON_PARAM = { syntax: '--json', need: 'no value', text: 'Prints the answer as one JSON object instead of lines' } as const;
 
 const POSITION_PARAMS = [PATH_PARAM, { syntax: '<line>', need: 'required', field: 'line' }, { syntax: '<column>', need: 'required', field: 'column' }] as const;
 
@@ -27,10 +25,6 @@ function headLines(head: Head): string[] {
 
 function place(span: { path: string; line: number; column: number }): string {
     return `${field(span.path)}:${span.line}:${span.column}`;
-}
-
-function json(value: unknown): string[] {
-    return [JSON.stringify(value, null, 2)];
 }
 
 function pathTuple(word: string) {

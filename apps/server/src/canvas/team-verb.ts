@@ -12,7 +12,7 @@ import { MAX_CANVAS_NODES, idList } from './nodes.ts';
 import { TEAM_COLUMNS } from './placement.ts';
 import { TASK_LINES, nextLine } from './task-verbs.ts';
 import { MAX_TASK_PROMPT_LENGTH } from './tasks.ts';
-import { DRY_RUN_PREVIEW, MAX_TITLE_LENGTH, TITLE_LINE, VerbRefusal, field, lengthOf, titleField } from './verb.ts';
+import { DRY_RUN_PREVIEW, MAX_TITLE_LENGTH, TITLE_LINE, VerbRefusal, field, lengthOf, titleField, VIEW_FLAG } from './verb.ts';
 import { WORKTREE_LINES } from './worktree.ts';
 
 /* As many as one caller may have open at once, so a single team can fill that allowance and no more. */
@@ -163,7 +163,7 @@ export const teamVerb = defineStandaloneActionVerb({
         roles: z.string().min(1, `--roles needs the roles as JSON, ${ROLES_SHAPE}`),
         cwd: z.string().min(1, '--cwd needs the path of a directory').optional(),
         reads: readsFlag,
-        view: z.string().min(1, '--view needs the id of a canvas').optional(),
+        view: VIEW_FLAG,
         mode: modeFlag,
         machine: z.string().min(1, '--machine needs the name or id of a machine').optional()
     }),
@@ -196,38 +196,24 @@ export const teamVerb = defineStandaloneActionVerb({
         const { group } = started;
         const edgeOf = (edge: (typeof started.agents)[number]['edge']): string =>
             edge === null ? '-' : dryRun ? `${edge.from} -> ${edge.to}` : (edge.edgeId ?? '-');
-        if (dryRun) {
-            return [
-                ...(group ? [['dry-run', 'group', field(group.title), group.viewId, '-', '-'].join('\t')] : []),
-                ...started.agents.map((agent) =>
-                    [
-                        'dry-run',
-                        agent.kind,
-                        field(agent.title),
-                        group?.viewId ?? '-',
-                        agent.provider,
-                        edgeOf(agent.edge),
-                        ...(tasked ? ['<new task>'] : [])
-                    ].join('\t')
-                ),
-                ...started.reads.map((line) => ['dry-run', 'reads', `${line.from} -> ${line.to}`].join('\t'))
-            ];
-        }
+        const taskOf = (taskId: string | null): string[] => (dryRun ? (tasked ? ['<new task>'] : []) : taskId === null ? [] : [taskId]);
         return [
-            ...(group ? [[group.nodeId, 'group', field(group.title), group.viewId, '-', '-'].join('\t')] : []),
+            ...(group ? [[dryRun ? 'dry-run' : group.nodeId, 'group', field(group.title), group.viewId, '-', '-'].join('\t')] : []),
             ...started.agents.map((agent) =>
                 [
-                    agent.nodeId,
+                    dryRun ? 'dry-run' : agent.nodeId,
                     agent.kind,
                     field(agent.title),
                     group?.viewId ?? '-',
                     agent.provider,
                     edgeOf(agent.edge),
-                    ...(agent.taskId === null ? [] : [agent.taskId])
+                    ...taskOf(agent.taskId)
                 ].join('\t')
             ),
-            ...started.reads.map((line) => ['reads', line.edgeId ?? '-', line.from, line.to].join('\t')),
-            ...(tasked ? [nextLine(true)] : [])
+            ...started.reads.map((line) =>
+                (dryRun ? ['dry-run', 'reads', `${line.from} -> ${line.to}`] : ['reads', line.edgeId ?? '-', line.from, line.to]).join('\t')
+            ),
+            ...(tasked && !dryRun ? [nextLine(true)] : [])
         ];
     }
 });

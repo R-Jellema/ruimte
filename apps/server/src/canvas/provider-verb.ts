@@ -1,16 +1,11 @@
 import { z } from 'zod';
-import { defineActionVerb, runAction } from './action-verb.ts';
+import { JSON_PARAM, defineActionVerb, jsonLines as json, runAction } from './action-verb.ts';
 import { field, orNote } from './verb.ts';
 
-const JSON_PARAM = { syntax: '--json', need: 'no value', text: 'Prints the answer as one JSON object instead of lines' } as const;
 const REFRESH_PARAM = { syntax: '--refresh', need: 'no value', text: 'Asks again now instead of answering from the last hour' } as const;
 
 const PERSON_INSTALLS =
     "person\tInstalling, updating and removing stay a person's, in Settings, Providers: no verb downloads or runs an installer. Name what you would install or update and why, and ask the person";
-
-function json(value: unknown): string[] {
-    return [JSON.stringify(value, null, 2)];
-}
 
 function when(at: number | null): string {
     return at === null ? '-' : new Date(at).toISOString();

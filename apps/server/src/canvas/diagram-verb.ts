@@ -1,6 +1,7 @@
 import { DIAGRAM_LIMITS, DiagramEdgeSchema, DiagramGroupSchema, DiagramMetaSchema, DiagramNodeSchema } from '@ruimte/contracts';
 import { DEFAULT_EDGE_TONE, DEFAULT_GROUP_TONE, DEFAULT_NODE_TONE } from '@adecore/diagram';
 import { z } from 'zod';
+import { oneArgument } from './verb.ts';
 import { defineActionVerb, runAction } from './action-verb.ts';
 
 /* A sentence per field, keyed on the schema's own keys, so a field added to the file without one here fails to compile. */
@@ -119,12 +120,7 @@ export const diagramAction = defineActionVerb('view', {
         }
     ],
     detail: DETAIL,
-    positionals: z.tuple([z.string().min(1, 'view diagram needs the id of a diagram view')], {
-        error: (issue) =>
-            issue.code === 'too_big'
-                ? 'view diagram takes one view id and nothing else; the document goes on stdin'
-                : 'view diagram needs the id of a diagram view'
-    }),
+    positionals: oneArgument('view diagram needs the id of a diagram view', 'view diagram takes one view id and nothing else; the document goes on stdin'),
     flags: z.object({ document: z.string().optional() }),
     async run({ positionals: [viewId], flags }, call) {
         const written = await runAction(call, 'diagram.replaceContent', { viewId, document: flags.document ?? '' });

@@ -12,7 +12,7 @@ import {
 import { z } from 'zod';
 import { defineActionVerb, runAction } from './action-verb.ts';
 import { modelFlag } from './model.ts';
-import { field, orNote } from './verb.ts';
+import { field, orNote, oneArgument } from './verb.ts';
 
 const DAY_NAMES = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 
@@ -201,10 +201,10 @@ export function runStateOf(run: RoutineRun): string {
 }
 
 function routineTuple(word: string) {
-    const needs = `routine ${word} needs the id of a routine; ruimte-context routine list lists them`;
-    return z.tuple([z.string().min(1, needs)], {
-        error: (issue) => (issue.code === 'too_big' ? `routine ${word} takes one routine and nothing else` : needs)
-    });
+    return oneArgument(
+        `routine ${word} needs the id of a routine; ruimte-context routine list lists them`,
+        `routine ${word} takes one routine and nothing else`
+    );
 }
 
 const ROUTINE_PARAM = { syntax: '<routine>', need: 'required', field: 'routineId' } as const;

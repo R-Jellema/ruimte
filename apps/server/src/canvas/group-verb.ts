@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { COLOR_LINES } from '../actions/node-actions.ts';
 import { canvasIdFor, defineActionVerb, runAction } from './action-verb.ts';
 import { MAX_CANVAS_NODES, idList } from './nodes.ts';
-import { MAX_TITLE_LENGTH, TITLE_LINE, field, placeOf, requiredField, titleField } from './verb.ts';
+import { MAX_TITLE_LENGTH, TITLE_LINE, field, placeOf, requiredField, titleField, VIEW_FLAG } from './verb.ts';
 
 export const groupAction = defineActionVerb('node', {
     name: 'group',
@@ -44,7 +44,7 @@ export const groupAction = defineActionVerb('node', {
         nodes: requiredField('--nodes needs one or more node ids, separated by commas'),
         label: titleField('--label', '--label needs a name for the group').optional(),
         color: z.string().min(1, '--color needs a color').optional(),
-        view: z.string().min(1, '--view needs the id of a canvas').optional()
+        view: VIEW_FLAG
     }),
     async run({ flags }, call) {
         const nodeIds = idList(flags.nodes, '--nodes');

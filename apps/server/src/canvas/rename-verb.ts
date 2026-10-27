@@ -2,7 +2,7 @@ import { MAX_PER_CALL } from '@ruimte/actions';
 import { z } from 'zod';
 import { canvasIdFor, defineActionVerb, runAction } from './action-verb.ts';
 import { ONE_WRITE, jsonBatch } from './batch.ts';
-import { MAX_TITLE_LENGTH, TITLE_LINE, VerbRefusal, field, placeOf, titleField } from './verb.ts';
+import { MAX_TITLE_LENGTH, TITLE_LINE, VerbRefusal, field, placeOf, titleField, VIEW_FLAG } from './verb.ts';
 
 const NEEDS_ID = 'node rename needs the id of a node';
 
@@ -53,7 +53,7 @@ export const renameAction = defineActionVerb('node', {
     flags: z.object({
         title: titleField('--title', NEEDS_TITLE).optional(),
         json: z.string().min(1, '--json needs an array of nodes').optional(),
-        view: z.string().min(1, '--view needs the id of a canvas').optional()
+        view: VIEW_FLAG
     }),
     async run({ positionals: [id], flags }, call) {
         if (flags.json !== undefined) {

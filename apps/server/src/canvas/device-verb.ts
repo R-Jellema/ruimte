@@ -1,9 +1,9 @@
 import type { ActionOutput } from '@ruimte/actions';
 import { z } from 'zod';
 import { AGENT_HOLD_IDLE_MS, SWIPE_DEFAULT_MS } from '../devices/agent-driver.ts';
-import { defineActionVerb, runAction } from './action-verb.ts';
 import { machineDeviceLine } from '../actions/device-actions.ts';
-import { field, orNote, SCOPE_LINE, VerbRefusal, yesNo } from './verb.ts';
+import { NODE_PARAM, VIEW_PARAM, defineActionVerb, runAction } from './action-verb.ts';
+import { SCOPE_LINE, VIEW_FLAG, VerbRefusal, field, oneArgument, orNote, yesNo } from './verb.ts';
 
 function powerLine(state: ActionOutput<'device.inspect'>): string {
     const { power } = state;
@@ -15,17 +15,6 @@ function powerLine(state: ActionOutput<'device.inspect'>): string {
     }
     return `power\t${power.level}%\t${power.plugged ? 'plugged' : 'battery'}\t${power.charging ? 'charging' : 'not-charging'}${power.simulated ? '\tsimulated' : ''}`;
 }
-
-const NODE_PARAM = {
-    syntax: '<id>',
-    need: 'required',
-    field: 'nodeId',
-    more: 'ruimte-context list names the ones linked to you, and a chat view finds them with node list --view V'
-} as const;
-
-const VIEW_PARAM = { syntax: '--view V', need: 'optional', field: 'viewId' } as const;
-
-const VIEW_FLAG = z.string().min(1, '--view needs the id of a canvas').optional();
 
 /* The sentences about the line and the device, which every action of this noun is held to. */
 const COMMON_DETAIL: readonly string[] = [
@@ -55,9 +44,7 @@ function pixelPair(flag: string) {
 }
 
 function nodeTuple(word: string, rest: string) {
-    return z.tuple([z.string().min(1, `device ${word} needs the id of a device node`)], {
-        error: (issue) => (issue.code === 'too_big' ? `device ${word} takes one node id${rest}` : `device ${word} needs the id of a device node`)
-    });
+    return oneArgument(`device ${word} needs the id of a device node`, `device ${word} takes one node id${rest}`);
 }
 
 /* Text past this many characters is cut in a state line, which says how long it was. */

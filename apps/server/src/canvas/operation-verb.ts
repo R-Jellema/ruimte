@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { OPERATION_FORMS } from '../actions/operation-actions.ts';
 import { defineActionVerb, runAction } from './action-verb.ts';
-import { defineNoun, field } from './verb.ts';
+import { defineNoun, field, oneArgument } from './verb.ts';
 
 const NEEDS_ID = 'operation get needs the id of an operation, such as agent.start:<id>';
 
@@ -22,9 +22,7 @@ const getSub = defineActionVerb('operation', {
         'gone\tA deleted node reads as cancelled while its task is still there; one started without a task is forgotten with its node, so its id is unknown-operation',
         'wake\tA task wakes you with its result anyway, so this is for a look in between and never something to poll'
     ],
-    positionals: z.tuple([z.string({ error: NEEDS_ID }).min(1, NEEDS_ID)], {
-        error: (issue) => (issue.code === 'too_big' ? 'operation get takes one id and nothing else' : NEEDS_ID)
-    }),
+    positionals: oneArgument(NEEDS_ID, 'operation get takes one id and nothing else'),
     flags: z.object({}),
     async run({ positionals: [id] }, call) {
         const operation = await runAction(call, 'operation.get', { operationId: id });
@@ -58,9 +56,7 @@ const cancelSub = defineActionVerb('operation', {
         'stays\tThe chats, their threads and their tasks stay; nothing is rolled back',
         'who\tOnly an operation you started'
     ],
-    positionals: z.tuple([z.string({ error: NEEDS_CANCEL_ID }).min(1, NEEDS_CANCEL_ID)], {
-        error: (issue) => (issue.code === 'too_big' ? 'operation cancel takes one id and nothing else' : NEEDS_CANCEL_ID)
-    }),
+    positionals: oneArgument(NEEDS_CANCEL_ID, 'operation cancel takes one id and nothing else'),
     flags: z.object({}),
     async run({ positionals: [id] }, call) {
         const cancelled = await runAction(call, 'operation.cancel', { operationId: id });

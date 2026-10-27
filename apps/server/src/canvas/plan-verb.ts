@@ -16,7 +16,7 @@ import { z } from 'zod';
 import { defineActionVerb, runAction } from './action-verb.ts';
 import { fieldLines } from './diagram-verb.ts';
 import { unescapeText } from './text-escapes.ts';
-import { defineNoun, field } from './verb.ts';
+import { defineNoun, field, oneArgument } from './verb.ts';
 
 /* Agents repeat ids to people, who only know a plan and its steps by their titles. */
 const IDS_LINE = 'ids\tIds are for your commands. When you talk to the person, name the plan and its steps by their title, never by id';
@@ -111,15 +111,11 @@ function itemLines(items: readonly PlanItem[], under = '-'): string[] {
 }
 
 const planFlag = z.string().min(1, '--plan needs the id of a plan; ruimte-context plan read --all lists them').optional();
-function itemId(verb: string, what = 'an item'): z.ZodTuple {
-    return z.tuple([z.string().min(1, `${verb} needs the id of ${what}`)], {
-        error: (issue) => (issue.code === 'too_big' ? `${verb} takes one id; everything else is a flag` : `${verb} needs the id of ${what}`)
-    });
-}
 const stateFlag = z.enum(PlanStepStateSchema.options, { error: `--state takes one of ${PlanStepStateSchema.options.join(', ')}` });
 const checksFlag = z.enum(PlanChecksSchema.options, { error: `--checks takes one of ${PlanChecksSchema.options.join(', ')}` }).optional();
-function textFlag(needs: string) {
-    return z.string({ error: needs });
+
+function itemId(verb: string, what = 'an item') {
+    return oneArgument(`${verb} needs the id of ${what}`, `${verb} takes one id; everything else is a flag`);
 }
 
 const ITEM_ID = { syntax: '<itemId>', need: 'required', field: 'itemId' } as const;
@@ -291,9 +287,9 @@ const noteSub = defineActionVerb('plan', {
     ],
     detail: ['prints\tplan\tid\trev N\tkind\ttitle\tprogress'],
     positionals: itemId('plan note', 'a step'),
-    flags: z.object({ text: textFlag('plan note needs --text with the note, or an empty one to clear it'), plan: planFlag }),
+    flags: z.object({ text: z.string({ error: 'plan note needs --text with the note, or an empty one to clear it' }), plan: planFlag }),
     async run({ positionals: [id], flags }, call) {
-        return changedLines(await runAction(call, 'plan.addNote', { planId: flags.plan ?? null, stepId: id as string, text: unescapeText(flags.text) }));
+        return changedLines(await runAction(call, 'plan.addNote', { planId: flags.plan ?? null, stepId: id, text: unescapeText(flags.text) }));
     }
 });
 
@@ -379,7 +375,7 @@ const editSub = defineActionVerb('plan', {
         return changedLines(
             await runAction(call, 'plan.editItem', {
                 planId: flags.plan ?? null,
-                itemId: id as string,
+                itemId: id,
                 title: flags.title ?? null,
                 description: flags.description === undefined ? null : unescapeText(flags.description),
                 checks: flags.checks ?? null
@@ -402,7 +398,7 @@ const moveSub = defineActionVerb('plan', {
     }),
     async run({ positionals: [id], flags }, call) {
         return changedLines(
-            await runAction(call, 'plan.moveItem', { planId: flags.plan ?? null, itemId: id as string, under: flags.under ?? null, after: flags.after ?? null })
+            await runAction(call, 'plan.moveItem', { planId: flags.plan ?? null, itemId: id, under: flags.under ?? null, after: flags.after ?? null })
         );
     }
 });
@@ -419,7 +415,7 @@ const removeSub = defineActionVerb('plan', {
     positionals: itemId('plan remove'),
     flags: z.object({ plan: planFlag }),
     async run({ positionals: [id], flags }, call) {
-        return changedLines(await runAction(call, 'plan.removeItem', { planId: flags.plan ?? null, itemId: id as string }));
+        return changedLines(await runAction(call, 'plan.removeItem', { planId: flags.plan ?? null, itemId: id }));
     }
 });
 
@@ -441,7 +437,7 @@ const statusSub = defineActionVerb('plan', {
         'prints\tplan\tid\trev N\tkind\ttitle\tprogress'
     ],
     positionals: z.tuple([], { error: 'plan status takes no arguments; the line goes in --text' }),
-    flags: z.object({ text: textFlag('plan status needs --text with the line, or an empty one to clear it'), plan: planFlag }),
+    flags: z.object({ text: z.string({ error: 'plan status needs --text with the line, or an empty one to clear it' }), plan: planFlag }),
     async run({ flags }, call) {
         return changedLines(await runAction(call, 'plan.setStatus', { planId: flags.plan ?? null, text: unescapeText(flags.text) }));
     }

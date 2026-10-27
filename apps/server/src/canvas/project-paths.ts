@@ -91,21 +91,26 @@ export function startCwdGuard(deps: StartCwdDeps) {
     };
 }
 
-async function readInsideFile(rule: InsideRule, folder: string, path: string, worktreePaths: (folder: string) => Promise<string[]>): Promise<string> {
-    const { resolved, real } = await checkInsideProject(folder, rule, path, worktreePaths);
-    if (!(await stat(real)).isFile()) {
-        throw new VerbRefusal(rule.badCode, `${resolved} is not a file; ${rule.flag} is resolved against the project folder unless it is absolute`);
+async function insideFile(
+    rule: InsideRule,
+    folder: string,
+    path: string,
+    worktreePaths: (folder: string) => Promise<string[]>
+): Promise<{ resolved: string; real: string }> {
+    const inside = await checkInsideProject(folder, rule, path, worktreePaths);
+    if (!(await stat(inside.real)).isFile()) {
+        throw new VerbRefusal(rule.badCode, `${inside.resolved} is not a file; ${rule.flag} is resolved against the project folder unless it is absolute`);
     }
-    return Bun.file(real).text();
+    return inside;
+}
+
+async function readInsideFile(rule: InsideRule, folder: string, path: string, worktreePaths: (folder: string) => Promise<string[]>): Promise<string> {
+    return Bun.file((await insideFile(rule, folder, path, worktreePaths)).real).text();
 }
 
 /* A file of the project or of a worktree of it, as the path a caller gave resolves; a link that leads out of them is refused. */
 export async function checkInsideFile(folder: string, path: string, worktreePaths: (folder: string) => Promise<string[]>): Promise<string> {
-    const { resolved, real } = await checkInsideProject(folder, FILE_RULE, path, worktreePaths);
-    if (!(await stat(real)).isFile()) {
-        throw new VerbRefusal(FILE_RULE.badCode, `${resolved} is not a file; ${FILE_RULE.flag} is resolved against the project folder unless it is absolute`);
-    }
-    return resolved;
+    return (await insideFile(FILE_RULE, folder, path, worktreePaths)).resolved;
 }
 
 /*

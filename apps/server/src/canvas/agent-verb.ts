@@ -12,10 +12,8 @@ import { MAX_CANVAS_NODES, idList } from './nodes.ts';
 import { TASK_LINES, nextLine } from './task-verbs.ts';
 import { MAX_TASK_PROMPT_LENGTH } from './tasks.ts';
 import { unescapeText } from './text-escapes.ts';
-import { DRY_RUN_PREVIEW, MAX_TITLE_LENGTH, TITLE_LINE, titleField } from './verb.ts';
+import { DRY_RUN_PREVIEW, MAX_TITLE_LENGTH, TITLE_LINE, titleField, VIEW_FLAG } from './verb.ts';
 import { WORKTREE_LINES } from './worktree.ts';
-
-export { AGENT_KINDS, agentNode, chatKinds, nameOf, terminalMode } from './agents.ts';
 
 const KIND_MESSAGE = `agent needs a CLI: ${AGENT_KINDS.join(', ')}`;
 
@@ -149,7 +147,7 @@ export const agentVerb = defineStandaloneActionVerb({
         'prompt-file': z.string().min(1, '--prompt-file needs the path of a file').optional(),
         cwd: z.string().min(1, '--cwd needs the path of a directory').optional(),
         reads: readsFlag,
-        view: z.string().min(1, '--view needs the id of a canvas').optional(),
+        view: VIEW_FLAG,
         beside: z.string().min(1, '--beside needs the id of a node on that canvas').optional(),
         group: z.string().min(1, '--group needs the id of a group node on that canvas').optional(),
         title: titleField('--title', '--title needs a title').optional(),

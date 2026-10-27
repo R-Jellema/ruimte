@@ -1,8 +1,8 @@
 import { NODE_ACCENT_NAMES, isNodeAccent } from '@ruimte/contracts';
 import { z } from 'zod';
 import { COLOR_LINES } from '../actions/node-actions.ts';
-import { canvasIdFor, defineActionVerb, runAction } from './action-verb.ts';
-import { DRY_RUN_PREVIEW, VerbRefusal, placeOf } from './verb.ts';
+import { canvasIdFor, defineActionVerb, pointedCanvas, runAction } from './action-verb.ts';
+import { DRY_RUN_PREVIEW, VIEW_FLAG, VerbRefusal, oneArgument, placeOf } from './verb.ts';
 
 const NONE = 'none';
 
@@ -30,13 +30,10 @@ export const nodeColorAction = defineActionVerb('node', {
         'ids\tOnly ids, never titles; ruimte-context node list lists the nodes of a canvas with theirs',
         'see\truimte-context node group --color C\ta frame around nodes in one of the same colors'
     ],
-    positionals: z.tuple([z.string().min(1, 'node color needs the id of a node')], {
-        error: (issue) =>
-            issue.code === 'too_big' ? 'node color takes one node id and nothing else; the color goes in --color' : 'node color needs the id of a node'
-    }),
+    positionals: oneArgument('node color needs the id of a node', 'node color takes one node id and nothing else; the color goes in --color'),
     flags: z.object({
         color: z.string({ error: `--color needs one of the colors, or ${NONE}` }).min(1, `--color needs one of the colors, or ${NONE}`),
-        view: z.string().min(1, '--view needs the id of a canvas').optional()
+        view: VIEW_FLAG
     }),
     async run({ positionals: [id], flags, dryRun }, call) {
         if (flags.color !== NONE && !isNodeAccent(flags.color)) {
@@ -44,9 +41,7 @@ export const nodeColorAction = defineActionVerb('node', {
                 ...COLOR_LINES
             ]);
         }
-        // A node the person pointed the caller at already says which canvas it stands on.
-        const pointed = (call.host.context?.referenced?.(call.caller) ?? []).find((reference) => reference.id === id)?.canvas?.id;
-        const viewId = flags.view ?? pointed ?? (await canvasIdFor(call, placeOf(call), flags.view));
+        const viewId = flags.view ?? pointedCanvas(call, [id]) ?? (await canvasIdFor(call, placeOf(call), undefined));
         const colored = await runAction(call, 'node.setColor', { viewId, nodeId: id, color: flags.color === NONE ? null : flags.color }, dryRun);
         return [[dryRun ? 'dry-run' : 'colored', id, colored.kind, colored.color ?? '-'].join('\t')];
     }

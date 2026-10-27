@@ -2,7 +2,7 @@ import { ARTIFACT_KINDS, ARTIFACT_LIMITS, type Artifact, type ArtifactSummary, t
 import { z } from 'zod';
 import { MAX_READ_BYTES } from '../artifacts/artifacts.ts';
 import { defineActionVerb, runAction } from './action-verb.ts';
-import { field, orNote, VerbRefusal } from './verb.ts';
+import { field, orNote, VerbRefusal, oneArgument, jsonFlag } from './verb.ts';
 
 export const ARTIFACT_SUMMARY = "Publishes results that should stay to this project's Output, and lists and reads what is there";
 
@@ -18,17 +18,7 @@ function summaryLine(summary: ArtifactSummary): string {
     return `artifact\t${summary.artifactId}\t${summary.latest.versionId}\t${summary.latest.number}\t${summary.kind}\t${field(summary.title)}\t${summary.key ?? '-'}\t${new Date(summary.latest.createdAt).toISOString()}`;
 }
 
-const FilesSchema = z
-    .string()
-    .transform((text, context) => {
-        try {
-            return JSON.parse(text) as unknown;
-        } catch {
-            context.addIssue({ code: 'custom', message: '--files is JSON, which ruimte-context writes' });
-            return z.NEVER;
-        }
-    })
-    .pipe(z.array(z.object({ name: z.string(), size: z.number() })));
+const FilesSchema = jsonFlag('--files is JSON, which ruimte-context writes').pipe(z.array(z.object({ name: z.string(), size: z.number() })));
 
 const publish = defineActionVerb('artifact', {
     name: 'publish',
@@ -130,12 +120,10 @@ const read = defineActionVerb('artifact', {
         `text\tA text file prints whole up to ${MAX_READ_BYTES / 1024} KiB, then a truncated line; any other file prints what it is and no bytes`,
         'refusals\tnot-found\tthe code this action refuses with; an artifact of another project is not found'
     ],
-    positionals: z.tuple([z.string().min(1, 'artifact read needs the id of an artifact; ruimte-context artifact list lists them')], {
-        error: (issue) =>
-            issue.code === 'too_big'
-                ? 'artifact read takes one id and nothing else'
-                : 'artifact read needs the id of an artifact; ruimte-context artifact list lists them'
-    }),
+    positionals: oneArgument(
+        'artifact read needs the id of an artifact; ruimte-context artifact list lists them',
+        'artifact read takes one id and nothing else'
+    ),
     flags: z.object({
         version: z.string().min(1, '--version needs a version id').optional(),
         file: z.coerce

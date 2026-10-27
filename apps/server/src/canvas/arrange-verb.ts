@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { canvasIdFor, defineActionVerb, runAction } from './action-verb.ts';
 import { idList } from './nodes.ts';
 import { ARRANGE_LAYOUTS, PLACEMENT_GAP, type ArrangeLayout } from './placement.ts';
-import { placeOf, requiredField } from './verb.ts';
+import { placeOf, requiredField, VIEW_FLAG } from './verb.ts';
 
 const DEFAULT_LAYOUT: ArrangeLayout = 'grid';
 
@@ -44,7 +44,7 @@ export const arrangeAction = defineActionVerb('node', {
             .regex(/^[1-9][0-9]*$/, '--cols needs a whole number of columns, 1 or more')
             .transform(Number)
             .optional(),
-        view: z.string().min(1, '--view needs the id of a canvas').optional()
+        view: VIEW_FLAG
     }),
     async run({ flags }, call) {
         const layout = flags.layout ?? DEFAULT_LAYOUT;

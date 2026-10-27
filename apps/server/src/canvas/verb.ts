@@ -528,6 +528,31 @@ export function textFlag(command: string, flag: string, max: number, what: strin
     return z.string({ error: needs }).trim().min(1, needs).max(max, `--${flag} is at most ${max} characters`);
 }
 
+/* A verb's one argument: `needs` when it is missing or empty, `tooMany` when more follow it. */
+export function oneArgument(needs: string, tooMany: string) {
+    return z.tuple([z.string().min(1, needs)], { error: (issue) => (issue.code === 'too_big' ? tooMany : needs) });
+}
+
+export const VIEW_FLAG = z.string().min(1, '--view needs the id of a canvas').optional();
+
+export const TAIL_FLAG = z.coerce
+    .number({ error: '--tail needs a positive whole number' })
+    .int('--tail needs a positive whole number')
+    .positive('--tail needs a positive whole number')
+    .optional();
+
+/* A flag that carries JSON, refused with `message` when it does not parse. */
+export function jsonFlag(message: string) {
+    return z.string().transform((text, context) => {
+        try {
+            return JSON.parse(text) as unknown;
+        } catch {
+            context.addIssue({ code: 'custom', message });
+            return z.NEVER;
+        }
+    });
+}
+
 export function yesNo(value: boolean): string {
     return value ? 'yes' : 'no';
 }

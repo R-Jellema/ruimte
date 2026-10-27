@@ -1,5 +1,6 @@
 import { isCanvasView, type ProjectContent, type Task } from '@ruimte/contracts';
-import { MAX_PROMPT_LENGTH, type FirstPrompt } from '../agents/pending-prompts.ts';
+import { MAX_PROMPT_LENGTH } from '@ruimte/actions';
+import type { FirstPrompt } from '../agents/pending-prompts.ts';
 import { VerbRefusal, field } from './verb.ts';
 
 /* A result past this is a document, not an answer; the wake shows at most the first 8 KiB of it anyway. */

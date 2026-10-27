@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { defineActionVerb, runAction } from './action-verb.ts';
-import { VerbRefusal, defineNoun, field, orNote } from './verb.ts';
+import { VerbRefusal, defineNoun, field, orNote, oneArgument, TAIL_FLAG } from './verb.ts';
 
 const BRANCH_TEXT = 'The branch of the worktree, from ruimte-context worktree list';
 
@@ -51,15 +51,9 @@ const diffSub = defineActionVerb('worktree', {
         'prints\tThe unified diff of every file, as text; a file too large or binary is one line saying so',
         'measure\tAgainst where the worktree left its from branch, so commits that branch gained since are not in it'
     ],
-    positionals: z.tuple([z.string().min(1, 'worktree diff needs the branch of a worktree')], {
-        error: (issue) => (issue.code === 'too_big' ? 'worktree diff takes one branch and nothing else' : 'worktree diff needs the branch of a worktree')
-    }),
+    positionals: oneArgument('worktree diff needs the branch of a worktree', 'worktree diff takes one branch and nothing else'),
     flags: z.object({
-        tail: z.coerce
-            .number({ error: '--tail needs a positive whole number' })
-            .int('--tail needs a positive whole number')
-            .positive('--tail needs a positive whole number')
-            .optional()
+        tail: TAIL_FLAG
     }),
     switches: ['stat'],
     async run({ positionals: [branch], flags, switches }, call) {
@@ -100,9 +94,7 @@ const mergeSub = defineActionVerb('worktree', {
         'rule\tUncommitted and new files in the worktree are committed first, so the merge never takes half of the work',
         'never\tRemoving the worktree or its branch, merged or not: both stay until a person removes them'
     ],
-    positionals: z.tuple([z.string().min(1, 'worktree merge needs the branch of a worktree')], {
-        error: (issue) => (issue.code === 'too_big' ? 'worktree merge takes one branch and nothing else' : 'worktree merge needs the branch of a worktree')
-    }),
+    positionals: oneArgument('worktree merge needs the branch of a worktree', 'worktree merge takes one branch and nothing else'),
     flags: z.object({ message: z.string().trim().min(1, '--message needs the text of the message').optional() }),
     switches: ['squash', 'rebase'],
     async run({ positionals: [branch], flags, switches }, call) {

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { APPROVAL_WAIT_MS } from '../computer/approvals.ts';
 import { READ_MAX_CHARS } from '../actions/computer-actions.ts';
 import { defineActionVerb, runAction, type ActionParam } from './action-verb.ts';
-import { VerbRefusal, field, yesNo } from './verb.ts';
+import { VerbRefusal, field, yesNo, oneArgument } from './verb.ts';
 
 type ComputerState = ActionOutput<'computer.state'>;
 type ComputerOutcome = ActionOutput<'computer.click'>;
@@ -229,10 +229,7 @@ const apps = defineActionVerb('computer', {
 });
 
 function appTuple(word: string) {
-    return z.tuple([z.string().min(1, `computer ${word} needs an app`)], {
-        error: (issue) =>
-            issue.code === 'too_big' ? `computer ${word} takes one app; a name with spaces in it is one argument` : `computer ${word} needs an app`
-    });
+    return oneArgument(`computer ${word} needs an app`, `computer ${word} takes one app; a name with spaces in it is one argument`);
 }
 
 const state = defineActionVerb('computer', {

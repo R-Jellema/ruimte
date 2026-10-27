@@ -2,9 +2,9 @@ import { z } from 'zod';
 import { defineActionVerb, defineStandaloneActionVerb, runAction } from './action-verb.ts';
 import { MAX_RESULT_LENGTH, MAX_TASK_PROMPT_LENGTH, taskLine } from './tasks.ts';
 import { unescapeText } from './text-escapes.ts';
-import { MAX_TITLE_LENGTH, titleField } from './verb.ts';
+import { MAX_TITLE_LENGTH, titleField, oneArgument } from './verb.ts';
 
-export { MAX_TASK_PROMPT_LENGTH, taskBrief } from './tasks.ts';
+export { taskBrief } from './tasks.ts';
 
 export const TASK_LINES: readonly string[] = [
     'task\tWith --task the prompt is the assignment and T its title; only a chat may give one, since only a chat can be woken with the result',
@@ -105,9 +105,7 @@ export const taskNewAction = defineActionVerb('task', {
         }
     ],
     detail: TASK_NEW_DETAIL,
-    positionals: z.tuple([z.string({ error: NEEDS_TARGET }).min(1, NEEDS_TARGET)], {
-        error: (issue) => (issue.code === 'too_big' ? 'task new takes one id and nothing else; what the task asks goes in --prompt' : NEEDS_TARGET)
-    }),
+    positionals: oneArgument(NEEDS_TARGET, 'task new takes one id and nothing else; what the task asks goes in --prompt'),
     flags: z.object({
         prompt: z.string().optional(),
         'prompt-file': z.string().min(1, '--prompt-file needs the path of a file').optional(),

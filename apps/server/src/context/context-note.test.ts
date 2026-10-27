@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { compileUi } from '@adecore/intelligent-ui';
 import type { ContextSource } from '@ruimte/contracts';
 import { BUILT_IN_KINDS } from '../providers/kinds.ts';
-import { NODE_VERB_KINDS } from '../canvas/node-verb.ts';
+import { NODE_VERB_KINDS } from '../canvas/node-kinds.ts';
 import { RUIMTE_UI_FENCE } from '../chat/ui-fence.ts';
 import { ruimteUiSources, type UiSourceHosts } from '../chat/ui-sources.ts';
 import {

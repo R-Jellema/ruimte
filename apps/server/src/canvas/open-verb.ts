@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { defineActionVerb, runAction } from './action-verb.ts';
-import { field } from './verb.ts';
+import { field, oneArgument } from './verb.ts';
 
 /*
  * The one verb that makes nothing. Every other verb writes the project file, which is shared;
@@ -21,9 +21,7 @@ export const openAction = defineActionVerb('view', {
         'note\tA separator and a subheader divide the sidebar and hold nothing to show',
         'see\truimte-context view list\tthe views of the project, which is where the id comes from'
     ],
-    positionals: z.tuple([z.string().min(1, 'view open needs the id of a view')], {
-        error: (issue) => (issue.code === 'too_big' ? 'view open takes one view id and nothing else' : 'view open needs the id of a view')
-    }),
+    positionals: oneArgument('view open needs the id of a view', 'view open takes one view id and nothing else'),
     flags: z.object({}),
     async run({ positionals: [id] }, call) {
         const shown = await runAction(call, 'view.focus', { viewId: id });

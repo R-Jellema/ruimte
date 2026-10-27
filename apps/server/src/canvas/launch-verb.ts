@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { MAX_SCREEN_LINES } from '../context/context-store.ts';
 import { STOP_GRACE_MS } from '../launches/runner.ts';
 import { defineActionVerb, runAction } from './action-verb.ts';
-import { SCOPE_LINE, field, orNote } from './verb.ts';
+import { SCOPE_LINE, field, orNote, oneArgument, TAIL_FLAG, jsonFlag } from './verb.ts';
 
 const LAUNCH_PARAM = { syntax: '<launch>', need: 'required', field: 'launch', more: 'ruimte-context launches list names them' } as const;
 
@@ -10,10 +10,7 @@ const APPROVAL_LINE =
     'approval\tA launch starts only once a person approved it on this machine for the command, folder and environment it has now; a changed launch needs that again';
 
 function launchTuple(word: string) {
-    return z.tuple([z.string().min(1, `launches ${word} needs the id or the name of a launch`)], {
-        error: (issue) =>
-            issue.code === 'too_big' ? `launches ${word} takes one launch and nothing else` : `launches ${word} needs the id or the name of a launch`
-    });
+    return oneArgument(`launches ${word} needs the id or the name of a launch`, `launches ${word} takes one launch and nothing else`);
 }
 
 const listAction = defineActionVerb('launches', {
@@ -70,11 +67,7 @@ const readAction = defineActionVerb('launches', {
     ],
     positionals: launchTuple('read'),
     flags: z.object({
-        tail: z.coerce
-            .number({ error: '--tail needs a positive whole number' })
-            .int('--tail needs a positive whole number')
-            .positive('--tail needs a positive whole number')
-            .optional()
+        tail: TAIL_FLAG
     }),
     async run({ positionals: [launch], flags }, call) {
         const read = await runAction(call, 'launch.read', { launch, tail: flags.tail ?? null });
@@ -150,21 +143,11 @@ const stopAction = defineActionVerb('launches', {
     }
 });
 
-const EnvFlag = z
-    .string()
-    .transform((text, context) => {
-        try {
-            return JSON.parse(text) as unknown;
-        } catch {
-            context.addIssue({ code: 'custom', message: '--env is a JSON object of variables, such as {"PORT":"3000"}; null removes one' });
-            return z.NEVER;
-        }
+const EnvFlag = jsonFlag('--env is a JSON object of variables, such as {"PORT":"3000"}; null removes one').pipe(
+    z.record(z.string(), z.string().nullable(), {
+        error: '--env is a JSON object of variables with text values, such as {"PORT":"3000"}; null removes one'
     })
-    .pipe(
-        z.record(z.string(), z.string().nullable(), {
-            error: '--env is a JSON object of variables with text values, such as {"PORT":"3000"}; null removes one'
-        })
-    );
+);
 
 const MembersFlag = z
     .string()

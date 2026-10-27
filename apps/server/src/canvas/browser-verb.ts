@@ -1,7 +1,7 @@
 import type { ActionOutput } from '@ruimte/actions';
 import { z } from 'zod';
-import { defineActionVerb, runAction } from './action-verb.ts';
-import { field, SCOPE_LINE, yesNo } from './verb.ts';
+import { NODE_PARAM, VIEW_PARAM, defineActionVerb, runAction } from './action-verb.ts';
+import { SCOPE_LINE, VIEW_FLAG, field, oneArgument, yesNo } from './verb.ts';
 
 /* What every action of this noun prints under its first line, so an agent reads one shape whatever it asked. */
 const PRINTS_LINES: readonly string[] = [
@@ -43,16 +43,10 @@ function pageLines({ nodeId, open, page, error }: ActionOutput<'browser.inspect'
     ];
 }
 
-const NODE_PARAM = {
-    syntax: '<id>',
-    need: 'required',
-    field: 'nodeId',
-    more: 'ruimte-context list names the ones linked to you, and a chat view finds them with node list --view V'
-} as const;
-
-const VIEW_PARAM = { syntax: '--view V', need: 'optional', field: 'viewId' } as const;
-
-const VIEW_FLAG = z.string().min(1, '--view needs the id of a canvas').optional();
+/* `browser <word> <id>`, refused with `rest` when more than the id follows. */
+function nodeArgument(word: string, rest: string) {
+    return oneArgument(`browser ${word} needs the id of a browser node`, `browser ${word} takes ${rest}`);
+}
 
 /* The actions that take nothing but the node: the page is told one word and answers where it stands. */
 function plainAction(word: string, action: 'browser.inspect' | 'browser.back' | 'browser.forward' | 'browser.stop', detail: readonly string[] = []) {
@@ -62,10 +56,7 @@ function plainAction(word: string, action: 'browser.inspect' | 'browser.back' | 
         usage: '<id> [--view V]',
         params: [NODE_PARAM, VIEW_PARAM],
         detail: [...detail, ...PRINTS_LINES, ...COMMON_DETAIL],
-        positionals: z.tuple([z.string().min(1, `browser ${word} needs the id of a browser node`)], {
-            error: (issue) =>
-                issue.code === 'too_big' ? `browser ${word} takes one node id and nothing else` : `browser ${word} needs the id of a browser node`
-        }),
+        positionals: nodeArgument(word, 'one node id and nothing else'),
         flags: z.object({ view: VIEW_FLAG }),
         async run({ positionals: [id], flags }, call) {
             return pageLines(await runAction(call, action, { nodeId: id, viewId: flags.view ?? null }));
@@ -91,9 +82,7 @@ const goAction = defineActionVerb('browser', {
         ...PRINTS_LINES,
         ...COMMON_DETAIL
     ],
-    positionals: z.tuple([z.string().min(1, 'browser go needs the id of a browser node')], {
-        error: (issue) => (issue.code === 'too_big' ? 'browser go takes one node id and the address in --url' : 'browser go needs the id of a browser node')
-    }),
+    positionals: nodeArgument('go', 'one node id and the address in --url'),
     flags: z.object({ url: z.string().min(1, '--url needs an http or https address'), view: VIEW_FLAG }),
     async run({ positionals: [id], flags }, call) {
         const went = await runAction(call, 'browser.navigate', { nodeId: id, viewId: flags.view ?? null, url: flags.url });
@@ -113,9 +102,7 @@ const reloadAction = defineActionVerb('browser', {
     usage: '<id> [--hard] [--view V]',
     params: [NODE_PARAM, VIEW_PARAM, { syntax: '--hard', need: 'no value', field: 'hard' }],
     detail: [...PRINTS_LINES, ...COMMON_DETAIL],
-    positionals: z.tuple([z.string().min(1, 'browser reload needs the id of a browser node')], {
-        error: (issue) => (issue.code === 'too_big' ? 'browser reload takes one node id and nothing else' : 'browser reload needs the id of a browser node')
-    }),
+    positionals: nodeArgument('reload', 'one node id and nothing else'),
     flags: z.object({ view: VIEW_FLAG }),
     switches: ['hard'],
     async run({ positionals: [id], flags, switches }, call) {
@@ -135,9 +122,7 @@ const shotAction = defineActionVerb('browser', {
         'note\tThe picture is what the page shows now, the visible part of it and no more',
         ...COMMON_DETAIL
     ],
-    positionals: z.tuple([z.string().min(1, 'browser shot needs the id of a browser node')], {
-        error: (issue) => (issue.code === 'too_big' ? 'browser shot takes one node id and nothing else' : 'browser shot needs the id of a browser node')
-    }),
+    positionals: nodeArgument('shot', 'one node id and nothing else'),
     flags: z.object({ view: VIEW_FLAG }),
     async run({ positionals: [id], flags }, call) {
         const shot = await runAction(call, 'browser.screenshot', { nodeId: id, viewId: flags.view ?? null });

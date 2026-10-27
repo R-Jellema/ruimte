@@ -7,7 +7,7 @@ import { AGENT_CELL_LIMIT, AGENT_DATABASE_LIMIT_MS, EXECUTE_ROW_LIMIT } from '..
 import { binarySize } from '../database/table-visual.ts';
 import { defineActionVerb, runAction } from './action-verb.ts';
 import { SHOWN_LINE } from './visual-verb.ts';
-import { SCOPE_LINE, VerbRefusal, field, orNote } from './verb.ts';
+import { SCOPE_LINE, VerbRefusal, field, orNote, oneArgument } from './verb.ts';
 
 const CONNECTION_PARAM = { syntax: '<connection>', need: 'required', field: 'connection', more: 'ruimte-context database list names them' } as const;
 
@@ -49,17 +49,13 @@ function rowsLines(result: { columns: readonly { name: string }[]; rows: readonl
     ];
 }
 
-const sqlFlag = (verb: string, needs: string) =>
-    z
-        .string({ error: `database ${verb} needs ${needs}, on stdin or as --sql` })
-        .trim()
-        .min(1, `database ${verb} needs ${needs}, on stdin or as --sql`);
+function sqlFlag(verb: string, needs: string) {
+    const message = `database ${verb} needs ${needs}, on stdin or as --sql`;
+    return z.string({ error: message }).trim().min(1, message);
+}
 
 function connectionTuple(verb: string) {
-    return z.tuple([z.string().min(1, `database ${verb} needs the id or the name of a connection`)], {
-        error: (issue) =>
-            issue.code === 'too_big' ? `database ${verb} takes one connection and nothing else` : `database ${verb} needs the id or the name of a connection`
-    });
+    return oneArgument(`database ${verb} needs the id or the name of a connection`, `database ${verb} takes one connection and nothing else`);
 }
 
 const SQL_PARAM_MORE = 'given as one argument instead of on stdin; the CLI puts stdin here when you give no --sql';

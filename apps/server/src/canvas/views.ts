@@ -75,10 +75,6 @@ export function deleteReason(view: ProjectView, call: { caller: string; place: I
     return { may: false, why: view.createdBy === undefined ? 'a person made it' : `${view.createdBy} made it` };
 }
 
-function deletableView(view: ProjectView, call: { caller: string; place: IndexedPlace; anyView: boolean }): boolean {
-    return deleteReason(view, call).may;
-}
-
 /* The icon names in rows of ten: one per line they would bury the refusal they belong to. */
 const ICON_NAME_LINES = Array.from({ length: Math.ceil(PROJECT_ICON_NAMES.length / 10) }, (_, row) =>
     ['icons', ...PROJECT_ICON_NAMES.slice(row * 10, row * 10 + 10)].join('\t')
@@ -149,7 +145,7 @@ export function madeView(
 
 /* Why this view stays. Every sentence names the way out, since the caller cannot read the machine. */
 export function refuseUndeletable(view: ProjectView, call: { caller: string; place: IndexedPlace; anyView: boolean }): void {
-    if (deletableView(view, call)) {
+    if (deleteReason(view, call).may) {
         return;
     }
     if (view.id === call.caller || view.id === call.place.canvasId) {

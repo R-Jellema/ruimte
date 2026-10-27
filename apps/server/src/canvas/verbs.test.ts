@@ -49,20 +49,20 @@ import { peerCanvasId } from '../peering/links.ts';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { AgentLineageStore, TaskStore } from '@adecore/agents/coordination';
 import { DIAGRAM_EXAMPLE } from './diagram-verb.ts';
-import { MAX_PROMPT_LENGTH } from '../agents/pending-prompts.ts';
+import { MAX_NOTICE_LENGTH, MAX_PROMPT_LENGTH } from '@ruimte/actions';
 import { CANVAS_PATH, handleCanvasRequest } from './canvas-route.ts';
 import { MAX_AGENT_DEPTH, MAX_OPENED_PER_CALLER, MAX_TEAM_DEPTH } from './depth.ts';
-import { AGENT_KINDS } from './agent-verb.ts';
-import { MAX_LINKS } from './link-verb.ts';
-import { MAX_CANVAS_NODES } from './node-verb.ts';
+import { AGENT_KINDS } from './agents.ts';
+import { MAX_LINKS } from './links.ts';
+import { MAX_CANVAS_NODES } from './nodes.ts';
 import { PLACEMENT_GAP, TEAM_COLUMNS } from './placement.ts';
 import { MAX_ROLES, ROLES_SHAPE } from './team-verb.ts';
-import { MAX_PROJECT_VIEWS, VIEW_KINDS } from './view-verb.ts';
+import { MAX_PROJECT_VIEWS, VIEW_KINDS } from './views.ts';
 import { DatabaseAccessStore } from '../database/agent-access.ts';
 import { AgentDatabases } from '../database/agent-databases.ts';
 import { DatabasePasswords } from '../database/agent-passwords.ts';
 import type { Notice } from '@adecore/agents/coordination';
-import { MAX_NOTICE_LENGTH, type NoticeDelivery } from '../context/notices.ts';
+import type { NoticeDelivery } from '../context/notices.ts';
 import { MAX_TITLE_LENGTH, NEW_NODE, OPENING_OFF_CANVAS, type AgentStart, type CanvasHost, type Noun } from './verb.ts';
 import { VERBS } from './verbs.ts';
 import { StartClaims } from '../actions/start-claims.ts';
@@ -70,8 +70,8 @@ import { serverActionCall, voiceActionCall, type VoiceCaller } from '../actions/
 import { serverActions } from '../actions/server-actions.ts';
 import type { ActionOutput, ActionResult } from '@ruimte/actions';
 import { freeBranch } from '../git/worktrees.ts';
-import { MAX_TASK_PROMPT_LENGTH, nextLine, taskBrief } from './task-verbs.ts';
-import { taskFirstPrompt } from './tasks.ts';
+import { nextLine } from './task-verbs.ts';
+import { MAX_TASK_PROMPT_LENGTH, taskBrief, taskFirstPrompt } from './tasks.ts';
 import { resolveReference, resolveReferences, type Reference } from '../context/references.ts';
 
 function nounNamed(name: string): Noun {

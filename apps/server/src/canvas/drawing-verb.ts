@@ -3,7 +3,7 @@ import { DRAWING_EDIT_LIMITS, DrawingElementPatchSchema, NewDrawingElementSchema
 import { z } from 'zod';
 import { defineActionVerb, runAction } from './action-verb.ts';
 import { typeOf } from './diagram-verb.ts';
-import { DRY_RUN_PREVIEW, VerbRefusal } from './verb.ts';
+import { DRY_RUN_PREVIEW, VerbRefusal, oneArgument } from './verb.ts';
 
 /* An edit that passes, so an agent has one shape to start from; a test holds it to the schema. */
 const DRAWING_EDIT_EXAMPLE = JSON.stringify({
@@ -81,10 +81,7 @@ export const drawingAction = defineActionVerb('view', {
     ],
     detail: DETAIL,
     dryRun: true,
-    positionals: z.tuple([z.string().min(1, 'view drawing needs the id of a drawing view')], {
-        error: (issue) =>
-            issue.code === 'too_big' ? 'view drawing takes one view id and nothing else; the edit goes on stdin' : 'view drawing needs the id of a drawing view'
-    }),
+    positionals: oneArgument('view drawing needs the id of a drawing view', 'view drawing takes one view id and nothing else; the edit goes on stdin'),
     // The registry takes --revision off every verb as the project's; here it is the drawing's, so it is listed only to be accepted.
     flags: z.object({ revision: z.string().optional(), edit: z.string().optional() }),
     async run({ positionals: [viewId], flags, dryRun }, call) {

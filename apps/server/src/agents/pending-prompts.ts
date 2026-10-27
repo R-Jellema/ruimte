@@ -3,8 +3,6 @@ import { RecordDirectory } from '@adecore/agents';
 import { RoutinePickedSchema, type RoutinePicked } from '@ruimte/contracts';
 import { z } from 'zod';
 
-export { MAX_PROMPT_LENGTH } from '@ruimte/actions';
-
 const PendingPromptSchema = z.object({
     projectId: z.string().min(1),
     nodeId: z.string().min(1),

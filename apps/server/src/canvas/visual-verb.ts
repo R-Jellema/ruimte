@@ -6,7 +6,7 @@ import { CONSOLE_LIMITS } from '../visuals/page-console.ts';
 import { SHOT_MAX_HEIGHT } from '../visuals/render-protocol.ts';
 import { PREVIEW_LIMIT_MS, PREVIEW_WIDTH } from '../visuals/renderer.ts';
 import { defineActionVerb, runAction } from './action-verb.ts';
-import { SCOPE_LINE, field } from './verb.ts';
+import { SCOPE_LINE, field, oneArgument } from './verb.ts';
 
 /* A model that is not told so describes the page in its reply as well, which the person then reads twice. */
 export const SHOWN_LINE =
@@ -195,12 +195,7 @@ const remove = defineActionVerb('visual', {
         'prints\tremoved\tid\ttitle\tthe visual is gone from the thread of every client',
         'refusals\tvisual-needs-chat\tvisual-not-found\tthe codes this action refuses with'
     ],
-    positionals: z.tuple([z.string().min(1, 'visual remove needs the id of a visual; ruimte-context visual list lists them')], {
-        error: (issue) =>
-            issue.code === 'too_big'
-                ? 'visual remove takes one id and nothing else'
-                : 'visual remove needs the id of a visual; ruimte-context visual list lists them'
-    }),
+    positionals: oneArgument('visual remove needs the id of a visual; ruimte-context visual list lists them', 'visual remove takes one id and nothing else'),
     flags: z.object({}),
     async run({ positionals: [visualId] }, call) {
         const removed = await runAction(call, 'visual.remove', { visualId });

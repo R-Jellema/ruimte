@@ -18,11 +18,10 @@ import {
     VerbRefusal,
     field,
     placeOf,
-    titleField
+    titleField,
+    oneArgument,
+    VIEW_FLAG
 } from './verb.ts';
-
-export { NODE_VERB_KINDS } from './node-kinds.ts';
-export { MAX_CANVAS_NODES } from './nodes.ts';
 
 const KIND_MESSAGE = `node new needs a kind: ${NODE_VERB_KINDS.join(', ')}`;
 
@@ -154,7 +153,7 @@ export const nodeNewAction = defineActionVerb('node', {
         artifact: z.string().min(1, '--artifact needs the id of an artifact').optional(),
         version: z.string().min(1, '--version needs the id of a version').optional(),
         routine: z.string().min(1, '--routine needs the id of a routine').optional(),
-        view: z.string().min(1, '--view needs the id of a canvas').optional(),
+        view: VIEW_FLAG,
         beside: z.string().min(1, '--beside needs the id of a node on that canvas').optional(),
         color: z.string().min(1, '--color needs one of the colors').optional(),
         json: z.string().min(1, '--json needs an array of nodes').optional()
@@ -267,10 +266,7 @@ export const nodeDeleteAction = defineActionVerb('node', {
         'note\tThe nodes are found on any canvas of this project, so this takes no --view; one call takes the nodes of one canvas',
         'see\truimte-context node list\tthe nodes of a canvas, with the ids this takes'
     ],
-    positionals: z.tuple([z.string().min(1, 'node delete needs the id of a node')], {
-        error: (issue) =>
-            issue.code === 'too_big' ? 'node delete takes its node ids in one argument, separated by commas, as a,b,c' : 'node delete needs the id of a node'
-    }),
+    positionals: oneArgument('node delete needs the id of a node', 'node delete takes its node ids in one argument, separated by commas, as a,b,c'),
     flags: z.object({}),
     async run({ positionals: [raw] }, call) {
         const ids = idBatch(raw, 'node delete');
@@ -323,7 +319,7 @@ export const nodeListAction = defineActionVerb('node', {
         SCOPE_LINE
     ],
     positionals: z.tuple([], { error: 'node list takes no arguments, only flags' }),
-    flags: z.object({ view: z.string().min(1, '--view needs the id of a canvas').optional() }),
+    flags: z.object({ view: VIEW_FLAG }),
     async run({ flags }, call) {
         const listed = await runAction(call, 'node.list', { viewId: await canvasIdFor(call, placeOf(call), flags.view) });
         return [

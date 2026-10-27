@@ -1,9 +1,9 @@
 import { MAX_PER_CALL } from '@ruimte/actions';
 import { z } from 'zod';
-import { canvasIdFor, defineActionVerb, runAction } from './action-verb.ts';
+import { canvasIdFor, defineActionVerb, pointedCanvas, runAction } from './action-verb.ts';
 import { ONE_WRITE, jsonBatch } from './batch.ts';
 import { unescapeText } from './text-escapes.ts';
-import { VerbRefusal, placeOf, type VerbCall } from './verb.ts';
+import { VIEW_FLAG, VerbRefusal, placeOf } from './verb.ts';
 
 const NEEDS_TEXT = '--text needs the body to write, in quotes';
 
@@ -21,12 +21,6 @@ const JsonEditSchema = z.strictObject({
     text: z.string({ error: 'text needs the body to write' }),
     append: z.boolean({ error: 'append is true or false' }).optional()
 });
-
-/* The canvas of a note a person pointed the caller at with `#`, so that note needs no --view: the reference already says where it stands. */
-function referencedCanvas(call: VerbCall, ids: readonly string[]): string | null {
-    const references = call.host.context?.referenced?.(call.caller) ?? [];
-    return references.find((reference) => reference.kind === 'note' && ids.includes(reference.id))?.canvas?.id ?? null;
-}
 
 const JSON_EXAMPLE = `ruimte-context node edit --json '[{"id":"note-1","text":"Done"},{"id":"note-2","text":"One more line","append":true}]'`;
 
@@ -78,7 +72,7 @@ export const nodeEditAction = defineActionVerb('node', {
     flags: z.object({
         text: z.string({ error: NEEDS_TEXT }).transform(unescapeText).optional(),
         json: z.string().min(1, '--json needs an array of notes').optional(),
-        view: z.string().min(1, '--view needs the id of a canvas').optional()
+        view: VIEW_FLAG
     }),
     async run({ positionals: [id], flags, switches }, call) {
         const append = switches.has(APPEND_FLAG);
@@ -92,13 +86,8 @@ export const nodeEditAction = defineActionVerb('node', {
                 throw new VerbRefusal('bad-arguments', `--json carries every note with its own fields; leave out ${single.join(', ')}`, EDIT_USAGE_LINES);
             }
             const edits = jsonBatch(flags.json, JsonEditSchema, JSON_EXAMPLE);
-            const viewId =
-                flags.view ??
-                referencedCanvas(
-                    call,
-                    edits.map((edit) => edit.id)
-                ) ??
-                (await canvasIdFor(call, placeOf(call), flags.view));
+            const ids = edits.map((edit) => edit.id);
+            const viewId = flags.view ?? pointedCanvas(call, ids, 'note') ?? (await canvasIdFor(call, placeOf(call), undefined));
             const edited = await runAction(call, 'node.updateMany', {
                 viewId,
                 nodes: edits.map((edit) => ({ nodeId: edit.id, text: edit.text, append: edit.append ?? false }))
@@ -111,7 +100,7 @@ export const nodeEditAction = defineActionVerb('node', {
         if (flags.text === undefined) {
             throw new VerbRefusal('bad-arguments', NEEDS_TEXT, EDIT_USAGE_LINES);
         }
-        const viewId = flags.view ?? referencedCanvas(call, [id]) ?? (await canvasIdFor(call, placeOf(call), flags.view));
+        const viewId = flags.view ?? pointedCanvas(call, [id], 'note') ?? (await canvasIdFor(call, placeOf(call), undefined));
         const edited = await runAction(call, 'node.update', { viewId, nodeId: id, text: flags.text, append });
         return [`edited\t${id}\t${edited.lines}\t${edited.characters}`];
     }

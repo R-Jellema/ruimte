@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { defineStandaloneActionVerb, runAction } from './action-verb.ts';
 import { DEPTH_LIMIT_LINES } from './depth.ts';
 import { MODE_LINES } from './mode.ts';
-import { MAX_TITLE_LENGTH, titleField } from './verb.ts';
+import { MAX_TITLE_LENGTH, titleField, oneArgument } from './verb.ts';
 
 const NEEDS_ID = 'fork takes the id of the chat to fork, one you opened yourself';
 
@@ -35,9 +35,7 @@ export const forkVerb = defineStandaloneActionVerb({
         'refusals\tself-fork\tnot-yours\tnode-on-other-machine\tnot-a-chat\tno-turn\tturn-running\tchat-busy\ttranscript-missing\ttoo-deep\ttoo-many-agents\tnot-a-repository\tbranch-exists\tthe codes this verb refuses with most',
         'ids\tOnly ids, never titles: the id is the one agent or team printed when it opened the chat'
     ],
-    positionals: z.tuple([z.string({ error: NEEDS_ID }).min(1, NEEDS_ID)], {
-        error: (issue) => (issue.code === 'too_big' ? 'fork takes one id and nothing else' : NEEDS_ID)
-    }),
+    positionals: oneArgument(NEEDS_ID, 'fork takes one id and nothing else'),
     flags: z.object({
         title: titleField('--title', '--title needs the title of the fork').optional(),
         branch: z.string().trim().min(1, '--branch needs the name of a new branch').optional()

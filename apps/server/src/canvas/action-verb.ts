@@ -6,6 +6,22 @@ import { serverActions } from '../actions/server-actions.ts';
 import type { IndexedPlace } from '../projects/project-index.ts';
 import { REVISION_LINE, VerbRefusal, canvasLines, defineAction, defineVerb, placeOf, type Action, type Verb, type VerbCall } from './verb.ts';
 
+/* The node a browser or device action drives, and the canvas a chat view names it on. */
+export const NODE_PARAM = {
+    syntax: '<id>',
+    need: 'required',
+    field: 'nodeId',
+    more: 'ruimte-context list names the ones linked to you, and a chat view finds them with node list --view V'
+} as const;
+
+export const VIEW_PARAM = { syntax: '--view V', need: 'optional', field: 'viewId' } as const;
+
+export const JSON_PARAM = { syntax: '--json', need: 'no value', text: 'Prints the answer as one JSON object instead of lines' } as const;
+
+export function jsonLines(value: unknown): string[] {
+    return [JSON.stringify(value, null, 2)];
+}
+
 /* What the daemon's registry answers when a handler failed outright rather than refused. */
 const FAILURES: ReadonlySet<string> = new Set(['action-failed', 'invalid-output']);
 
@@ -49,6 +65,12 @@ export async function canvasIdFor(
         return place.canvasId;
     }
     throw new VerbRefusal('view-required', offCanvas, canvasLines(await call.host.projects.read(place.projectId)));
+}
+
+/* The canvas of a node a person pointed the caller at with `#`, which then needs no --view: the reference says where it stands. */
+export function pointedCanvas(call: VerbCall, ids: readonly string[], kind?: string): string | null {
+    const references = call.host.context?.referenced?.(call.caller) ?? [];
+    return references.find((reference) => ids.includes(reference.id) && (kind === undefined || reference.kind === kind))?.canvas?.id ?? null;
 }
 
 /* One argument or flag of an action verb, as `help` prints it. */

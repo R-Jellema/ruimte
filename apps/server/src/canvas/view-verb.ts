@@ -1,10 +1,8 @@
 import { PROJECT_ICON_NAMES } from '@ruimte/contracts';
 import { z } from 'zod';
 import { defineActionVerb, runAction } from './action-verb.ts';
-import { REVISION_ROW, TITLE_LINE, VerbRefusal, field, titleField, type Action } from './verb.ts';
+import { REVISION_ROW, TITLE_LINE, VerbRefusal, field, titleField, type Action, oneArgument } from './verb.ts';
 import { MAX_PROJECT_VIEWS, VIEW_KINDS, viewKindsFor } from './views.ts';
-
-export { MAX_PROJECT_VIEWS, VIEW_KINDS } from './views.ts';
 
 // A canvas with more nodes than this would bury the one line that says the view is gone.
 const DELETED_NODE_LINES = 20;
@@ -157,9 +155,7 @@ const moveSub = defineActionVerb('view', {
         'prints\tid\tkind\tindex\tthe place it now has, counted from 0 over every row, separators included',
         'note\tExactly one of --after and --first; the order of the list is the order of the file'
     ],
-    positionals: z.tuple([z.string().min(1, 'view move needs the id of a view')], {
-        error: (issue) => (issue.code === 'too_big' ? 'view move takes one view id; where it goes is a flag' : 'view move needs the id of a view')
-    }),
+    positionals: oneArgument('view move needs the id of a view', 'view move takes one view id; where it goes is a flag'),
     flags: z.object({ after: z.string().min(1, '--after needs the id of a view').optional() }),
     switches: ['first'],
     async run({ positionals: [id], flags, switches }, call) {
@@ -189,9 +185,7 @@ const deleteSub = defineActionVerb('view', {
         'note\tA canvas takes its nodes with it, so the shells and agents on it stop where they are',
         'see\truimte-context view list\tthe last column says which views this rule lets you remove'
     ],
-    positionals: z.tuple([z.string().min(1, 'view delete needs the id of a view')], {
-        error: (issue) => (issue.code === 'too_big' ? 'view delete takes one view id and nothing else' : 'view delete needs the id of a view')
-    }),
+    positionals: oneArgument('view delete needs the id of a view', 'view delete takes one view id and nothing else'),
     flags: z.object({}),
     async run({ positionals: [id] }, call) {
         const deleted = await runAction(call, 'view.delete', { viewId: id });

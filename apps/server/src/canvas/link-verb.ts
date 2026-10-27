@@ -5,9 +5,7 @@ import { canvasIdFor, defineActionVerb, runAction } from './action-verb.ts';
 import { ONE_WRITE, idBatch } from './batch.ts';
 import { MAX_LINKS } from './links.ts';
 import { idList } from './nodes.ts';
-import { MAX_TITLE_LENGTH, REVISION_ROW, SCOPE_LINE, field, placeOf, titleField } from './verb.ts';
-
-export { MAX_LINKS } from './links.ts';
+import { MAX_TITLE_LENGTH, REVISION_ROW, SCOPE_LINE, field, placeOf, titleField, oneArgument, VIEW_FLAG } from './verb.ts';
 
 /* The flag `agent` and `team` take for the nodes their new agent has to be able to read at once. */
 export const readsFlag = z.string().min(1, '--reads needs one or more node ids, separated by commas').optional();
@@ -72,7 +70,7 @@ export const linkNewAction = defineActionVerb('link', {
             .string()
             .min(1, `--role needs one of ${EDGE_ROLES.join(', ')}`)
             .optional(),
-        view: z.string().min(1, '--view needs the id of a canvas').optional()
+        view: VIEW_FLAG
     }),
     async run({ flags }, call) {
         const to = idList(flags.to, '--to');
@@ -97,7 +95,7 @@ export const linkListAction = defineActionVerb('link', {
         SCOPE_LINE
     ],
     positionals: z.tuple([], { error: 'link list takes no arguments, only flags' }),
-    flags: z.object({ view: z.string().min(1, '--view needs the id of a canvas').optional() }),
+    flags: z.object({ view: VIEW_FLAG }),
     async run({ flags }, call) {
         const listed = await runAction(call, 'link.list', { viewId: await canvasIdFor(call, placeOf(call), flags.view) });
         return [...listed.edges.map((edge) => [edge.edgeId, edge.from, edge.to, field(edge.label ?? '')].join('\t')), `revision\t${listed.revision}`];
@@ -129,11 +127,8 @@ export const linkDeleteAction = defineActionVerb('link', {
         'ends\tBoth nodes stay where they are; node delete removes a node together with its lines',
         'see\truimte-context link list\tthe lines of a canvas, with the ids this takes'
     ],
-    positionals: z.tuple([z.string().min(1, 'link delete needs the id of a line')], {
-        error: (issue) =>
-            issue.code === 'too_big' ? 'link delete takes its line ids in one argument, separated by commas, as a,b,c' : 'link delete needs the id of a line'
-    }),
-    flags: z.object({ view: z.string().min(1, '--view needs the id of a canvas').optional() }),
+    positionals: oneArgument('link delete needs the id of a line', 'link delete takes its line ids in one argument, separated by commas, as a,b,c'),
+    flags: z.object({ view: VIEW_FLAG }),
     async run({ positionals: [raw], flags }, call) {
         const ids = idBatch(raw, 'link delete');
         const viewId = await canvasIdFor(call, placeOf(call), flags.view);

@@ -3,8 +3,6 @@ import type { Notice, NoticeStore } from '@adecore/agents/coordination';
 import type { AgentInfo } from '@ruimte/contracts';
 import { takesHookContext } from '../agents/hooks.ts';
 
-export { MAX_NOTICE_LENGTH } from '@ruimte/actions';
-
 /* What the receiving agent hears: the id to act on, the title to read, and the message itself. */
 export function renderNotice(notice: Notice): string {
     return `Ruimte: node ${notice.from}${notice.fromTitle === '' ? '' : ` ("${notice.fromTitle}")`} sent you a message: ${notice.text}`;

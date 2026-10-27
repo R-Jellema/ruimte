@@ -1,9 +1,10 @@
-import { z } from 'zod';
 import { MAX_NOTICES, NOTICE_MAX_AGE_MS } from '@adecore/agents/coordination';
-import { MAX_NOTICE_LENGTH, NO_REPLY_NOTICE } from '../context/notices.ts';
+import { MAX_NOTICE_LENGTH } from '@ruimte/actions';
+import { z } from 'zod';
+import { NO_REPLY_NOTICE } from '../context/notices.ts';
 import { defineStandaloneActionVerb, runAction } from './action-verb.ts';
 import { unescapeText } from './text-escapes.ts';
-import { lengthOf } from './verb.ts';
+import { lengthOf, oneArgument } from './verb.ts';
 
 const NEEDS_TEXT = '--text needs the message to leave, in quotes';
 
@@ -46,10 +47,7 @@ export const notifyVerb = defineStandaloneActionVerb({
         }
     ],
     detail: NOTIFY_DETAIL,
-    positionals: z.tuple([z.string({ error: 'notify takes the id of the node to notify' }).min(1, 'notify takes the id of the node to notify')], {
-        error: (issue) =>
-            issue.code === 'too_big' ? 'notify takes one id and nothing else; the message goes in --text' : 'notify takes the id of the node to notify'
-    }),
+    positionals: oneArgument('notify takes the id of the node to notify', 'notify takes one id and nothing else; the message goes in --text'),
     flags: z.object({
         text: z
             .string({ error: NEEDS_TEXT })
