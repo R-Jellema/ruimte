@@ -6,10 +6,8 @@ import { diffCommit } from './diff.ts';
 import { parseLog, readCommit, readLog } from './log.ts';
 import { nativePath } from './native-path.ts';
 import { parseRefs, parseWorktreeBranches } from './refs.ts';
+import { FIELD } from './run.ts';
 import { gitIn } from './test-repo.ts';
-
-// The separator both formats put between their fields, which no branch or subject can hold.
-const FIELD = '\u001f';
 
 let root: string;
 let repo: string;

@@ -111,7 +111,7 @@ describe('readStatus', () => {
         const status = await readStatus(repo);
         expect(status.branch).toBe('feature');
         expect(status.base).toBe('main');
-        const main = await Bun.$`git rev-parse main`.cwd(repo).text();
+        const main = await git(['rev-parse', 'main']);
         expect(status.mergeBase).toBe(main.trim());
         expect(await mergeBaseOf(repo)).toBe(main.trim());
     });

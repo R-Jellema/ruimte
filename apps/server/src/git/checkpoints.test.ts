@@ -3,21 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Checkpoints } from './checkpoints.ts';
-import { gitIn } from './test-repo.ts';
-
-async function git(args: string[], cwd: string): Promise<void> {
-    const proc = Bun.spawn(['git', ...args], { cwd, stdout: 'pipe', stderr: 'pipe' });
-    const [stderr, code] = await Promise.all([new Response(proc.stderr).text(), proc.exited]);
-    if (code !== 0) {
-        throw new Error(`git ${args.join(' ')}: ${stderr}`);
-    }
-}
-
-async function status(cwd: string): Promise<string> {
-    const proc = Bun.spawn(['git', 'status', '--porcelain'], { cwd, stdout: 'pipe', stderr: 'pipe' });
-    const [stdout] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
-    return stdout;
-}
+import { gitIn, initRepo } from './test-repo.ts';
 
 let home: string;
 let repo: string;
@@ -29,16 +15,7 @@ beforeAll(async () => {
     repo = await mkdtemp(join(tmpdir(), 'ruimte-checkpoint-repo-'));
     plain = await mkdtemp(join(tmpdir(), 'ruimte-checkpoint-plain-'));
     checkpoints = new Checkpoints(home);
-    await git(['init', '-q'], repo);
-    await git(['config', 'user.email', 'test@example.com'], repo);
-    await git(['config', 'user.name', 'Test'], repo);
-    await git(['config', 'commit.gpgsign', 'false'], repo);
-    await git(['config', 'core.autocrlf', 'false'], repo);
-    await writeFile(join(repo, '.gitignore'), 'ignored.txt\n');
-    await writeFile(join(repo, 'kept.txt'), 'one\ntwo\nthree\n');
-    await writeFile(join(repo, 'gone.txt'), 'bye\n');
-    await git(['add', '-A'], repo);
-    await git(['commit', '-q', '-m', 'init'], repo);
+    await initRepo(repo, { '.gitignore': 'ignored.txt\n', 'kept.txt': 'one\ntwo\nthree\n', 'gone.txt': 'bye\n' });
 });
 
 afterAll(async () => {
@@ -56,7 +33,7 @@ describe('Checkpoints', () => {
         const tree = await checkpoints.take(repo);
         expect(tree).toMatch(/^[0-9a-f]{40}$/);
         // The file is still untracked as far as the repository itself knows.
-        expect(await status(repo)).toContain('?? staged-nothing.txt');
+        expect(await gitIn(repo, ['status', '--porcelain'])).toContain('?? staged-nothing.txt');
         await rm(join(repo, 'staged-nothing.txt'));
     });
 
@@ -121,7 +98,7 @@ describe('Checkpoints', () => {
         expect(diff?.files.map((file) => file.path)).toEqual(['inner/mine.txt']);
         expect((await checkpoints.diff(repo, tree!))?.files.map((file) => file.path).sort()).toEqual(['inner/mine.txt', 'kept.txt']);
         await rm(inner, { recursive: true, force: true });
-        await git(['checkout', '--', 'kept.txt'], repo);
+        await gitIn(repo, ['checkout', '--', 'kept.txt']);
     });
 
     test('a diff of two checkpoints of the same tree is empty', async () => {

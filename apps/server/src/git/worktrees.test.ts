@@ -18,8 +18,23 @@ let worktrees: Worktrees;
 function git(args: string[]): Promise<string> {
     return gitIn(repo, args);
 }
+
 async function branchList(): Promise<string[]> {
     return (await git(['branch', '--list', '--format=%(refname:short)'])).split('\n').filter(Boolean).sort();
+}
+
+/* Writes a file into the worktree just before git is asked to remove it, the gap between the count and the removal. */
+function writeBeforeRemoval(path: string): { spy: ReturnType<typeof spyOn>; reached(): boolean } {
+    const runGit = runner.runGit;
+    let reached = false;
+    const spy = spyOn(runner, 'runGit').mockImplementation(async (args, cwd, options) => {
+        if (args[0] === 'worktree' && args[1] === 'remove') {
+            reached = true;
+            await writeFile(join(path, 'late.md'), 'late');
+        }
+        return runGit(args, cwd, options);
+    });
+    return { spy, reached: () => reached };
 }
 
 beforeAll(async () => {
@@ -217,43 +232,27 @@ describe('Worktrees', () => {
 
     test('a file written after the count but before the removal is refused by git itself, with the fresh numbers', async () => {
         const { worktree } = await worktrees.add(repo, 'lexer');
-        const runGit = runner.runGit;
-        let reached = false;
-        const removing = spyOn(runner, 'runGit').mockImplementation(async (args, cwd, options) => {
-            if (args[0] === 'worktree' && args[1] === 'remove') {
-                reached = true;
-                await writeFile(join(worktree.path, 'late.md'), 'late');
-            }
-            return runGit(args, cwd, options);
-        });
+        const late = writeBeforeRemoval(worktree.path);
         try {
             const refused = worktrees.remove(repo, worktree.path);
             await expect(refused).rejects.toMatchObject({ code: 'worktree-has-work' });
             await expect(refused).rejects.toThrow('lexer holds 0 uncommitted files, 1 new file and 0 commits that main lacks');
-            expect(reached).toBe(true);
+            expect(late.reached()).toBe(true);
             expect(await readFile(join(worktree.path, 'late.md'), 'utf8')).toBe('late');
         } finally {
-            removing.mockRestore();
+            late.spy.mockRestore();
         }
     });
 
     test('force still removes a worktree that gained a file in that gap', async () => {
         const { worktree } = await worktrees.add(repo, 'lexer');
-        const runGit = runner.runGit;
-        let reached = false;
-        const removing = spyOn(runner, 'runGit').mockImplementation(async (args, cwd, options) => {
-            if (args[0] === 'worktree' && args[1] === 'remove') {
-                reached = true;
-                await writeFile(join(worktree.path, 'late.md'), 'late');
-            }
-            return runGit(args, cwd, options);
-        });
+        const late = writeBeforeRemoval(worktree.path);
         try {
             await worktrees.remove(repo, worktree.path, { force: true });
-            expect(reached).toBe(true);
+            expect(late.reached()).toBe(true);
             expect(await fileExists(worktree.path)).toBe(false);
         } finally {
-            removing.mockRestore();
+            late.spy.mockRestore();
         }
     });
 

@@ -29,8 +29,7 @@ describe('ignoredPaths', () => {
         const paths = [join(root, 'keep.ts'), join(root, 'notes.log'), join(root, 'dist')];
         expect(await ignoredPaths(paths, root)).toEqual(new Set());
 
-        await writeFile(join(root, '.gitignore'), '*.log\ndist/\n');
-        await Bun.spawn(['git', 'init', '-q'], { cwd: root, stdout: 'ignore', stderr: 'ignore' }).exited;
+        await ignoreLogsAndDist();
         expect(await ignoredPaths(paths, root)).toEqual(new Set([join(root, 'notes.log'), join(root, 'dist')]));
     });
 
@@ -99,8 +98,7 @@ describe('ignoredPaths', () => {
     });
 
     test('asks git once for what comes in while it runs, and answers each caller its own paths', async () => {
-        await writeFile(join(root, '.gitignore'), '*.log\ndist/\n');
-        await Bun.spawn(['git', 'init', '-q'], { cwd: root, stdout: 'ignore', stderr: 'ignore' }).exited;
+        await ignoreLogsAndDist();
         const runs = spyOn(run, 'runGit');
         try {
             const answers = await Promise.all([

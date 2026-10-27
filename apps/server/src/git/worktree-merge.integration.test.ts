@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { chmod, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expectProcessTerminated } from './test-process.ts';
+import { expectProcessTerminated, installHangingHook, killFromPidFile } from './test-process.ts';
 import { gitIn, initRepo, NO_WORKTREE_AGENTS } from './test-repo.ts';
 import { STILL_WAITING, WorktreeMerge } from './worktree-merge.ts';
 import { Worktrees } from './worktrees.ts';
@@ -11,35 +11,16 @@ let root: string;
 let repo: string;
 let pidFile: string;
 
-/* Takes the hook down if the cancel under test did not, so no shell outlives the file. */
-async function killHook(): Promise<void> {
-    const pid = Number.parseInt((await readFile(pidFile, 'utf8').catch(() => '')).trim(), 10);
-    if (Number.isFinite(pid)) {
-        try {
-            process.kill(pid, 'SIGKILL');
-        } catch {
-            // Gone already, which is what the cancel is for.
-        }
-    }
-}
-
 beforeEach(async () => {
     root = await realpath(await mkdtemp(join(tmpdir(), 'ruimte-merge-cancel-')));
     repo = join(root, 'repo');
     pidFile = join(root, 'hook.pid');
-    const fifo = join(root, 'hook.fifo');
     await initRepo(repo, { 'README.md': 'hi\n' });
-    await gitIn(repo, ['config', 'user.name', 'Ada']);
-    await gitIn(repo, ['config', 'user.email', 'a@a']);
-    expect(await Bun.spawn(['mkfifo', fifo]).exited).toBe(0);
-    // A pre-commit hook that waits on a pipe nobody ever writes to, the way a hung hook or a pinentry would.
-    const hook = join(repo, '.git', 'hooks', 'pre-commit');
-    await writeFile(hook, `#!/bin/sh\necho $$ > '${pidFile}'\necho hook-ready\nread line < '${fifo}'\n`);
-    await chmod(hook, 0o755);
+    await installHangingHook(repo, pidFile, 'hook-ready');
 });
 
 afterEach(async () => {
-    await killHook();
+    await killFromPidFile(pidFile);
     await rm(root, { recursive: true, force: true });
 });
 

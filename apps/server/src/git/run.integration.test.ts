@@ -3,7 +3,7 @@ import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { streamWithTimeout } from './run.ts';
-import { expectProcessTerminated } from './test-process.ts';
+import { expectProcessTerminated, killFromPidFile } from './test-process.ts';
 
 let root: string;
 let pidFile: string;
@@ -15,14 +15,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
     jest.useRealTimers();
-    const pid = Number.parseInt((await readFile(pidFile, 'utf8').catch(() => '')).trim(), 10);
-    if (Number.isFinite(pid)) {
-        try {
-            process.kill(pid, 'SIGKILL');
-        } catch {
-            // Gone already, which is what the timeout is for.
-        }
-    }
+    await killFromPidFile(pidFile);
     await rm(root, { recursive: true, force: true });
 });
 

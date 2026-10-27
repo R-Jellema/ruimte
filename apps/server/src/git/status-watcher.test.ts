@@ -9,7 +9,7 @@ import { FolderWatcher } from '../fs/watch.ts';
 import { GitStatusWatcher } from './status-watcher.ts';
 import { forgetBase, readStatus } from './status.ts';
 import * as runner from './run.ts';
-import { gitIn } from './test-repo.ts';
+import { initRepo } from './test-repo.ts';
 
 let root: string;
 let repo: string;
@@ -23,10 +23,6 @@ let runTakes: number;
 let runs: number;
 /* While set, a status run waits for it after reading, standing in for a run that is slow to come back. */
 let hold: (() => Promise<void>) | null;
-
-async function git(args: string[]): Promise<void> {
-    await gitIn(repo, args);
-}
 
 /* A watcher whose status runs take as long as `runMs` says, whatever the machine is doing. */
 function watcherWith(runMs: number): GitStatusWatcher {
@@ -57,12 +53,7 @@ function watcherWith(runMs: number): GitStatusWatcher {
 beforeEach(async () => {
     root = await realpath(await mkdtemp(join(tmpdir(), 'ruimte-git-watch-')));
     repo = join(root, 'repo');
-    await mkdir(repo);
-    await git(['init', '-q', '-b', 'main']);
-    await writeFile(join(repo, 'tracked.txt'), 'one\n');
-    await writeFile(join(repo, '.gitignore'), 'build/\n');
-    await git(['add', '.']);
-    await git(['commit', '-q', '-m', 'init']);
+    await initRepo(repo, { 'tracked.txt': 'one\n', '.gitignore': 'build/\n' });
     forgetBase();
     clock = 0;
     runs = 0;

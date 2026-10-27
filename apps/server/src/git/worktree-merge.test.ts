@@ -65,13 +65,8 @@ async function lexer(file = 'lexer.txt', body = 'lexer\n'): Promise<string> {
 }
 
 beforeAll(async () => {
-    template = await repoTemplate('ruimte-merge', async (dir) => {
-        const at = join(dir, 'repo');
-        await initRepo(at, { 'README.md': 'hi\n', 'shared.txt': 'one\n' });
-        // The daemon commits with whatever identity the repository has; the fixture's own is enough.
-        await gitIn(at, ['config', 'user.name', 'Ada']);
-        await gitIn(at, ['config', 'user.email', 'a@a']);
-    });
+    // The daemon commits with whatever identity the repository has; the fixture's own is enough.
+    template = await repoTemplate('ruimte-merge', (dir) => initRepo(join(dir, 'repo'), { 'README.md': 'hi\n', 'shared.txt': 'one\n' }));
 });
 
 afterAll(async () => {
@@ -257,21 +252,20 @@ describe('WorktreeMerge', () => {
     test('two merges of one worktree run one after the other, and the second finds it gone', async () => {
         const path = await lexer();
         agents.rows = [{ nodeId: 'chat-lexer', working: false, live: true }];
-        let release = (): void => undefined;
-        let reached = (): void => undefined;
-        const atStop = new Promise<void>((resolve) => (reached = resolve));
+        const reached = Promise.withResolvers<void>();
+        const released = Promise.withResolvers<void>();
         agents.onStop = () => {
-            reached();
-            return new Promise<void>((resolve) => (release = resolve));
+            reached.resolve();
+            return released.promise;
         };
 
         const first = run(path, { stopAgent: true, remove: true });
-        await atStop;
+        await reached.promise;
         const second = run(path, { remove: true }).catch((error: unknown) => error);
         // A git call of the test's own gives the second merge every chance to get past a lock that did not hold.
         await gitIn(repo, ['status', '--porcelain']);
         expect(agents.asked).toBe(1);
-        release();
+        released.resolve();
 
         expect(await first).toMatchObject({ removed: true });
         expect(await second).toMatchObject({ code: 'worktree-not-found' });
