@@ -193,7 +193,8 @@ export function Toolbar({ project = 'acme-web', panel }: { readonly project?: st
     );
 }
 
-const FLOAT = 'border border-border bg-[color-mix(in_srgb,var(--surface-raised)_88%,transparent)] shadow-float backdrop-blur-[14px]';
+/** A surface that floats over a view: the dock, a toast. */
+export const FLOAT = 'border border-border bg-[color-mix(in_srgb,var(--surface-raised)_88%,transparent)] shadow-float backdrop-blur-[14px]';
 
 /** The dock of a canvas view: what waits and works, add, zoom and lock. */
 export function Dock({ waiting = 0, working = 0, finished = 0 }: { readonly waiting?: number; readonly working?: number; readonly finished?: number }) {
@@ -263,6 +264,16 @@ export function CellToolbar({
             <span className="grow" />
             {children}
             <IconButton icon={X} size="sm" />
+        </div>
+    );
+}
+
+/** The title bar of a window on the project, for a scene that shows less than the whole app. */
+export function WindowBar() {
+    return (
+        <div className="flex h-10 shrink-0 items-center gap-3 border-b border-border bg-surface px-4">
+            <TrafficLights />
+            <span className="text-[13px] text-text-muted">acme-web</span>
         </div>
     );
 }

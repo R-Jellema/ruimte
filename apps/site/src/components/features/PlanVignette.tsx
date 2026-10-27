@@ -3,7 +3,7 @@
 import { CheckCheck, ChevronDown, Circle, CircleCheck, LoaderCircle, MoreHorizontal, X } from 'lucide-react';
 import { AssistantText, ToolRow, UserBubble } from '../app/chat.tsx';
 import { ClaudeMark, StatusDot } from '../app/canvas.tsx';
-import { TrafficLights } from '../app/primitives.tsx';
+import { WindowBar } from '../app/chrome.tsx';
 import { useTimeline } from '../film/playback.ts';
 import { Stage } from '../film/Stage.tsx';
 
@@ -28,10 +28,7 @@ function PlanScene() {
     const done = step === 3 ? 4 : step + 1;
     return (
         <div className="absolute inset-x-5 top-6 bottom-6 flex flex-col overflow-hidden rounded-xl border border-border-strong bg-bg shadow-node">
-            <div className="flex h-10 shrink-0 items-center gap-3 border-b border-border bg-surface px-4">
-                <TrafficLights />
-                <span className="text-[13px] text-text-muted">acme-web</span>
-            </div>
+            <WindowBar />
             <div className="flex min-h-0 grow">
                 <div className="w-[252px] shrink-0 border-r border-border">
                     <div className="flex h-[39px] items-center gap-2 border-b border-border bg-surface-raised px-3 text-[13px]">

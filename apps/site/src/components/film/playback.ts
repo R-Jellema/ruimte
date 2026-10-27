@@ -69,10 +69,7 @@ export function useFilm(chapters: readonly (readonly number[])[]): FilmPosition 
 
     const jump = useCallback((chapter: number) => setPosition({ chapter, step: 0 }), []);
 
-    if (still) {
-        return { chapter: position.chapter, step: chapters[position.chapter].length - 1, jump };
-    }
-    return { chapter: position.chapter, step: position.step, jump };
+    return { chapter: position.chapter, step: still ? durations.length - 1 : position.step, jump };
 }
 
 /**

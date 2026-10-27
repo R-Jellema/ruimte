@@ -7,6 +7,9 @@ import { Button, IconButton, Typed } from './primitives.tsx';
 
 const TOOL_ICON = { read: Eye, edit: SquarePen, bash: Terminal } as const satisfies Record<string, LucideIcon>;
 
+const FLOATING_CARD =
+    'flex flex-col overflow-hidden rounded-2xl border border-border bg-[color-mix(in_srgb,var(--surface-raised)_92%,transparent)] shadow-float backdrop-blur-[14px]';
+
 /** `rows/MessageRows.tsx`: the person's message, right-aligned on the active surface. */
 export function UserBubble({ children }: { readonly children: ReactNode }) {
     return (
@@ -68,7 +71,7 @@ export function WorkingRow({ seconds }: { readonly seconds: number }) {
 /** The composer card and its controls row (`Composer.tsx`, `RunSettings.tsx`). */
 export function Composer({ draft, typing = false }: { readonly draft?: string; readonly typing?: boolean }) {
     return (
-        <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-[color-mix(in_srgb,var(--surface-raised)_92%,transparent)] shadow-float backdrop-blur-[14px]">
+        <div className={FLOATING_CARD}>
             <div className="min-h-[45px] pt-[18px] pr-[14px] pb-[6px] pl-5 text-[14px] leading-[21px]">
                 {draft ? (
                     <Typed shown text={draft} speed={typing ? 45 : 0} caret={typing} />
@@ -145,7 +148,7 @@ export function PromptStack({
     readonly children: ReactNode;
 }) {
     return (
-        <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-[color-mix(in_srgb,var(--surface-raised)_92%,transparent)] shadow-float backdrop-blur-[14px]">
+        <div className={FLOATING_CARD}>
             <div className="flex items-center gap-2 border-b border-dashed border-border px-3 py-1.5 text-[13px] leading-[19px] text-text-muted">
                 <StatusDot status={status} />
                 <span className="font-medium text-text">{title}</span>

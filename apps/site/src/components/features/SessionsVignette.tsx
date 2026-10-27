@@ -5,8 +5,7 @@ import { CircleCheck, Laptop, Terminal } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { TerminalBody } from '../app/bodies.tsx';
 import { ClaudeMark, StatusDot } from '../app/canvas.tsx';
-import { CellToolbar } from '../app/chrome.tsx';
-import { TrafficLights } from '../app/primitives.tsx';
+import { CellToolbar, FLOAT, WindowBar } from '../app/chrome.tsx';
 import { EASE, usePlayback, useTimeline } from '../film/playback.ts';
 import { Stage } from '../film/Stage.tsx';
 
@@ -26,8 +25,6 @@ const FILES = [
     'mail/receipt'
 ];
 const VISIBLE = 13;
-
-const FLOAT = 'border border-border bg-[color-mix(in_srgb,var(--surface-raised)_88%,transparent)] shadow-float backdrop-blur-[14px]';
 
 export function SessionsVignette() {
     return (
@@ -63,10 +60,7 @@ function Sessions() {
                 animate={{ opacity: open ? 1 : 0, scale: open ? 1 : 0.9, y: open ? 0 : 24 }}
                 transition={{ duration: 0.55, ease: EASE }}
             >
-                <div className="flex h-10 shrink-0 items-center gap-3 border-b border-border bg-surface px-4">
-                    <TrafficLights />
-                    <span className="text-[13px] text-text-muted">acme-web</span>
-                </div>
+                <WindowBar />
                 <CellToolbar icon={Terminal} name="test suite" focused>
                     <StatusDot status="running" />
                 </CellToolbar>

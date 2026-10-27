@@ -11,12 +11,12 @@ function subscribe(onChange: () => void) {
 function getSnapshot() {
     return window.matchMedia(QUERY).matches;
 }
+
+// The server's first frame moves, so hydration matches it before the browser's preference applies.
 function getServerSnapshot() {
     return false;
 }
 
 export function useReducedAnimations() {
-    // Match the server's first frame before applying the browser's motion preference.
-    const reduced = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-    return reduced;
+    return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }

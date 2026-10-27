@@ -3,23 +3,19 @@
 import { type ReactNode, useLayoutEffect, useRef, useState } from 'react';
 import { PlaybackContext, useStagePlayback } from './playback.ts';
 
-/**
- * A scene drawn at a fixed size and scaled to its container, so every node keeps its place from a
- * phone to a wide screen. The drawing is one image to a screen reader, described by `label`.
- */
-export function Scaled({
-    width,
-    height,
-    label,
-    className = '',
-    children
-}: {
+interface SceneProps {
     readonly width: number;
     readonly height: number;
     readonly label: string;
     readonly className?: string;
     readonly children: ReactNode;
-}) {
+}
+
+/**
+ * A scene drawn at a fixed size and scaled to its container, so every node keeps its place from a
+ * phone to a wide screen. The drawing is one image to a screen reader, described by `label`.
+ */
+export function Scaled({ width, height, label, className = '', children }: SceneProps) {
     const ref = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState<number | null>(null);
 
@@ -48,27 +44,13 @@ export function Scaled({
 }
 
 /** A scaled scene that plays while it is on screen. */
-export function Stage({
-    width,
-    height,
-    label,
-    className = '',
-    children
-}: {
-    readonly width: number;
-    readonly height: number;
-    readonly label: string;
-    readonly className?: string;
-    readonly children: ReactNode;
-}) {
+export function Stage(props: SceneProps) {
     const ref = useRef<HTMLDivElement>(null);
     const playback = useStagePlayback(ref);
     return (
         <div ref={ref}>
             <PlaybackContext value={playback}>
-                <Scaled width={width} height={height} label={label} className={className}>
-                    {children}
-                </Scaled>
+                <Scaled {...props} />
             </PlaybackContext>
         </div>
     );

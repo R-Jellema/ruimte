@@ -7,6 +7,7 @@ import { TerminalBody } from '../app/bodies.tsx';
 import { AssistantText, Composer, ToolRow, UserBubble } from '../app/chat.tsx';
 import { CellToolbar, type SidebarRow } from '../app/chrome.tsx';
 import { Sketch } from '../app/drawing.tsx';
+import type { Rect } from '../app/edge-route.ts';
 import { Reveal } from '../app/primitives.tsx';
 import { EASE, usePlayback } from './playback.ts';
 
@@ -15,18 +16,11 @@ const HEIGHT = 752;
 
 type Cell = 'chat' | 'logs' | 'drawing' | 'docs';
 
-interface Box {
-    readonly x: number;
-    readonly y: number;
-    readonly w: number;
-    readonly h: number;
-}
-
 const HALF_W = (WIDTH - 1) / 2;
 const HALF_H = (HEIGHT - 1) / 2;
 
 // The grid is cells on a 1px line of the border color, no gap and no padding (`SplitGrid.tsx`).
-function layout(step: number): Record<Cell, Box> {
+function layout(step: number): Record<Cell, Rect> {
     if (step === 0) {
         return {
             chat: { x: 0, y: 0, w: WIDTH, h: HEIGHT },
