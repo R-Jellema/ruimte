@@ -24,7 +24,7 @@ async function setup(pinned = new Set<string>()) {
         },
         chats: { findAttachment: async () => null, hasStored: async (chatId) => chatId === 'chat-1' },
         machineHome: { refuse: async () => undefined },
-        provenanceOf: async () => provenance,
+        provenanceOf: async (caller) => ({ ...provenance, chatId: caller, nodeId: caller }),
         pinned: () => pinned
     });
     return { fs, store, artifacts, provenance };
@@ -61,6 +61,22 @@ describe('Artifacts', () => {
         const retry = await artifacts.publish('chat-1', { upload: 'up-1', files: [{ name: 'a.txt', size: 3 }], requestId: 'req-1' });
         expect(retry.result).toEqual({ ...first.result, existing: true });
         expect(await artifacts.list({})).toHaveLength(1);
+    });
+
+    test('the same file published again from the same chat is a new version, and from another chat an artifact of its own', async () => {
+        const { artifacts } = await setup();
+        const publish = async (chatId: string, requestId: string) => {
+            await artifacts.uploadAppend(chatId, requestId, 0, 0, bytes('one'));
+            return artifacts.publish(chatId, { upload: requestId, files: [{ name: 'report.md', size: 3 }], requestId });
+        };
+        const first = await publish('chat-1', 'req-1');
+        const again = await publish('chat-1', 'req-2');
+        const elsewhere = await publish('chat-2', 'req-3');
+
+        expect(again.artifact.artifactId).toBe(first.artifact.artifactId);
+        expect(again.version.number).toBe(2);
+        expect(elsewhere.artifact.artifactId).not.toBe(first.artifact.artifactId);
+        expect(elsewhere.version.number).toBe(1);
     });
 
     test('a publish refuses files that did not all arrive, an upload past its limits and a session outside any project', async () => {

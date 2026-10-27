@@ -3,6 +3,7 @@ import { act } from 'react';
 import type { ArtifactSummary, ArtifactVersion, ChatInfo, ChatItem } from '@ruimte/contracts';
 import { WORKSPACE_CHAT_HOST } from '@/chat/workspace-host';
 import { useArtifactSelection } from '@/output/open';
+import { useDocument } from '@/state/document';
 import { useFiles } from '@/state/files';
 import { useProject } from '@/state/project';
 import { FakeMachine } from '../../testing/fake-machine';
@@ -212,6 +213,33 @@ describe('what a chat saved to Output', () => {
         await clickOn(cards()[0]!);
         await until(() => useFiles.getState().tabs.some((tab) => tab.key === 'artifact:shot'));
         expect(useArtifactSelection.getState().versions['artifact:shot']).toBe('shot-v1');
+    });
+
+    test('a row dragged onto the sidebar becomes a view of the project', async () => {
+        saved = [artifact('shot', 'settings.png', 'image')];
+        machine.answer('project.save', ({ baseRev }) => ({ rev: baseRev + 1 }) as never);
+        await act(async () => machine.emit('artifact.changed', { artifactId: 'shot', projectId: 'project-atlas' }));
+        await until(() => cards().length === 1);
+
+        const dataTransfer = new DataTransfer();
+        const fire = (target: Element, type: string): void => {
+            const event = new Event(type, { bubbles: true, cancelable: true });
+            Object.defineProperty(event, 'dataTransfer', { value: dataTransfer });
+            target.dispatchEvent(event);
+        };
+        const row = page.host.querySelector(`[data-sidebar-row="view:${chatId}"]`)!;
+        await act(async () => {
+            fire(cards()[0]!, 'dragstart');
+            fire(row, 'dragover');
+            fire(row, 'drop');
+            fire(cards()[0]!, 'dragend');
+        });
+
+        await until(() => useDocument.getState().views.some((view) => view.kind === 'artifact'));
+        expect(useDocument.getState().views.find((view) => view.kind === 'artifact')).toMatchObject({
+            name: 'settings.png',
+            node: { artifact: { id: 'shot' } }
+        });
     });
 
     test('a report an agent published shows its text under its row, so the reply need not repeat it', async () => {

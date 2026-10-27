@@ -41,7 +41,7 @@ const publish = defineActionVerb('artifact', {
             syntax: '--key K',
             need: 'optional',
             field: 'key',
-            more: 'lowercase letters, digits and dashes; the same key again adds a version to the same artifact'
+            more: 'lowercase letters, digits and dashes; the same key again adds a version to the same artifact. Without one, a file this chat published before under the same name gets a new version too'
         },
         { syntax: '--request-id R', need: 'optional', field: 'requestId', more: 'ruimte-context makes one per call when omitted' },
         { syntax: '--upload U', need: 'optional', field: 'upload', more: 'ruimte-context fills this; there is no reason to write it yourself' },
@@ -85,6 +85,9 @@ const publish = defineActionVerb('artifact', {
         return [
             versionLine(artifact, version),
             ...(existing ? ['note\tAn earlier call with this request id saved this version; nothing new was saved'] : []),
+            ...(!existing && flags.key === undefined && version.number > 1
+                ? [`note\tThis chat published ${field(version.files[0]?.name ?? '')} before, so this is version ${version.number} of that artifact`]
+                : []),
             'next\tThe person finds it in the Output panel of this project, and a report, image or page shows in this chat too: do not repeat its content in your reply'
         ];
     }

@@ -2,10 +2,12 @@ import { Fragment, useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ArtifactSummary, ArtifactVersion } from '@ruimte/contracts';
 import { KindTile } from '@/output/look';
+import { startArtifactDrag } from '@/output/artifact-drag';
 import { useOpenArtifact } from '@/output/artifact-opener';
 import { OutputShownBesideContext } from '@/output/chat-scope';
 import { savedPreviewOf } from '@/output/saved-preview';
 import { SavedPreview } from '@/output/SavedPreview';
+import { setDragging } from '@/shell/view-drag';
 
 export interface Saved {
     artifact: Pick<ArtifactSummary, 'artifactId' | 'title' | 'kind'>;
@@ -47,6 +49,9 @@ function SavedRow({ artifact, version, latest }: Saved) {
             aria-label={t('card.row', { title: artifact.title, what })}
             className="-mx-1 flex h-8 w-[calc(100%+8px)] min-w-0 items-center gap-2 rounded-md px-1 text-left text-sm text-text-muted hover:bg-surface-hover"
             onClick={() => open(artifact.artifactId, artifact.title, latest ? null : version.versionId, version.versionId)}
+            draggable
+            onDragStart={(event) => startArtifactDrag(event.dataTransfer, artifact)}
+            onDragEnd={() => setDragging(null)}
         >
             <KindTile kind={artifact.kind} size="sm" />
             <span className="min-w-0 shrink truncate font-medium text-text">{artifact.title}</span>

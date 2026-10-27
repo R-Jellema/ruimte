@@ -453,7 +453,7 @@ export class ArtifactStore {
                 input.origin !== undefined
                     ? this.byOrigin(input.projectId, input.origin)
                     : input.key === undefined
-                      ? undefined
+                      ? this.republished(input.projectId, input.provenance, names[0]!)
                       : this.byKey(input.projectId, input.key);
             const artifactId = keyed?.artifact.artifactId ?? `art-${this.newId()}`;
             const versionId = `ver-${this.newId()}`;
@@ -519,6 +519,24 @@ export class ArtifactStore {
 
     private byKey(projectId: string, key: string): Entry | undefined {
         return [...this.entries.values()].find((entry) => entry.artifact.projectId === projectId && entry.artifact.key === key);
+    }
+
+    /*
+     * An agent that publishes the same file again from the same chat without a key means a new version of
+     * what it published before, not a second artifact; another chat's file of that name stays its own.
+     */
+    private republished(projectId: string, provenance: ArtifactProvenance, firstName: string): Entry | undefined {
+        if (provenance.maker !== 'agent' || provenance.chatId === undefined) {
+            return undefined;
+        }
+
+        return [...this.entries.values()].find(
+            (entry) =>
+                entry.artifact.projectId === projectId &&
+                entry.artifact.key === undefined &&
+                entry.versions.at(-1)?.files[0]?.name === firstName &&
+                entry.versions.some((version) => version.provenance.maker === 'agent' && version.provenance.chatId === provenance.chatId)
+        );
     }
 
     private byOrigin(projectId: string, origin: ArtifactOrigin): Entry | undefined {
