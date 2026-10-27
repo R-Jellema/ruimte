@@ -25,8 +25,9 @@ export const COMPILER_RUNTIME = fileURLToPath(new URL('./src/compiler-runtime.ts
 export const REACT_COMPILED_PACKAGES = ['@adecore/ui', '@adecore/terminal', '@adecore/agents-react', '@adecore/editor-react', '@adecore/charts'];
 
 /* A linked checkout (`adecore/packages/ui/src`) or an install (`node_modules/@adecore/ui/src`). */
-const ADECORE_SOURCES =
-    /[\\/](?:adecore[\\/]packages|node_modules[\\/]@adecore)[\\/](?:ui|terminal|agents-react|editor-react|charts)[\\/]src[\\/].*\.tsx?(?:$|\?)/;
+const ADECORE_SOURCES = new RegExp(
+    String.raw`[\\/](?:adecore[\\/]packages|node_modules[\\/]@adecore)[\\/](?:${REACT_COMPILED_PACKAGES.map((name) => name.slice('@adecore/'.length)).join('|')})[\\/]src[\\/].*\.tsx?(?:$|\?)`
+);
 
 const CLIENT_SOURCES = new RegExp(`^${escaped(fileURLToPath(new URL('./src/', import.meta.url)))}.*\\.tsx?(?:$|\\?)`);
 

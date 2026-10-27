@@ -38,7 +38,8 @@ const uiSource = realpathSync(fileURLToPath(new URL('./node_modules/@adecore/ui/
 /* The TypeScript of ADE CORE's React packages, linked or from npm, as globs the dependency scan starts from. */
 const reactCompiledSources = REACT_COMPILED_PACKAGES.map((name) => fileURLToPath(new URL(`./node_modules/${name}`, import.meta.url)))
     .filter(existsSync)
-    .flatMap((path) => [`${realpathSync(path)}/src/**/*.{ts,tsx}`, `!${realpathSync(path)}/src/**/*.test.{ts,tsx}`, `!${realpathSync(path)}/src/testing/**`]);
+    .map((path) => `${realpathSync(path)}/src`)
+    .flatMap((source) => [`${source}/**/*.{ts,tsx}`, `!${source}/**/*.test.{ts,tsx}`, `!${source}/testing/**`]);
 
 /*
  * The web client at `station.ruimte.app` (`vite build --mode station`). It is the same page, plus what
@@ -126,9 +127,9 @@ function pdfjsAssets(): Plugin {
         configureServer: (server) => {
             server.middlewares.use(`/${base}`, (request, response, next) => {
                 const relative = normalize(decodeURIComponent((request.url ?? '').split('?')[0] ?? '')).replace(/^[/\\]+/, '');
-                const [folder, name, ...rest] = relative.split('/');
-                const file = folder !== undefined && name !== undefined ? join(root, folder, name) : null;
-                if (file === null || rest.length > 0 || !folders.includes(folder ?? '') || !shipped(name ?? '') || !existsSync(file)) {
+                const [folder = '', name = '', ...rest] = relative.split('/');
+                const file = join(root, folder, name);
+                if (rest.length > 0 || !folders.includes(folder) || name === '' || !shipped(name) || !existsSync(file)) {
                     next();
                     return;
                 }
@@ -266,32 +267,13 @@ export default defineConfig(({ command, mode }) => ({
         warmup: {
             clientFiles: ['./src/**/*.{ts,tsx}', '!./src/**/*.test.{ts,tsx}']
         },
+        // Keep the client same-origin in development; `RUIMTE_DAEMON` can target another daemon.
         proxy: {
-            // Keep the client same-origin in development; `RUIMTE_DAEMON` can target another daemon.
-            '/ws': {
-                target: daemon,
-                ws: true
-            },
-            // A browser signs in over HTTP before opening its authenticated socket.
-            '/auth': {
-                target: daemon.replace(/^ws/, 'http')
-            },
-            // A project's icon is bytes on the daemon, never a data URL on the wire.
-            '/projects': {
-                target: daemon.replace(/^ws/, 'http')
-            },
-            // The same for an image the file viewer draws.
-            '/fs': {
-                target: daemon.replace(/^ws/, 'http')
-            },
-            // And for a file someone attached to a message; the bytes stay on the daemon.
-            '/attachments': {
-                target: daemon.replace(/^ws/, 'http')
-            },
-            // Browser and simulator pixels stay off the JSON control socket.
-            '/live-stream': {
-                target: daemon.replace(/^ws/, 'http')
-            }
+            '/ws': { target: daemon, ws: true },
+            // Signing in, and bytes that stay off the JSON socket: project icons, files, attachments, live pixels.
+            ...Object.fromEntries(
+                ['/auth', '/projects', '/fs', '/attachments', '/live-stream'].map((path) => [path, { target: daemon.replace(/^ws/, 'http') }])
+            )
         }
     }
 }));

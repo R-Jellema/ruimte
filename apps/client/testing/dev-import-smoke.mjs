@@ -111,36 +111,21 @@ try {
         sessionId
     );
     const result = probe.result.value ?? { ok: false, message: probe.exceptionDetails?.text };
-    if (process.argv[4] === 'editor-labels') {
-        const labels = await send(
+    const probes = {
+        'editor-labels': { field: 'labels', module: '/testing/editor-label-probe.ts', run: 'probeEditorLabels' },
+        'image-save': { field: 'saved', module: '/testing/image-save-probe.ts', run: 'probeImageSave' }
+    };
+    const extra = probes[process.argv[4]];
+    if (extra) {
+        const answer = await send(
             'Runtime.evaluate',
-            {
-                expression: `import('/testing/editor-label-probe.ts').then((probe) => probe.probeEditorLabels())`,
-                awaitPromise: true,
-                returnByValue: true
-            },
+            { expression: `import('${extra.module}').then((probe) => probe.${extra.run}())`, awaitPromise: true, returnByValue: true },
             sessionId
         );
-        result.labels = labels.result.value;
-        if (labels.exceptionDetails) {
+        result[extra.field] = answer.result.value;
+        if (answer.exceptionDetails) {
             result.ok = false;
-            result.message = labels.exceptionDetails.exception?.description ?? labels.exceptionDetails.text;
-        }
-    }
-    if (process.argv[4] === 'image-save') {
-        const saved = await send(
-            'Runtime.evaluate',
-            {
-                expression: `import('/testing/image-save-probe.ts').then((probe) => probe.probeImageSave())`,
-                awaitPromise: true,
-                returnByValue: true
-            },
-            sessionId
-        );
-        result.saved = saved.result.value;
-        if (saved.exceptionDetails) {
-            result.ok = false;
-            result.message = saved.exceptionDetails.exception?.description ?? saved.exceptionDetails.text;
+            result.message = answer.exceptionDetails.exception?.description ?? answer.exceptionDetails.text;
         }
     }
     console.log(JSON.stringify({ boot: boot?.result?.value ?? null, probe: result }, null, 2));
