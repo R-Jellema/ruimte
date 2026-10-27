@@ -23,7 +23,7 @@ import { chatClientFor } from '@/transport/connections';
 import { useTransportStatus } from '@/transport/status';
 import { MissingProviderNote } from '@/nodes/MissingProviderNote';
 import { OutputChatContext } from '@/output/chat-scope';
-import { NodeNotice } from '@/nodes/NodeNotice';
+import { ConnectionNotice, NodeNotice } from '@/nodes/NodeNotice';
 import { useMountCount } from '@/measure/mounts';
 import { readNodeHost, renameHost, useNodeHost, useSuggestedTitle } from '@/nodes/node-host';
 import { ErrorBoundary, LazyBoundary, messageOf } from '@adecore/ui';
@@ -118,7 +118,7 @@ export function ChatBody({ id, focused, onCanvas = false }: { id: string; focuse
 
     return (
         <div className="relative flex h-full flex-col bg-surface">
-            {status !== 'open' && <NodeNotice>{status === 'closed' ? t('notice.reconnecting') : t('notice.connecting')}</NodeNotice>}
+            <ConnectionNotice status={status} />
             {status === 'open' && !failure && <MissingProviderNote endpointId={endpointId} kind={info?.provider ?? nodeHost?.provider} />}
             {failure && (
                 <NodeNotice

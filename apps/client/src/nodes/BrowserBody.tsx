@@ -189,41 +189,38 @@ function BrowserErrorPlate({ id }: { id: string }) {
     if (!failure || !host) {
         return null;
     }
-    if (failure.ownerRoute) {
-        return createPortal(
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-bg" role="alert">
-                <EmptyState icon={Unplug} title={t('browser.ownerUnavailable')}>
-                    <span className="block break-all text-text-muted">{prettyUrl(failure.url)}</span>
-                    <span className="mt-2 block">{t('browser.routeUnavailable')}</span>
-                </EmptyState>
-            </div>,
-            host
-        );
-    }
-    const error = classifyLoadError(failure.code, failure.description);
+    const address = <span className="block break-all text-text-muted">{prettyUrl(failure.url)}</span>;
+    const error = failure.ownerRoute ? null : classifyLoadError(failure.code, failure.description);
     return createPortal(
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-bg" role="alert">
-            <EmptyState
-                icon={ERROR_ICON[error.kind]}
-                title={error.title}
-                action={
-                    <div className="flex items-center gap-2">
-                        {error.retryable && (
-                            <Button variant="secondary" size="sm" onClick={() => drivePage(id, 'reload', true)}>
-                                {t('common:action.retry')}
+            {error === null ? (
+                <EmptyState icon={Unplug} title={t('browser.ownerUnavailable')}>
+                    {address}
+                    <span className="mt-2 block">{t('browser.routeUnavailable')}</span>
+                </EmptyState>
+            ) : (
+                <EmptyState
+                    icon={ERROR_ICON[error.kind]}
+                    title={error.title}
+                    action={
+                        <div className="flex items-center gap-2">
+                            {error.retryable && (
+                                <Button variant="secondary" size="sm" onClick={() => drivePage(id, 'reload', true)}>
+                                    {t('common:action.retry')}
+                                </Button>
+                            )}
+                            <Button variant="secondary" size="sm" onClick={() => void desktop()?.openExternal(failure.url)}>
+                                {t('browser.error.openExternal')}
                             </Button>
-                        )}
-                        <Button variant="secondary" size="sm" onClick={() => void desktop()?.openExternal(failure.url)}>
-                            {t('browser.error.openExternal')}
-                        </Button>
-                    </div>
-                }
-            >
-                <span className="block break-all text-text-muted">{prettyUrl(failure.url)}</span>
-                {error.hint && <span className="mt-2 block">{error.hint}</span>}
-                {/* Chromium's own name for it: the one part of this that is worth searching for. */}
-                <span className="mt-2 block font-mono text-text-faint">{error.symbol}</span>
-            </EmptyState>
+                        </div>
+                    }
+                >
+                    {address}
+                    {error.hint && <span className="mt-2 block">{error.hint}</span>}
+                    {/* Chromium's own name for it: the one part of this that is worth searching for. */}
+                    <span className="mt-2 block font-mono text-text-faint">{error.symbol}</span>
+                </EmptyState>
+            )}
         </div>,
         host
     );

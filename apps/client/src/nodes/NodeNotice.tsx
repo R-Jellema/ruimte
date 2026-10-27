@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { Copy, RotateCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button, copyText, Icon, IconButton, TextMenu, ContextMenu } from '@adecore/ui';
+import type { TransportStatus } from '@/transport';
 
 interface NodeNoticeProps {
     tone?: 'muted' | 'error';
@@ -15,9 +16,7 @@ interface NodeNoticeProps {
     action?: { label: string; onClick(): void };
 }
 
-/* The card a node floats over its own content when it cannot show that content: connecting,
-   failed to start, the page did not load. One shape for all three, so a terminal, a chat and a
-   browser report trouble the same way. */
+/* The card a node floats over its own content when it cannot show it, one shape for every kind of node. */
 export function NodeNotice({ tone = 'muted', children, onRetry, retryLabel, action }: NodeNoticeProps) {
     const { t } = useTranslation('canvas');
     const message = useRef<HTMLSpanElement>(null);
@@ -60,4 +59,13 @@ export function NodeNotice({ tone = 'muted', children, onRetry, retryLabel, acti
             {content}
         </TextMenu>
     );
+}
+
+/* What a body says while its machine's socket is not open. */
+export function ConnectionNotice({ status }: { status: TransportStatus }) {
+    const { t } = useTranslation('canvas');
+    if (status === 'open') {
+        return null;
+    }
+    return <NodeNotice>{status === 'closed' ? t('notice.reconnecting') : t('notice.connecting')}</NodeNotice>;
 }

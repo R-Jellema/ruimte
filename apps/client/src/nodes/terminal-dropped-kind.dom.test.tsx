@@ -5,7 +5,7 @@ import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { mount, until, type Mounted } from '../../testing/dom';
 
-// Ruimte offered Gemini as a terminal agent until Antigravity took its place; a project may still hold such a node.
+// Antigravity replaced Gemini as a terminal agent, and a project may still hold a Gemini node.
 const DROPPED: ProjectNode = { id: 'old-agent', kind: 'terminal', title: 'Gemini', provider: 'gemini', x: 0, y: 0, w: 560, h: 360 } as ProjectNode;
 const MAIN: ProjectCanvasView = { kind: 'canvas', id: 'main', name: 'Main', nodes: [DROPPED], texts: [], edges: [], layouts: [] };
 

@@ -1,20 +1,21 @@
-import { openFileLink } from '@/shell/panels/file-links';
-import type { TerminalFileLink } from '@/terminal/file-links';
-import { TerminalDictation } from '@/dictation/TerminalDictation';
-import { clearTerminalAction, restartTerminalAction, resumeTerminalAgentAction } from '@/actions/client-actions';
-import { carriesFiles } from '@/canvas/drop';
-import { finderPaths } from '@/canvas/finder-drop';
-import { FindBar } from '@/find/FindBar';
-import { openFocusedFind } from '@/find/hosts';
-import { useFind } from '@/find/use-find';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import i18next from 'i18next';
 import clsx from 'clsx';
-import type { TerminalViewHandle } from '@adecore/terminal';
-import { MachineTerminal } from '@/terminal/MachineTerminal';
-import { SessionPortMonitor } from '@/terminal/SessionPorts';
 import { ClipboardPaste, Copy, Eraser, Eye, Play, RotateCw, Scan } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import type { TerminalViewHandle } from '@adecore/terminal';
+import { Button, copyText, readClipboardText, Icon, ContextMenu, ErrorBoundary, Kbd, prefetcher, EDIT_SHORTCUTS, messageOf } from '@adecore/ui';
+import { clearTerminalAction, restartTerminalAction, resumeTerminalAgentAction } from '@/actions/client-actions';
+import { carriesFiles } from '@/canvas/drop';
+import { finderPaths } from '@/canvas/finder-drop';
+import { TerminalDictation } from '@/dictation/TerminalDictation';
+import { FindBar } from '@/find/FindBar';
+import { openFocusedFind } from '@/find/hosts';
+import { useFind } from '@/find/use-find';
+import { openFileLink } from '@/shell/panels/file-links';
+import type { TerminalFileLink } from '@/terminal/file-links';
+import { MachineTerminal } from '@/terminal/MachineTerminal';
+import { SessionPortMonitor } from '@/terminal/SessionPorts';
 import { useEndpointId } from '@/state/keys';
 import { useSessionRestarts, useSessionRow } from '@/state/sessions';
 import { canvasOfNode, useCanvas } from '@/state/canvas';
@@ -33,10 +34,9 @@ import { sessionClientFor } from '@/transport/connections';
 import { useTransportStatus } from '@/transport/status';
 import { isApplePlatform } from '@/desktop/bridge';
 import { MissingProviderNote } from '@/nodes/MissingProviderNote';
-import { NodeNotice } from '@/nodes/NodeNotice';
+import { ConnectionNotice, NodeNotice } from '@/nodes/NodeNotice';
 import { useMountCount } from '@/measure/mounts';
 import { closeHost, readNodeHost, useNodeHost, useSuggestedTitle } from '@/nodes/node-host';
-import { Button, copyText, readClipboardText, Icon, ContextMenu, ErrorBoundary, Kbd, prefetcher, EDIT_SHORTCUTS, messageOf } from '@adecore/ui';
 
 // A terminal loads the WebGL addon on its first context; prefetched, it is there by then.
 prefetcher.register(() => import('@xterm/addon-webgl'));
@@ -69,9 +69,8 @@ export function TerminalBody({ id, focused }: { id: string; focused: boolean }) 
     const viewRef = useRef<TerminalViewHandle>(null);
     const dictationRoot = useRef<HTMLDivElement>(null);
     const surfaceRef = useRef<HTMLDivElement>(null);
-    /* Bumped by a retry after a failure; a restart through the actions counts in the sessions store. */
+    // A retry counts here and a restart in the sessions store. Both only go up, so their sum keys a fresh session.
     const [generation, setGeneration] = useState(0);
-    // Either one rebuilds the whole terminal around a fresh session, and both only ever go up.
     const builds = generation + useSessionRestarts(id);
     const [failure, setFailure] = useState<string | null>(null);
     // Whether the terminal had a selection when its menu opened, which is what Copy goes on.
@@ -191,7 +190,7 @@ export function TerminalBody({ id, focused }: { id: string; focused: boolean }) 
                             onFileLinkHover={onFileLinkHover}
                             onFailure={setFailure}
                         />
-                        {status !== 'open' && <NodeNotice>{status === 'closed' ? t('notice.reconnecting') : t('notice.connecting')}</NodeNotice>}
+                        <ConnectionNotice status={status} />
                         {status === 'open' && !failure && exited === undefined && <MissingProviderNote endpointId={endpointId} kind={provider} />}
                         {failure && (
                             <NodeNotice tone="error" onRetry={rebuild}>

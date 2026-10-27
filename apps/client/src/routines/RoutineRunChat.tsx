@@ -5,7 +5,7 @@ import type { ChatSendExtras } from '@adecore/agents-react/chat';
 import { Composer, Timeline } from '@adecore/agents-react/chat/ui';
 import { useChatRow } from '@adecore/agents-react/state';
 import { LazyBoundary, messageOf } from '@adecore/ui';
-import { NodeNotice } from '@/nodes/NodeNotice';
+import { ConnectionNotice, NodeNotice } from '@/nodes/NodeNotice';
 import { OutputChatContext } from '@/output/chat-scope';
 import { useEndpointId } from '@/state/keys';
 import { chatClientFor } from '@/transport/connections';
@@ -76,7 +76,7 @@ export function RoutineRunChat({
 
     return (
         <div className="chat-column relative flex min-h-0 grow flex-col bg-surface">
-            {status !== 'open' && <NodeNotice>{status === 'closed' ? t('notice.reconnecting') : t('notice.connecting')}</NodeNotice>}
+            <ConnectionNotice status={status} />
             {failure !== null && (
                 <NodeNotice tone="error" onRetry={() => setFailure(null)}>
                     {failure}
