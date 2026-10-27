@@ -51,14 +51,7 @@ public final class ImageSaveCoordinator {
     }
 
     /// Answers a caller still waiting with nil and lets the sheet go, for a chat that leaves before the sheet closes.
-    public func stop() {
-        generation += 1
-        current = nil
-        opening = false
-        let continuation = continuation
-        self.continuation = nil
-        continuation?.resume(returning: nil)
-    }
+    public func stop() { settle(nil) }
 
     isolated deinit {
         continuation?.resume(returning: nil)
@@ -76,6 +69,10 @@ public final class ImageSaveCoordinator {
 
     private func finish(id: Int, path: String?) {
         guard generation == id else { return }
+        settle(path)
+    }
+
+    private func settle(_ path: String?) {
         generation += 1
         current = nil
         opening = false

@@ -47,11 +47,12 @@ public final class UiBlockModel {
     }
 
     public var nodes: [JSONValue] { result["nodes"]?.arrayValue ?? [] }
+    private var queries: [String: JSONValue] { block["queries"]?.objectValue ?? [:] }
     public var diagnostics: [JSONValue] { result["diagnostics"]?.arrayValue ?? [] }
     /// The block's queries in the order its source declares them, as the desktop reads them. The compiled block
     /// arrives as a dictionary that lost that order, so it comes from the source; what that misses is sorted.
     public var queryNames: [String] {
-        let declared = Set((block["queries"]?.objectValue ?? [:]).keys)
+        let declared = Set(queries.keys)
         var ordered: [String] = []
         for name in Self.declarations(in: source) where declared.contains(name) && !ordered.contains(name) {
             ordered.append(name)
@@ -61,7 +62,7 @@ public final class UiBlockModel {
     public var complete: Bool { block["complete"]?.boolValue == true && block["revision"]?.stringValue != nil }
     public var canChoose: Bool {
         complete && connected && !sending && !reading && !queryInputsDirty && answer == nil
-            && (block["queries"]?.objectValue ?? [:]).keys.allSatisfy {
+            && queries.keys.allSatisfy {
                 readTickets[$0] != nil && readings[$0]?["state"] != .string("refused")
             }
     }
@@ -171,7 +172,7 @@ public final class UiBlockModel {
     }
 
     public func refresh() async {
-        guard visible, connected, complete, !reading, !(block["queries"]?.objectValue ?? [:]).isEmpty else { return }
+        guard visible, connected, complete, !reading, !queries.isEmpty else { return }
         let now = ContinuousClock.now
         if let lastRead, lastRead.duration(to: now) < .seconds(10) { return }
         lastRead = now
@@ -181,11 +182,12 @@ public final class UiBlockModel {
         let previousQueryValues = queryValues
         var allFresh = true
         defer { reading = false }
+        let live = { self.visible && self.connected && current == self.generation && !Task.isCancelled }
         for name in queryNames.prefix(8) {
-            guard visible, connected, current == generation, !Task.isCancelled else { return }
+            guard live() else { return }
             do {
                 let response = try await request("ui.query", payload(["query": .string(name)]))
-                guard visible, connected, current == generation, !Task.isCancelled else { return }
+                guard live() else { return }
                 readings[name] = response
                 if response["state"] == .string("fresh"), let ticket = response["readId"], let value = response["value"]
                 {
@@ -195,7 +197,7 @@ public final class UiBlockModel {
                     allFresh = false
                 }
             } catch {
-                guard visible, connected, current == generation, !Task.isCancelled else { return }
+                guard live() else { return }
                 allFresh = false
                 readings[name] = .object([
                     "state": .string("failed"), "readAt": .number(Date.now.timeIntervalSince1970 * 1000),
@@ -235,7 +237,7 @@ public final class UiBlockModel {
         // A change the interpreter refuses leaves the block as it was; only a block that cannot be read says so.
         guard await evaluate(change: change, action: action, reportsFailure: false), previous != values else { return }
         resolvedLinks = [:]
-        guard !(block["queries"]?.objectValue ?? [:]).isEmpty else { return }
+        guard !queries.isEmpty else { return }
         queryInputsDirty = true
         inputRead?.cancel()
         inputRead = Task { [weak self, inputSettle] in
@@ -284,7 +286,7 @@ public final class UiBlockModel {
     }
 
     private func payload(_ extra: [String: JSONValue]) -> JSONValue {
-        return .object(
+        .object(
             extra.merging(
                 [
                     "chatId": .string(chatID), "itemId": .string(itemID), "blockId": block["id"] ?? .null,
@@ -294,7 +296,7 @@ public final class UiBlockModel {
 
     private func schedulePolling() {
         polling?.cancel()
-        guard visible, connected, complete, !(block["queries"]?.objectValue ?? [:]).isEmpty else {
+        guard visible, connected, complete, !queries.isEmpty else {
             polling = nil
             return
         }

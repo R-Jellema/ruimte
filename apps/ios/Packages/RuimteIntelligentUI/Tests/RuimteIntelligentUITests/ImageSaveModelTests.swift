@@ -12,20 +12,6 @@ private func imageTarget(exists: Bool = false, revision: String? = nil, folder: 
 }
 private let imageRoot = imageTarget()
 
-private actor ImageSaveGate<Value: Sendable> {
-    private var value: Value?
-    private var waiting: [CheckedContinuation<Value, Never>] = []
-    func wait() async -> Value {
-        if let value { return value }
-        return await withCheckedContinuation { waiting.append($0) }
-    }
-    func release(_ value: Value) {
-        self.value = value
-        for continuation in waiting { continuation.resume(returning: value) }
-        waiting.removeAll()
-    }
-}
-
 @MainActor private final class ImageSaveRequests {
     var calls: [(String, JSONValue)] = []
     var handler: @MainActor (String, JSONValue) async throws -> JSONValue = { name, payload in
@@ -40,8 +26,8 @@ private actor ImageSaveGate<Value: Sendable> {
 @MainActor struct ImageSaveModelTests {
     @Test func onlyCheckedTargetsSaveAndRepeatedActionsSendOneWrite() async throws {
         let requests = ImageSaveRequests()
-        let started = ImageSaveGate<Bool>()
-        let finish = ImageSaveGate<JSONValue>()
+        let started = Gate<Bool>()
+        let finish = Gate<JSONValue>()
         var results: [String?] = []
         requests.handler = { name, payload in
             if name == "chat.saveImage" {
@@ -106,8 +92,8 @@ private actor ImageSaveGate<Value: Sendable> {
 
     @Test func aLateCheckCannotApproveANewerName() async throws {
         let requests = ImageSaveRequests()
-        let started = ImageSaveGate<Bool>()
-        let finish = ImageSaveGate<JSONValue>()
+        let started = Gate<Bool>()
+        let finish = Gate<JSONValue>()
         requests.handler = { _, payload in
             if payload["path"] == .string("/project/rabbit.png") {
                 await started.release(true)
@@ -133,8 +119,8 @@ private actor ImageSaveGate<Value: Sendable> {
 
     @Test func cancellingInvalidatesAReadAndResolvesOnce() async throws {
         let requests = ImageSaveRequests()
-        let started = ImageSaveGate<Bool>()
-        let finish = ImageSaveGate<JSONValue>()
+        let started = Gate<Bool>()
+        let finish = Gate<JSONValue>()
         var results: [String?] = []
         requests.handler = { _, _ in
             await started.release(true)

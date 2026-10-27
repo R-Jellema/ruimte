@@ -10,20 +10,6 @@ private let coordinatorRoot: JSONValue = .object([
     "exists": .bool(false), "revision": .null,
 ])
 
-private actor SaveCoordinatorGate<Value: Sendable> {
-    private var value: Value?
-    private var waiting: [CheckedContinuation<Value, Never>] = []
-    func wait() async -> Value {
-        if let value { return value }
-        return await withCheckedContinuation { waiting.append($0) }
-    }
-    func release(_ value: Value) {
-        self.value = value
-        for continuation in waiting { continuation.resume(returning: value) }
-        waiting.removeAll()
-    }
-}
-
 @MainActor struct ImageSaveCoordinatorTests {
     @Test func aCanceledCallerOrAStoppedChatIsAnsweredWithNil() async throws {
         let coordinator = ImageSaveCoordinator(chatID: "chat") { _, _ in coordinatorRoot }
@@ -69,8 +55,8 @@ private actor SaveCoordinatorGate<Value: Sendable> {
     }
 
     @Test func leavingWhileTheTargetLoadsCannotPresentItsLateResultOverAnotherRequest() async throws {
-        let began = SaveCoordinatorGate<Bool>()
-        let finish = SaveCoordinatorGate<JSONValue>()
+        let began = Gate<Bool>()
+        let finish = Gate<JSONValue>()
         let coordinator = ImageSaveCoordinator(chatID: "chat") { _, payload in
             if payload["attachmentId"] == .string("old-image") {
                 await began.release(true)
@@ -94,8 +80,8 @@ private actor SaveCoordinatorGate<Value: Sendable> {
     }
 
     @Test func aPendingSaveSurvivesTheRowsAndScreensClosingAndCompletesTheOriginalCaller() async throws {
-        let began = SaveCoordinatorGate<Bool>()
-        let finish = SaveCoordinatorGate<JSONValue>()
+        let began = Gate<Bool>()
+        let finish = Gate<JSONValue>()
         var write: JSONValue?
         let coordinator = ImageSaveCoordinator(chatID: "chat") { type, payload in
             if type == "chat.saveImage" {
@@ -142,8 +128,8 @@ private actor SaveCoordinatorGate<Value: Sendable> {
         #expect(try await opened.value == nil)
     }
 
-    private func observingPresentation(_ coordinator: ImageSaveCoordinator) -> SaveCoordinatorGate<Bool> {
-        let appeared = SaveCoordinatorGate<Bool>()
+    private func observingPresentation(_ coordinator: ImageSaveCoordinator) -> Gate<Bool> {
+        let appeared = Gate<Bool>()
         withObservationTracking {
             _ = coordinator.current
         } onChange: {

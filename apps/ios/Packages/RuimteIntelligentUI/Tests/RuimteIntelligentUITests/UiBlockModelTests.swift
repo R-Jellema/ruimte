@@ -25,16 +25,10 @@ private actor UiRequestRecorder {
 }
 
 @MainActor struct UiBlockModelTests {
-    private func block(_ name: String) throws -> JSONValue {
-        let url = try #require(Bundle.module.url(forResource: "parity", withExtension: "json"))
-        let fixtures = try #require(JSONValue.decode(Data(contentsOf: url)).arrayValue)
-        return try #require(fixtures.first { $0["name"] == .string(name) }?["request"]?["block"])
-    }
+    private func block(_ name: String) throws -> JSONValue { try parityBlock(name) }
 
     private func block(_ index: Int) throws -> JSONValue {
-        let url = try #require(Bundle.module.url(forResource: "parity", withExtension: "json"))
-        let fixtures = try #require(JSONValue.decode(Data(contentsOf: url)).arrayValue)
-        return try #require(fixtures[index]["request"]?["block"])
+        try #require(parityFixtures()[index]["request"]?["block"])
     }
 
     @Test func choicesSendOnceAndPreserveTheQueuedState() async throws {
