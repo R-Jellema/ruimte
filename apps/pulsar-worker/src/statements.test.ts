@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
 import type { Database } from 'bun:sqlite';
-import { generateKeyPairSync, sign, verify, type KeyObject } from 'node:crypto';
+import { generateKeyPairSync, verify } from 'node:crypto';
 import {
     accessRequestMessage,
     accessStatementMessage,
@@ -12,23 +12,9 @@ import {
 } from '@ruimte/pulsar';
 import type { Env } from './env.ts';
 import { registerMachine, storeMachine } from './machines.ts';
-import { createSession } from './sessions.ts';
 import { issueStatement } from './statements.ts';
+import { errorCode, newPair, signIn as signInAs, signWith, type Pair } from './test/accounts.ts';
 import { d1, migratedDatabase } from './test/sqlite-d1.ts';
-
-interface Pair {
-    publicKey: string;
-    privateKey: KeyObject;
-}
-
-function newPair(): Pair {
-    const keys = generateKeyPairSync('ed25519');
-    return { publicKey: keys.publicKey.export({ format: 'jwk' }).x!, privateKey: keys.privateKey };
-}
-
-function signWith(pair: Pair, message: string): string {
-    return sign(null, Buffer.from(message), pair.privateKey).toString('base64url');
-}
 
 const statementKey = generateKeyPairSync('ed25519');
 const NOW = Date.UTC(2026, 9, 1);
@@ -37,10 +23,8 @@ const statementPublicKey = statementKey.publicKey;
 let sqlite: Database;
 let env: Env;
 
-async function signIn(accountId: string): Promise<string> {
-    sqlite.query('INSERT INTO account (id, provider, subject, created_at) VALUES (?, ?, ?, ?)').run(accountId, 'github', accountId, NOW);
-    const session = await createSession(env.DB, { id: accountId, provider: 'github', login: accountId, displayName: null }, 'laptop', newPair().publicKey);
-    return session.accessToken;
+function signIn(accountId: string): Promise<string> {
+    return signInAs(sqlite, env, accountId, NOW);
 }
 
 function post(token: string, body: unknown): Request {
@@ -78,10 +62,6 @@ async function askStatement(token: string, machineId: string): Promise<{ status:
         env
     );
     return { status: response.status, statement: (await response.json()) as AccessStatement, client };
-}
-
-async function errorCode(response: Response): Promise<string> {
-    return ((await response.json()) as { error: { code: string } }).error.code;
 }
 
 function signedByAddressBook(message: string, signature: string | undefined): boolean {

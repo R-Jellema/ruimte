@@ -1,23 +1,13 @@
 import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
 import type { Database } from 'bun:sqlite';
-import { generateKeyPairSync, type KeyObject } from 'node:crypto';
 import { MAPS_TICKET_LIFETIME_MS, MapsTicketSchema, mapsTicketSubject, verifyMapsTicket, type MapsTicket } from '@ruimte/pulsar';
 import type { Env } from './env.ts';
 import { issueMapsTicket } from './maps-ticket.ts';
 import { LIMITS } from './rate-limit.ts';
 import { windowStartOf } from './rate-window.ts';
 import { createSession } from './sessions.ts';
+import { errorCode, newPair, signIn as signInAs } from './test/accounts.ts';
 import { d1, migratedDatabase } from './test/sqlite-d1.ts';
-
-interface Pair {
-    publicKey: string;
-    privateKey: KeyObject;
-}
-
-function newPair(): Pair {
-    const keys = generateKeyPairSync('ed25519');
-    return { publicKey: keys.publicKey.export({ format: 'jwk' }).x!, privateKey: keys.privateKey };
-}
 
 // 32 bytes in base64url, as `openssl rand -base64 32` spells them once made url safe.
 const SECRET = 'rpEgLz0VDkQ2M4v1o9s3bYt7JfHaCwXn6iUeNy8PqKg';
@@ -29,10 +19,8 @@ const NOW = windowStartOf(Date.UTC(2026, 9, 1)) + 1_000;
 let sqlite: Database;
 let env: Env;
 
-async function signIn(accountId: string): Promise<string> {
-    sqlite.query('INSERT INTO account (id, provider, subject, created_at) VALUES (?, ?, ?, ?)').run(accountId, 'github', accountId, NOW);
-    const session = await createSession(env.DB, { id: accountId, provider: 'github', login: accountId, displayName: null }, 'laptop', newPair().publicKey);
-    return session.accessToken;
+function signIn(accountId: string): Promise<string> {
+    return signInAs(sqlite, env, accountId, NOW);
 }
 
 function post(body: unknown, token?: string, ip = '192.0.2.1'): Request {
@@ -41,10 +29,6 @@ function post(body: unknown, token?: string, ip = '192.0.2.1'): Request {
         headers: { 'cf-connecting-ip': ip, ...(token === undefined ? {} : { authorization: `Bearer ${token}` }) },
         body: JSON.stringify(body)
     });
-}
-
-async function errorCode(response: Response): Promise<string> {
-    return ((await response.json()) as { error: { code: string } }).error.code;
 }
 
 beforeEach(() => {

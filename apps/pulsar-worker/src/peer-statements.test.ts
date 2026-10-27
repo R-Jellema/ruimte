@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
 import type { Database } from 'bun:sqlite';
-import { generateKeyPairSync, sign, verify, type KeyObject } from 'node:crypto';
+import { generateKeyPairSync, verify } from 'node:crypto';
 import {
     PEER_STATEMENT_LIFETIME_MS,
     PeerStatementSchema,
@@ -16,22 +16,8 @@ import type { Env } from './env.ts';
 import { registerMachine } from './machines.ts';
 import { issuePeerStatement } from './peer-statements.ts';
 import { LIMITS } from './rate-limit.ts';
-import { createSession } from './sessions.ts';
+import { errorCode, newPair, signIn as signInAs, signWith, type Pair } from './test/accounts.ts';
 import { d1, migratedDatabase } from './test/sqlite-d1.ts';
-
-interface Pair {
-    publicKey: string;
-    privateKey: KeyObject;
-}
-
-function newPair(): Pair {
-    const keys = generateKeyPairSync('ed25519');
-    return { publicKey: keys.publicKey.export({ format: 'jwk' }).x!, privateKey: keys.privateKey };
-}
-
-function signWith(pair: Pair, message: string): string {
-    return sign(null, Buffer.from(message), pair.privateKey).toString('base64url');
-}
 
 const statementKey = generateKeyPairSync('ed25519');
 const NOW = Date.UTC(2026, 9, 1);
@@ -39,10 +25,8 @@ const NOW = Date.UTC(2026, 9, 1);
 let sqlite: Database;
 let env: Env;
 
-async function signIn(accountId: string): Promise<string> {
-    sqlite.query('INSERT INTO account (id, provider, subject, created_at) VALUES (?, ?, ?, ?)').run(accountId, 'github', accountId, NOW);
-    const session = await createSession(env.DB, { id: accountId, provider: 'github', login: accountId, displayName: null }, 'laptop', newPair().publicKey);
-    return session.accessToken;
+function signIn(accountId: string): Promise<string> {
+    return signInAs(sqlite, env, accountId, NOW);
 }
 
 function post(token: string, body: unknown, ip = '192.0.2.1'): Request {
@@ -88,10 +72,6 @@ function request(
         machineSignature: signWith(peerMachine, message),
         ...patch
     };
-}
-
-async function errorCode(response: Response): Promise<string> {
-    return ((await response.json()) as { error: { code: string } }).error.code;
 }
 
 function logged(): unknown[] {
