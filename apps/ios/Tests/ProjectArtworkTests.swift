@@ -30,14 +30,21 @@ final class ProjectArtworkTests: XCTestCase {
             UIColor.red.setFill()
             context.fill(CGRect(x: 0, y: 0, width: 512, height: 256))
         }
-        let client = ArtworkMachine(data: data)
+        let client = ScriptedMachine([
+            "bytes.read": { _ in
+                .object([
+                    "mime": .string("image/png"), "size": .number(Double(data.count)), "version": .string("v1"),
+                    "offset": .number(0), "data": .string(data.base64EncodedString()),
+                ])
+            }
+        ])
         let loader = ProjectArtworkLoader()
         let descriptor = try request()
         let first = try await loader.load(descriptor, client: client)
         let second = try await loader.load(descriptor, client: client)
         XCTAssertTrue(first === second)
-        XCTAssertEqual(client.requests.count, 1)
-        XCTAssertEqual(client.requests.first?["resource"], descriptor.resource)
+        XCTAssertEqual(client.requests, ["bytes.read"])
+        XCTAssertEqual(client.sent.first?.payload["resource"], descriptor.resource)
         XCTAssertEqual(first.cgImage?.width, 128)
         XCTAssertEqual(first.cgImage?.height, 64)
         XCTAssertNil(ProjectArtworkLoader.thumbnail(Data(repeating: 0, count: ProjectArtworkLoader.maximumBytes + 1)))
@@ -112,19 +119,4 @@ final class ProjectArtworkTests: XCTestCase {
         let offset = (y * image.width + x) * 4
         return Array(bytes[offset..<offset + 4])
     }
-}
-
-@MainActor private final class ArtworkMachine: MachineRequesting {
-    let data: Data
-    var requests: [JSONValue] = []
-    init(data: Data) { self.data = data }
-    func request(_ type: String, payload: JSONValue) async throws -> JSONValue {
-        XCTAssertEqual(type, "bytes.read")
-        requests.append(payload)
-        return .object([
-            "mime": .string("image/png"), "size": .number(Double(data.count)), "version": .string("v1"),
-            "offset": .number(0), "data": .string(data.base64EncodedString()),
-        ])
-    }
-    func subscribe(_ event: String, handler: @escaping @MainActor @Sendable (JSONValue) -> Void) -> () -> Void { {} }
 }
