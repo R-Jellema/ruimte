@@ -15,6 +15,7 @@ import {
     type RemoteProtocol
 } from '@/project/add-to-machine';
 import { RemoteFolderPicker } from '@/shell/RemoteFolderPicker';
+import { firstIdentity } from '@/shell/use-remote-checkouts';
 import { iconOfEntry } from '@/shell/settings/machine-icon';
 import { nameOf } from '@/shell/settings/machine-list';
 import { endpointById } from '@/state/endpoints';
@@ -79,8 +80,7 @@ function useSource(here: Transport | null, folder: string | null): Source {
             try {
                 const listed = await here.request('git.ignoredFiles', { cwd: folder });
                 const { identities } = await here.request('git.identity', { paths: [listed.root] });
-                const identity = identities[0];
-                const remoteUrl = identity === undefined || 'error' in identity ? null : (identity.remoteUrl ?? null);
+                const remoteUrl = firstIdentity(identities)?.remoteUrl ?? null;
                 if (current) {
                     setSource({ state: 'ready', listed, remoteUrl });
                 }
@@ -165,6 +165,7 @@ function AddToMachineForm({ request, onDone }: { request: AddToMachineRequest; o
     const clones = there !== null && machineAnswers(there.connection, 'git.clone');
     const lists = here !== null && machineAnswers(here.connection, 'git.ignoredFiles');
     const filled = clones && url !== null && parent !== null && folderName.trim() !== '' && !folderName.includes('/');
+    const target = parent === null ? null : `${parent.replace(/\/+$/, '')}/${folderName.trim()}`;
 
     useEffect(() => {
         if (there === null || actionId === null) {
@@ -178,14 +179,14 @@ function AddToMachineForm({ request, onDone }: { request: AddToMachineRequest; o
     }, [there, actionId]);
 
     const clone = async (): Promise<void> => {
-        if (!filled || there === null || url === null || parent === null) {
+        if (!filled || there === null || url === null || target === null) {
             return;
         }
         const id = crypto.randomUUID();
         setActionId(id);
         setStep({ step: 'cloning', line: '', percent: null });
         try {
-            const cloned = await there.request('git.clone', { actionId: id, url, path: `${parent.replace(/\/+$/, '')}/${folderName.trim()}` });
+            const cloned = await there.request('git.clone', { actionId: id, url, path: target });
             // Opened once so the machine lists it among its projects, and let go at once like any folder only looked at.
             const opened = await there.request('project.open', { folder: projectFolderIn(cloned.path) }).catch(() => null);
             if (opened !== null) {
@@ -361,9 +362,7 @@ function AddToMachineForm({ request, onDone }: { request: AddToMachineRequest; o
                         spellCheck={false}
                         onChange={(e) => setName(e.target.value)}
                     />
-                    {parent !== null && folderName.trim() !== '' && (
-                        <FieldHint>{t('addToMachine.into', { path: `${parent.replace(/\/+$/, '')}/${folderName.trim()}` })}</FieldHint>
-                    )}
+                    {target !== null && folderName.trim() !== '' && <FieldHint>{t('addToMachine.into', { path: target })}</FieldHint>}
                 </div>
             )}
             <SourceField source={source} url={url} protocol={protocol} disabled={cloning} onProtocol={setProtocolChoice} />

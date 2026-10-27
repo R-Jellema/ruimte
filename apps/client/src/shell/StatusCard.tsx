@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import clsx from 'clsx';
 import { CircleAlert, LoaderCircle, type LucideIcon } from 'lucide-react';
 import { Icon } from '@adecore/ui';
 
@@ -27,7 +28,7 @@ export function StatusCard({ glyph, title, meta, line, failed, icon, children }:
                 <Icon
                     icon={failed ? CircleAlert : (icon ?? LoaderCircle)}
                     size={14}
-                    className={failed ? 'mt-px shrink-0 text-status-error' : icon ? 'mt-px shrink-0' : 'mt-px shrink-0 animate-spin'}
+                    className={clsx('mt-px shrink-0', failed ? 'text-status-error' : !icon && 'animate-spin')}
                 />
                 <span>{line}</span>
             </p>

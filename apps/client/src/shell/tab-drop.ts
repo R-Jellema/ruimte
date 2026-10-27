@@ -19,11 +19,7 @@ interface TabBounds {
 
 /* The left edge of the gap at `gap`: the left of the tab that follows it, the right of the last tab for the end, and `fallback` for a strip with no tabs. */
 export function gapLeft(rects: readonly { left: number; right: number }[], gap: number, fallback: number): number {
-    const after = rects[gap];
-    if (after !== undefined) {
-        return after.left;
-    }
-    return rects.length > 0 ? rects[rects.length - 1]!.right : fallback;
+    return rects[gap]?.left ?? rects.at(-1)?.right ?? fallback;
 }
 
 /* Keeps a tab of `width` inside `bounds`; one wider than the bounds sits at their left edge. */

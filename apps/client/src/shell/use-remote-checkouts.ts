@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { DeviceInfo, GitIdentity, RemoteLink } from '@ruimte/contracts';
+import type { DeviceInfo, GitIdentity, GitIdentityResult, RemoteLink } from '@ruimte/contracts';
 import { ensureMachine } from '@/endpoint/reach';
 import { rankCandidates, type RemoteCandidate } from '@/project/remote-candidates';
 import { endpointById } from '@/state/endpoints';
@@ -20,6 +20,11 @@ async function identityHere(transport: Transport, folder: string | null): Promis
         return null;
     }
     const { identities } = await transport.request('git.identity', { paths: [folder] }).catch(() => ({ identities: [] }));
+    return firstIdentity(identities);
+}
+
+/* The identity of the one path a request asked for, unless the machine could not read it. */
+export function firstIdentity(identities: GitIdentityResult['identities']): GitIdentity | null {
     const identity = identities[0];
     return identity === undefined || 'error' in identity ? null : identity;
 }

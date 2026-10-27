@@ -6,7 +6,8 @@
 const cells = new Map<string, HTMLElement>();
 const listeners = new Set<() => void>();
 
-function announce(): void {
+/* Tells the listeners a cell moved; a splitter drag and a resize say so from outside. */
+export function cellsMoved(): void {
     for (const listener of [...listeners]) {
         listener();
     }
@@ -19,7 +20,7 @@ export function registerCell(viewId: string, element: HTMLElement | null): void 
     } else {
         cells.set(viewId, element);
     }
-    announce();
+    cellsMoved();
 }
 
 export function cellElement(viewId: string): HTMLElement | null {
@@ -32,8 +33,4 @@ export function subscribeCells(listener: () => void): () => void {
     return () => {
         listeners.delete(listener);
     };
-}
-
-export function cellsMoved(): void {
-    return announce();
 }

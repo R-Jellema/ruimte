@@ -183,7 +183,7 @@ function withoutCell(columns: readonly SplitColumn[], source: CellAt, target: Ce
 }
 
 /* A new cell beside `target` on one of its four edges, half of the share the target had. */
-function splitAt(columns: readonly SplitColumn[], target: CellAt, zone: Exclude<SplitZone, 'center'>, content: CellContent): SplitLayout {
+function splitAt(columns: readonly SplitColumn[], target: CellAt, zone: SplitDirection, content: CellContent): SplitLayout {
     if (isColumnZone(zone)) {
         const half = columns[target.column].size / 2;
         const index = zone === 'left' ? target.column : target.column + 1;

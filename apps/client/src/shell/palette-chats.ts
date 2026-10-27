@@ -5,10 +5,9 @@ import { messageOf } from '@adecore/ui';
 import { perform } from '@/actions/client-actions';
 import { focusChat } from '@/plan/plan-actions';
 import { matches } from '@/shell/palette-entries';
-import { endpointKey } from '@/state/keys';
+import { currentEndpointId, endpointKey } from '@/state/keys';
 import { useToasts } from '@/state/toasts';
 import { jumpToTimelineItem } from '@adecore/agents-react/chat';
-import { currentEndpointId } from '@/state/keys';
 import { machineFor } from '@/transport/connections';
 
 // The same pause the search in files takes: a typed word is one search.
@@ -69,7 +68,7 @@ export function groupByChat(hits: readonly ChatSearchHit[], chats: ChatSearchRes
     const groups: ChatHitGroup[] = [];
     for (const hit of hits) {
         const last = groups.at(-1);
-        if (last && last.chatId === hit.chatId) {
+        if (last?.chatId === hit.chatId) {
             last.hits.push(hit);
         } else {
             groups.push({ chatId: hit.chatId, title: chats.find((chat) => chat.chatId === hit.chatId)?.title ?? '', hits: [hit] });

@@ -67,7 +67,7 @@ export function groupByFile(matches: readonly FsGrepMatch[]): GrepGroup[] {
     const groups: GrepGroup[] = [];
     for (const match of matches) {
         const last = groups.at(-1);
-        if (last && last.path === match.path) {
+        if (last?.path === match.path) {
             last.matches.push(match);
         } else {
             groups.push({ path: match.path, matches: [match] });

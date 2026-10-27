@@ -148,8 +148,8 @@ function RemoteNodeForm({
     const startFrom: StartFrom = startChoice !== null && options.includes(startChoice) ? startChoice : options.includes('files') ? 'files' : 'machine';
     const ownWorktree = startFrom === 'machine' && inWorktree;
     const start = useWorktreeStart(ownWorktree && scoped && candidate !== null ? candidate.folder : null);
-    const device =
-        devices?.find((entry) => `${entry.backendId}:${entry.deviceId}` === (deviceKey ?? `${devices[0]?.backendId}:${devices[0]?.deviceId}`)) ?? null;
+    // The first device until a person picks one.
+    const device = devices?.find((entry) => deviceKey === null || deviceKeyOf(entry) === deviceKey) ?? null;
     const needsDevice = kind === 'device' && !request.relink;
     const ready = candidate !== null && !busy && (!ownWorktree || (start !== null && start.ready)) && (!needsDevice || device !== null);
 
@@ -455,6 +455,10 @@ function startLabel(t: TFunction<['shell', 'common']>, value: StartFrom, machine
     }
 }
 
+function deviceKeyOf(device: DeviceInfo): string {
+    return `${device.backendId}:${device.deviceId}`;
+}
+
 function deviceReference(device: DeviceInfo): NonNullable<ProjectNode['device']> {
     return { platform: device.platform, kind: device.kind, name: device.name, runtime: device.runtime };
 }
@@ -566,10 +570,10 @@ function DeviceField({
             <Select<string>
                 label={t('remoteNode.device')}
                 variant="outlined"
-                value={value === null ? null : `${value.backendId}:${value.deviceId}`}
+                value={value === null ? null : deviceKeyOf(value)}
                 onValueChange={onPick}
                 items={devices.map((entry) => ({
-                    value: `${entry.backendId}:${entry.deviceId}`,
+                    value: deviceKeyOf(entry),
                     label: `${entry.name} · ${entry.runtime}`,
                     icon: <Icon icon={Server} size={14} />
                 }))}

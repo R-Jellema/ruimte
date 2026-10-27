@@ -12,11 +12,10 @@ export function sidebarProjectKey(endpointId: string, projectId: string): string
     return JSON.stringify([endpointId, projectId]);
 }
 
+const stringList = z.array(z.unknown()).transform((items) => items.filter((item): item is string => typeof item === 'string'));
+
 const SIDEBAR_PROJECTS_STORAGE_KEY = 'ruimte.sidebar.projects';
-const storedCollapsed = storedJson(
-    SIDEBAR_PROJECTS_STORAGE_KEY,
-    z.array(z.unknown()).transform((items) => items.filter((item): item is string => typeof item === 'string'))
-);
+const storedCollapsed = storedJson(SIDEBAR_PROJECTS_STORAGE_KEY, stringList);
 
 function readCollapsed(): string[] {
     return storedCollapsed.read() ?? [];
@@ -27,10 +26,7 @@ function readCollapsed(): string[] {
  * that closes keeps its key here, so it comes back in its old place when it opens again.
  */
 export const SIDEBAR_ORDER_STORAGE_KEY = 'ruimte.sidebar.order';
-const storedOrder = storedJson(
-    SIDEBAR_ORDER_STORAGE_KEY,
-    z.array(z.unknown()).transform((items) => items.filter((item): item is string => typeof item === 'string'))
-);
+const storedOrder = storedJson(SIDEBAR_ORDER_STORAGE_KEY, stringList);
 
 function readOrder(): string[] {
     return storedOrder.read() ?? [];
@@ -155,71 +151,72 @@ export const useSidebarProjects = create<{
     askNewView(key: string | null): void;
     /* Folds and orders the projects the way another window left them. */
     reload(): void;
-}>((set, get) => ({
-    order: readOrder(),
-    collapsed: readCollapsed(),
-    expandedViews: {},
-    separators: readSeparators(),
-    renamingSeparatorId: null,
-    newViewFor: null,
-    collapse(key, collapsed) {
-        set((state) => {
-            const next = collapsed ? [...new Set([...state.collapsed, key])] : state.collapsed.filter((id) => id !== key);
-            storedCollapsed.write(next);
-            return { collapsed: next };
-        });
-    },
-    expandView(key, viewId, expanded) {
-        set((state) => {
-            const before = state.expandedViews[key] ?? [];
-            return { expandedViews: { ...state.expandedViews, [key]: expanded ? [...new Set([...before, viewId])] : before.filter((id) => id !== viewId) } };
-        });
-    },
-    setOrder(order) {
-        storedOrder.write(order);
-        set({ order });
-    },
-    move(visible, key, index) {
-        get().setOrder(moveInOrder(get().order, visible, key, index));
-    },
-    addSeparator(visible, index) {
-        const separator = { id: crypto.randomUUID(), label: '', folded: false };
-        const separators = [...get().separators, separator];
-        storedSeparators.write(separators);
-        set({ separators, renamingSeparatorId: separator.id });
-        get().setOrder(moveInOrder(get().order, visible, separatorKey(separator.id), index));
-    },
-    foldSeparator(id, folded) {
-        const separators = get().separators.map((separator) => (separator.id === id ? { ...separator, folded } : separator));
+}>((set, get) => {
+    const saveSeparators = (separators: SidebarSeparator[]): void => {
         storedSeparators.write(separators);
         set({ separators });
-    },
-    renameSeparator(id, label) {
-        const separators = get().separators.map((separator) => (separator.id === id ? { ...separator, label } : separator));
-        storedSeparators.write(separators);
-        set({ separators });
-    },
-    removeSeparator(id) {
-        const separators = get().separators.filter((separator) => separator.id !== id);
-        storedSeparators.write(separators);
-        set({ separators });
-        get().setOrder(get().order.filter((key) => key !== separatorKey(id)));
-    },
-    setRenamingSeparator(id) {
-        set({ renamingSeparatorId: id });
-    },
-    askNewView(key) {
-        set({ newViewFor: key });
-    },
-    reload() {
-        set({ collapsed: readCollapsed(), order: readOrder(), separators: readSeparators() });
-    }
-}));
+    };
+    return {
+        order: readOrder(),
+        collapsed: readCollapsed(),
+        expandedViews: {},
+        separators: readSeparators(),
+        renamingSeparatorId: null,
+        newViewFor: null,
+        collapse(key, collapsed) {
+            set((state) => {
+                const next = collapsed ? [...new Set([...state.collapsed, key])] : state.collapsed.filter((id) => id !== key);
+                storedCollapsed.write(next);
+                return { collapsed: next };
+            });
+        },
+        expandView(key, viewId, expanded) {
+            set((state) => {
+                const before = state.expandedViews[key] ?? [];
+                return {
+                    expandedViews: { ...state.expandedViews, [key]: expanded ? [...new Set([...before, viewId])] : before.filter((id) => id !== viewId) }
+                };
+            });
+        },
+        setOrder(order) {
+            storedOrder.write(order);
+            set({ order });
+        },
+        move(visible, key, index) {
+            get().setOrder(moveInOrder(get().order, visible, key, index));
+        },
+        addSeparator(visible, index) {
+            const separator = { id: crypto.randomUUID(), label: '', folded: false };
+            saveSeparators([...get().separators, separator]);
+            set({ renamingSeparatorId: separator.id });
+            get().setOrder(moveInOrder(get().order, visible, separatorKey(separator.id), index));
+        },
+        foldSeparator(id, folded) {
+            saveSeparators(get().separators.map((separator) => (separator.id === id ? { ...separator, folded } : separator)));
+        },
+        renameSeparator(id, label) {
+            saveSeparators(get().separators.map((separator) => (separator.id === id ? { ...separator, label } : separator)));
+        },
+        removeSeparator(id) {
+            saveSeparators(get().separators.filter((separator) => separator.id !== id));
+            get().setOrder(get().order.filter((key) => key !== separatorKey(id)));
+        },
+        setRenamingSeparator(id) {
+            set({ renamingSeparatorId: id });
+        },
+        askNewView(key) {
+            set({ newViewFor: key });
+        },
+        reload() {
+            set({ collapsed: readCollapsed(), order: readOrder(), separators: readSeparators() });
+        }
+    };
+});
 
 // Loaded with the sidebar, which only a workspace draws, so the start screen does not listen for it.
-followOtherWindows(SIDEBAR_PROJECTS_STORAGE_KEY, () => useSidebarProjects.getState().reload());
-followOtherWindows(SIDEBAR_ORDER_STORAGE_KEY, () => useSidebarProjects.getState().reload());
-followOtherWindows(SIDEBAR_SEPARATORS_STORAGE_KEY, () => useSidebarProjects.getState().reload());
+for (const key of [SIDEBAR_PROJECTS_STORAGE_KEY, SIDEBAR_ORDER_STORAGE_KEY, SIDEBAR_SEPARATORS_STORAGE_KEY]) {
+    followOtherWindows(key, () => useSidebarProjects.getState().reload());
+}
 
 export function useSidebarMachines(enabled: boolean, endpointIds: readonly string[]): Record<string, SidebarMachineSnapshot> {
     const ids = [...endpointIds].sort().join('\0');
