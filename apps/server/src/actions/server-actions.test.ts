@@ -97,8 +97,26 @@ function host(): CanvasHost {
     } as Partial<CanvasHost> as CanvasHost;
 }
 
+function as(caller: string, dryRun = false) {
+    return serverActionCall(host(), PLACE, caller, dryRun);
+}
+
 function agent(dryRun = false) {
-    return serverActionCall(host(), PLACE, 'term-1', dryRun);
+    return as('term-1', dryRun);
+}
+
+/* The call of `term-1` as though Voice made it, for the actions an agent alone may run. */
+function voice() {
+    return { ...agent(), actor: { kind: 'voice' as const, id: 'voice' } };
+}
+
+/* `caller`'s call on a host that reads what runs in its agent nodes, and places only the nodes on main. */
+function withAgents(caller: string, agents: CanvasHost['agents']) {
+    return serverActionCall(
+        { ...host(), projects: { ...host().projects, locate: (id: string) => (nodesOnMain().includes(id) ? PLACE : null) }, agents },
+        PLACE,
+        caller
+    );
 }
 
 function note(input: Partial<ActionInput<'node.create'>> = {}): ActionInput<'node.create'> {
@@ -119,10 +137,6 @@ function note(input: Partial<ActionInput<'node.create'>> = {}): ActionInput<'nod
 function nodesOnMain(): string[] {
     const main = content.views.find((view) => view.id === 'main');
     return main?.kind === 'canvas' ? main.nodes.map((node) => node.id) : [];
-}
-
-function as(caller: string, dryRun = false) {
-    return serverActionCall(host(), PLACE, caller, dryRun);
 }
 
 function openTask(childId: string, parentId: string): Task {
@@ -288,8 +302,7 @@ describe('the daemon actions', () => {
     });
 
     test('only an agent reaches the actions an agent alone may run', async () => {
-        const call = { ...agent(), actor: { kind: 'voice' as const, id: 'voice' } };
-        expect(await serverActions.execute('node.list', { viewId: 'main' }, call)).toMatchObject({ status: 'failed', error: { code: 'forbidden-action' } });
+        expect(await serverActions.execute('node.list', { viewId: 'main' }, voice())).toMatchObject({ status: 'failed', error: { code: 'forbidden-action' } });
     });
 
     test('agent.notify travels only along a line from the caller into an agent, and says where the message went', async () => {
@@ -302,8 +315,7 @@ describe('the daemon actions', () => {
         expect(sent).toMatchObject({ status: 'completed', output: { nodeId: 'term-2', at: 'waiting' } });
         expect(notices).toMatchObject([{ targetId: 'term-2', from: 'term-1', fromTitle: 'shell', text: 'hello' }]);
 
-        const voice = { ...agent(), actor: { kind: 'voice' as const, id: 'voice' } };
-        expect(await serverActions.execute('agent.notify', { nodeId: 'term-2', text: 'hello' }, voice)).toMatchObject({
+        expect(await serverActions.execute('agent.notify', { nodeId: 'term-2', text: 'hello' }, voice())).toMatchObject({
             status: 'failed',
             error: { code: 'forbidden-action' }
         });
@@ -364,7 +376,6 @@ describe('the daemon actions', () => {
     });
 
     test("team.start is an agent's alone, and agent.start takes none of an agent's fields from Voice", async () => {
-        const voice = { ...agent(), actor: { kind: 'voice' as const, id: 'voice' } };
         const start = {
             provider: 'claude' as const,
             terminal: false,
@@ -386,14 +397,14 @@ describe('the daemon actions', () => {
             worktree: false,
             task: false
         };
-        expect(await serverActions.execute('team.start', team, voice)).toMatchObject({ status: 'failed', error: { code: 'forbidden-action' } });
+        expect(await serverActions.execute('team.start', team, voice())).toMatchObject({ status: 'failed', error: { code: 'forbidden-action' } });
         for (const [field, value] of Object.entries({ task: 'Review', worktree: false, cwd: 'src', reads: ['n'], machine: 'machine-b' })) {
-            expect(await serverActions.execute('agent.start', { ...start, [field]: value }, voice)).toMatchObject({
+            expect(await serverActions.execute('agent.start', { ...start, [field]: value }, voice())).toMatchObject({
                 status: 'failed',
                 error: { code: 'forbidden-field' }
             });
         }
-        expect(await serverActions.execute('worktree.merge', { branch: 'lexer', strategy: 'merge', message: null }, voice)).toMatchObject({
+        expect(await serverActions.execute('worktree.merge', { branch: 'lexer', strategy: 'merge', message: null }, voice())).toMatchObject({
             status: 'failed',
             error: { code: 'forbidden-action' }
         });
@@ -402,15 +413,7 @@ describe('the daemon actions', () => {
     test('operation.get reads a start off what runs in its node, and only for the one who started it', async () => {
         const states: Record<string, AgentState> = { 'term-2': 'needs-you' };
         const call = (caller: string) =>
-            serverActionCall(
-                {
-                    ...host(),
-                    projects: { ...host().projects, locate: (id: string) => (nodesOnMain().includes(id) ? PLACE : null) },
-                    agents: { stateOf: async (id: string) => states[id] ?? 'none', startedBy: (id: string) => made.get(id) ?? null, cancelTurn: () => false }
-                },
-                PLACE,
-                caller
-            );
+            withAgents(caller, { stateOf: async (id) => states[id] ?? 'none', startedBy: (id) => made.get(id) ?? null, cancelTurn: () => false });
         made.set('term-2', 'term-1');
 
         expect(await serverActions.execute('operation.get', { operationId: 'agent.start:term-2' }, call('term-1'))).toMatchObject({
@@ -443,25 +446,17 @@ describe('the daemon actions', () => {
         const states: Record<string, AgentState> = { 'chat-2': 'running', 'term-2': 'running' };
         const stopped: string[] = [];
         const call = (caller: string) =>
-            serverActionCall(
-                {
-                    ...host(),
-                    projects: { ...host().projects, locate: (id: string) => (nodesOnMain().includes(id) ? PLACE : null) },
-                    agents: {
-                        stateOf: async (id: string) => states[id] ?? 'none',
-                        startedBy: (id: string) => made.get(id) ?? null,
-                        cancelTurn: (id: string) => {
-                            if (id !== 'chat-2' || states[id] !== 'running') {
-                                return false;
-                            }
-                            stopped.push(id);
-                            return true;
-                        }
+            withAgents(caller, {
+                stateOf: async (id) => states[id] ?? 'none',
+                startedBy: (id) => made.get(id) ?? null,
+                cancelTurn: (id) => {
+                    if (id !== 'chat-2' || states[id] !== 'running') {
+                        return false;
                     }
-                },
-                PLACE,
-                caller
-            );
+                    stopped.push(id);
+                    return true;
+                }
+            });
         made.set('chat-2', 'term-1');
         made.set('term-2', 'term-1');
 

@@ -97,10 +97,6 @@ function host(): CanvasHost {
     } as Partial<CanvasHost> as CanvasHost;
 }
 
-function readAs(chatId: string, limit: number | null = null) {
-    return serverActions.execute('chat.read', { chatId, limit }, voiceActionCall(host(), PLACE, VOICE));
-}
-
 beforeEach(() => {
     loaded = new Map();
     stored = new Map();
@@ -146,8 +142,24 @@ function terminalAgent(status: AgentInfo['status'], live = true): AgentInfo {
     return { kind: 'codex', agentSessionId: 'x', transcriptPath: null, status, live, updatedAt: 42 };
 }
 
-function asVoice<Name extends Parameters<typeof serverActions.execute>[0]>(name: Name, input: unknown, place = PLACE) {
-    return serverActions.execute(name, input, voiceActionCall(host(), place, VOICE));
+function asVoice<Name extends Parameters<typeof serverActions.execute>[0]>(name: Name, input: unknown, place = PLACE, voice = VOICE) {
+    return serverActions.execute(name, input, voiceActionCall(host(), place, voice));
+}
+
+function readAs(chatId: string, limit: number | null = null) {
+    return asVoice('chat.read', { chatId, limit });
+}
+
+/* A session that follows what it sets going, which is what chat.send and chat.clear tell. */
+const WRITER: VoiceCaller = { ...VOICE, follow: FOLLOW };
+
+/* The token a confirmation asks with; the test fails where an action ran without asking. */
+function tokenOf(asked: Awaited<ReturnType<typeof serverActions.execute>>): string {
+    if (asked.status !== 'needs_confirmation') {
+        throw new Error('expected a confirmation');
+    }
+
+    return asked.confirmationToken;
 }
 
 describe('chat.read for Voice', () => {
@@ -400,10 +412,8 @@ describe('agents.inspect for Voice', () => {
 });
 
 describe('chat.send for Voice', () => {
-    const writer: VoiceCaller = { ...VOICE, follow: FOLLOW };
-
-    function send(chatId: string, prompt: string, delivery: string | null = null, voice = writer) {
-        return serverActions.execute('chat.send', { chatId, prompt, delivery }, voiceActionCall(host(), PLACE, voice));
+    function send(chatId: string, prompt: string, delivery: string | null = null) {
+        return asVoice('chat.send', { chatId, prompt, delivery }, PLACE, WRITER);
     }
 
     test('sends the prompt to a chat that runs, and follows the turn the chat names for it', async () => {
@@ -435,10 +445,12 @@ describe('chat.send for Voice', () => {
 });
 
 describe('chat.clear for Voice', () => {
-    const writer: VoiceCaller = { ...VOICE, follow: FOLLOW };
+    function clear(chatId: string, voice = WRITER) {
+        return asVoice('chat.clear', { chatId, force: null }, PLACE, voice);
+    }
 
-    function clear(chatId: string, voice = writer) {
-        return serverActions.execute('chat.clear', { chatId, force: null }, voiceActionCall(host(), PLACE, voice));
+    function answer(asked: Awaited<ReturnType<typeof clear>>, confirmed: boolean) {
+        return serverActions.confirm(tokenOf(asked), confirmed, voiceActionCall(host(), PLACE, WRITER));
     }
 
     test('asks first, and clears only once the person confirmed, letting go of what Voice followed there', async () => {
@@ -446,10 +458,7 @@ describe('chat.clear for Voice', () => {
         const asked = await clear('chat-node');
         expect(asked).toMatchObject({ status: 'needs_confirmation', confirmation: { title: 'Clear AI Chat “Builder”?' } });
         expect(cleared).toEqual([]);
-        if (asked.status !== 'needs_confirmation') {
-            throw new Error('expected a confirmation');
-        }
-        expect(await serverActions.confirm(asked.confirmationToken, true, voiceActionCall(host(), PLACE, writer))).toMatchObject({
+        expect(await answer(asked, true)).toMatchObject({
             status: 'completed',
             output: { chatId: 'chat-node', chat: 'Builder' }
         });
@@ -459,11 +468,7 @@ describe('chat.clear for Voice', () => {
 
     test('a chat view clears the same way, and a cancel clears nothing', async () => {
         running.add('chat-view');
-        const asked = await clear('chat-view');
-        if (asked.status !== 'needs_confirmation') {
-            throw new Error('expected a confirmation');
-        }
-        expect(await serverActions.confirm(asked.confirmationToken, false, voiceActionCall(host(), PLACE, writer))).toMatchObject({
+        expect(await answer(await clear('chat-view'), false)).toMatchObject({
             status: 'failed',
             error: { code: 'confirmation-declined' }
         });
@@ -477,20 +482,17 @@ describe('chat.clear for Voice', () => {
         running.add('chat-node');
         bound.add('chat-node');
         expect(await clear('chat-node')).toMatchObject({ status: 'failed', error: { code: 'remote-target' } });
-        expect(await clear('chat-node', { ...writer, projectId: 'project-2' })).toMatchObject({ status: 'failed', error: { code: 'remote-target' } });
+        expect(await clear('chat-node', { ...WRITER, projectId: 'project-2' })).toMatchObject({ status: 'failed', error: { code: 'remote-target' } });
         bound.delete('chat-node');
-        expect(await clear('chat-node', { ...writer, projectId: 'project-2' })).toMatchObject({ status: 'failed', error: { code: 'not-in-project' } });
+        expect(await clear('chat-node', { ...WRITER, projectId: 'project-2' })).toMatchObject({ status: 'failed', error: { code: 'not-in-project' } });
         expect(cleared).toEqual([]);
     });
 
     test('a chat that left the project between the question and the answer is not cleared', async () => {
         running.add('chat-node');
         const asked = await clear('chat-node');
-        if (asked.status !== 'needs_confirmation') {
-            throw new Error('expected a confirmation');
-        }
         places.set('chat-node', 'project-2');
-        expect(await serverActions.confirm(asked.confirmationToken, true, voiceActionCall(host(), PLACE, writer))).toMatchObject({
+        expect(await answer(asked, true)).toMatchObject({
             status: 'failed',
             error: { code: 'not-in-project' }
         });
