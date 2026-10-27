@@ -94,14 +94,9 @@ export class Handshake {
         };
     }
 
-    /* Checks a signed challenge and answers with a ticket; null when anything about it does not hold up, and for a peer, which gets none. */
-    async redeem(payload: AuthTicketPayload, binding: string): Promise<AuthTicketResult | null> {
-        return (await this.redeemChannel(payload, binding))?.ticket ?? null;
-    }
-
     /*
-     * The same check for a channel, which also needs to know whose it is. A peer is another machine, not
-     * a person: it gets no ticket, so no HTTP route and no byte stream of this machine opens to it.
+     * Checks a signed challenge and says whose it is; null when anything about it does not hold up. A peer
+     * is another machine, not a person: it gets no ticket, so no HTTP route or byte stream opens to it.
      */
     async redeemChannel(payload: AuthTicketPayload, binding: string): Promise<ChannelGrant | null> {
         if (!this.spend(payload.challenge, binding)) {

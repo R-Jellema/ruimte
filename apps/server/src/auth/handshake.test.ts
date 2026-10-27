@@ -2,11 +2,12 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { clientAuthMessage, clientChannelMessage, daemonChallengeMessage, daemonChannelMessage } from '@ruimte/contracts';
+import { clientAuthMessage, clientChannelMessage, daemonChallengeMessage, daemonChannelMessage, type AuthTicketPayload } from '@ruimte/contracts';
+import { verifySignature } from '@ruimte/pulsar/verify-node';
 import { AuthStore } from './auth-store.ts';
 import { CHALLENGE_TTL_MS, Handshake, TICKET_TTL_MS } from './handshake.ts';
-import { verifySignature } from '@ruimte/pulsar/verify-node';
 import { generateKeyPair, signMessage } from './keys.ts';
+import { admitClient } from './test-admit.ts';
 
 let home: string;
 let clock: number;
@@ -25,34 +26,27 @@ const identity = {
 // The binding of one direct channel, which every challenge and signature here is made over.
 const BINDING = '[["sha-256 AA"],["sha-256 BB"]]';
 
-async function signIn(key: { publicKey: string; privateKey: string }, daemonId = DAEMON_ID) {
-    const { challenge } = handshake.challenge(BINDING);
-    return handshake.redeem(
-        {
-            publicKey: key.publicKey,
-            challenge,
-            signature: signMessage(key.privateKey, clientChannelMessage(daemonId, challenge, key.publicKey, BINDING))
-        },
-        BINDING
-    );
+type Key = { publicKey: string; privateKey: string };
+
+function proof(key: Key, daemonId = DAEMON_ID, target = handshake) {
+    const { challenge } = target.challenge(BINDING);
+    return {
+        publicKey: key.publicKey,
+        challenge,
+        signature: signMessage(key.privateKey, clientChannelMessage(daemonId, challenge, key.publicKey, BINDING))
+    };
 }
 
-let nonces = 0;
+async function redeem(payload: AuthTicketPayload) {
+    return (await handshake.redeemChannel(payload, BINDING))?.ticket ?? null;
+}
 
-/* Lets a key in the way a statement does, answering its session. */
-async function admit(key: { publicKey: string }): Promise<string> {
-    nonces += 1;
-    const admitted = await store.admitStatement({
-        publicKey: key.publicKey,
-        label: 'laptop',
-        nonce: `nonce-${nonces}`.padEnd(22, 'n'),
-        keepNonceUntil: clock + 150_000,
-        accountId: 'owner'
-    });
-    if (!('sessionId' in admitted)) {
-        throw new Error(`Not admitted: ${admitted.refused}`);
-    }
-    return admitted.sessionId;
+function signIn(key: Key, daemonId = DAEMON_ID) {
+    return redeem(proof(key, daemonId));
+}
+
+function admit(key: { publicKey: string }): Promise<string> {
+    return admitClient(store, key.publicKey);
 }
 
 async function sessionOf(ticket: string) {
@@ -97,11 +91,9 @@ describe('Handshake', () => {
         const key = generateKeyPair();
         await admit(key);
         const first = handshake.challenge(BINDING).challenge;
-        expect(
-            await handshake.redeem({ publicKey: key.publicKey, challenge: first, signature: signMessage(key.privateKey, 'something else') }, BINDING)
-        ).toBeNull();
+        expect(await redeem({ publicKey: key.publicKey, challenge: first, signature: signMessage(key.privateKey, 'something else') })).toBeNull();
         const second = handshake.challenge(BINDING).challenge;
-        expect(await handshake.redeem({ publicKey: key.publicKey, challenge: second, signature: 'not-a-signature' }, BINDING)).toBeNull();
+        expect(await redeem({ publicKey: key.publicKey, challenge: second, signature: 'not-a-signature' })).toBeNull();
     });
 
     test('a signature made for another daemon does not open this one', async () => {
@@ -113,25 +105,15 @@ describe('Handshake', () => {
     test('a challenge is good for one attempt and one minute', async () => {
         const key = generateKeyPair();
         await admit(key);
-        const { challenge } = handshake.challenge(BINDING);
-        const signature = signMessage(key.privateKey, clientChannelMessage(DAEMON_ID, challenge, key.publicKey, BINDING));
+        const signed = proof(key);
 
-        expect(await handshake.redeem({ publicKey: key.publicKey, challenge, signature }, BINDING)).not.toBeNull();
+        expect(await redeem(signed)).not.toBeNull();
         // The same signature over the same nonce, which is exactly what a replay looks like.
-        expect(await handshake.redeem({ publicKey: key.publicKey, challenge, signature }, BINDING)).toBeNull();
+        expect(await redeem(signed)).toBeNull();
 
-        const stale = handshake.challenge(BINDING);
+        const stale = proof(key);
         clock += CHALLENGE_TTL_MS + 1;
-        expect(
-            await handshake.redeem(
-                {
-                    publicKey: key.publicKey,
-                    challenge: stale.challenge,
-                    signature: signMessage(key.privateKey, clientChannelMessage(DAEMON_ID, stale.challenge, key.publicKey, BINDING))
-                },
-                BINDING
-            )
-        ).toBeNull();
+        expect(await redeem(stale)).toBeNull();
     });
 
     test('a key this daemon never let in signs correctly and still gets nowhere', async () => {
@@ -268,11 +250,11 @@ describe('Handshake on a direct channel', () => {
         const key = await pairedKey();
         const other = handshake.challenge(BINDING).challenge;
         const elsewhere = signMessage(key.privateKey, clientChannelMessage(DAEMON_ID, other, key.publicKey, '[["sha-256 CC"],["sha-256 BB"]]'));
-        expect(await handshake.redeem({ publicKey: key.publicKey, challenge: other, signature: elsewhere }, BINDING)).toBeNull();
+        expect(await redeem({ publicKey: key.publicKey, challenge: other, signature: elsewhere })).toBeNull();
 
         const plain = handshake.challenge(BINDING).challenge;
         const http = signMessage(key.privateKey, clientAuthMessage(DAEMON_ID, plain, key.publicKey));
-        expect(await handshake.redeem({ publicKey: key.publicKey, challenge: plain, signature: http }, BINDING)).toBeNull();
+        expect(await redeem({ publicKey: key.publicKey, challenge: plain, signature: http })).toBeNull();
     });
 
     test('a challenge from one channel cannot be spent on another', () => {
@@ -284,45 +266,22 @@ describe('Handshake on a direct channel', () => {
 });
 
 describe('Handshake and a peer', () => {
-    async function admitPeer(key: { publicKey: string }): Promise<string> {
-        nonces += 1;
-        const admitted = await store.admitStatement({
-            publicKey: key.publicKey,
-            label: 'Studio',
-            nonce: `peer-nonce-${nonces}`.padEnd(22, 'n'),
-            keepNonceUntil: clock + 150_000,
-            accountId: 'owner',
-            peer: { machineId: 'machine-a', machinePublicKey: generateKeyPair().publicKey }
-        });
-        if (!('sessionId' in admitted)) {
-            throw new Error(`Not admitted: ${admitted.refused}`);
-        }
-        return admitted.sessionId;
-    }
-
-    async function proof(key: { publicKey: string; privateKey: string }) {
-        const { challenge } = handshake.challenge(BINDING);
-        return {
-            publicKey: key.publicKey,
-            challenge,
-            signature: signMessage(key.privateKey, clientChannelMessage(DAEMON_ID, challenge, key.publicKey, BINDING))
-        };
+    function admitPeer(key: { publicKey: string }): Promise<string> {
+        return admitClient(store, key.publicKey, 'Studio', 'owner', { machineId: 'machine-a', machinePublicKey: generateKeyPair().publicKey });
     }
 
     test('a peer proves its key and is let in as a machine, with no ticket for the HTTP routes', async () => {
         const key = generateKeyPair();
         const sessionId = await admitPeer(key);
-        expect(await handshake.redeemChannel(await proof(key), BINDING)).toEqual({ sessionId, ticket: null, peer: { machineId: 'machine-a' } });
+        expect(await handshake.redeemChannel(proof(key), BINDING)).toEqual({ sessionId, ticket: null, peer: { machineId: 'machine-a' } });
     });
 
-    test('redeem hands a peer no ticket either, and a client still gets its own', async () => {
-        const peer = generateKeyPair();
-        await admitPeer(peer);
-        expect(await handshake.redeem(await proof(peer), BINDING)).toBeNull();
+    test('a client beside a peer still gets its own ticket', async () => {
+        await admitPeer(generateKeyPair());
 
         const client = generateKeyPair();
         const clientSession = await admit(client);
-        const grant = await handshake.redeemChannel(await proof(client), BINDING);
+        const grant = await handshake.redeemChannel(proof(client), BINDING);
         expect(grant).toMatchObject({ sessionId: clientSession, peer: null });
         expect(await sessionOf(grant!.ticket!.ticket)).toBe(clientSession);
     });
@@ -338,15 +297,7 @@ describe('Handshake and a peer', () => {
         const own = new Handshake(swappable as unknown as AuthStore, identity, () => clock);
         const client = generateKeyPair();
         const sessionId = await admit(client);
-        const { challenge } = own.challenge(BINDING);
-        const grant = await own.redeemChannel(
-            {
-                publicKey: client.publicKey,
-                challenge,
-                signature: signMessage(client.privateKey, clientChannelMessage(DAEMON_ID, challenge, client.publicKey, BINDING))
-            },
-            BINDING
-        );
+        const grant = await own.redeemChannel(proof(client, DAEMON_ID, own), BINDING);
         expect(await own.ticketAccess(grant!.ticket!.ticket, 'bytes')).toEqual({ sessionId });
         becamePeer = true;
         expect(await own.ticketAccess(grant!.ticket!.ticket, 'bytes')).toBeNull();

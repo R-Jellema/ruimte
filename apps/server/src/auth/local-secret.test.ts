@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { localSecretPath, readLocalSecret, readOrCreateLocalSecret, sameSecret } from './local-secret.ts';
+import { readLocalSecret, readOrCreateLocalSecret, sameSecret } from './local-secret.ts';
 
 let root: string;
 
@@ -22,7 +22,7 @@ describe('the local secret', () => {
         const first = await readOrCreateLocalSecret(home);
         expect(first.length).toBeGreaterThan(40);
         if (process.platform !== 'win32') {
-            expect((await stat(localSecretPath(home))).mode & 0o777).toBe(0o600);
+            expect((await stat(join(home, 'local.key'))).mode & 0o777).toBe(0o600);
             expect((await stat(home)).mode & 0o777).toBe(0o700);
         }
 
@@ -31,7 +31,7 @@ describe('the local secret', () => {
     });
 
     test('an empty file is no secret, and a new one replaces it', async () => {
-        await writeFile(localSecretPath(root), '\n');
+        await writeFile(join(root, 'local.key'), '\n');
         expect(await readLocalSecret(root)).toBeNull();
         expect((await readOrCreateLocalSecret(root)).length).toBeGreaterThan(40);
     });

@@ -223,7 +223,7 @@ export class AuthStore {
     /* The account this machine is on: absent when it never signed for one since this was kept, null once a person took it off. */
     async accountBinding(): Promise<Binding> {
         const { account } = await this.load();
-        return account === undefined || account === null ? account : { ...account };
+        return account && { ...account };
     }
 
     /*

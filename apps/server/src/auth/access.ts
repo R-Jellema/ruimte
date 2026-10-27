@@ -133,7 +133,6 @@ export async function decideAccess(request: Request, remoteAddress: string, opti
     if (use === 'local') {
         return { ok: false, status: 403, reason: 'Only the app on this machine may ask this' };
     }
-    // A ticket first: it is what a client that signs for itself carries, and it costs no disk.
     const granted = await options.tickets.ticketAccess(token, use);
     if (granted) {
         return { ok: true, access: { reachability, sessionId: granted.sessionId }, ticket: token };

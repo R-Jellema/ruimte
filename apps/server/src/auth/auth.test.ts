@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { crossOriginHeaders, decideAccess, handleLocalTicketRequest, isOwner, originAllowed, preflightHeaders, reachabilityOf, withHeaders } from './access.ts';
 import { AuthStore } from './auth-store.ts';
 import { generateKeyPair } from './keys.ts';
+import { admitClient } from './test-admit.ts';
 
 let home: string;
 let clock: number;
@@ -24,10 +25,10 @@ afterEach(async () => {
 });
 
 describe('AuthStore', () => {
-    const statement = (publicKey: string, nonce = 'n'.repeat(22)) => ({
+    const statement = (publicKey: string) => ({
         publicKey,
         label: 'Laptop',
-        nonce,
+        nonce: 'n'.repeat(22),
         keepNonceUntil: clock + 150_000,
         accountId: 'owner'
     });
@@ -69,9 +70,7 @@ describe('AuthStore', () => {
     });
 
     test('a client that proves its key is seen now, and one revoked since it was looked up is not', async () => {
-        const { publicKey } = generateKeyPair();
-        const admitted = await store.admitStatement(statement(publicKey));
-        const sessionId = 'sessionId' in admitted ? admitted.sessionId : '';
+        const sessionId = await admitClient(store, generateKeyPair().publicKey);
         clock += 5_000;
         expect(await store.noteSeen(sessionId)).toBe(true);
         expect((await store.list(null))[0]?.lastSeenAt).toBe(clock);
@@ -83,9 +82,8 @@ describe('AuthStore', () => {
 
     test('a revoked key gets nothing for its next statement, however good', async () => {
         const { publicKey } = generateKeyPair();
-        const admitted = await store.admitStatement(statement(publicKey));
-        await store.revoke('sessionId' in admitted ? admitted.sessionId : '');
-        expect(await store.admitStatement(statement(publicKey, 'm'.repeat(22)))).toEqual({ refused: 'revoked' });
+        await store.revoke(await admitClient(store, publicKey));
+        expect(await store.admitStatement(statement(publicKey))).toEqual({ refused: 'revoked' });
         expect(await store.sessionForPublicKey(publicKey)).toBeNull();
     });
 });
