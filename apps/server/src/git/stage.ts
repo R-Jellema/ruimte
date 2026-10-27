@@ -1,5 +1,5 @@
 import type { GitDiscardResult } from '@ruimte/contracts';
-import { git, gitOrThrow, toplevel } from './run.ts';
+import { git, gitOrThrow, toplevel, verifyRev } from './run.ts';
 
 // Paths come from a status of ours, so they mean themselves and never a glob git would expand.
 function literal(paths: readonly string[]): string[] {
@@ -21,8 +21,8 @@ export async function stagePaths(cwd: string, paths: readonly string[]): Promise
 export async function unstagePaths(cwd: string, paths: readonly string[]): Promise<void> {
     const top = await toplevel(cwd);
     // A repository without a commit has no HEAD to restore from, so the index is emptied instead.
-    const born = (await git(['rev-parse', '--verify', '--quiet', 'HEAD'], top))?.trim();
-    await gitOrThrow(born ? ['restore', '--staged', '--', ...literal(paths)] : ['rm', '--cached', '-r', '--', ...literal(paths)], top);
+    const born = await verifyRev('HEAD', top);
+    await gitOrThrow(born !== null ? ['restore', '--staged', '--', ...literal(paths)] : ['rm', '--cached', '-r', '--', ...literal(paths)], top);
 }
 
 /*

@@ -1,8 +1,8 @@
 import type { GitActionPhase, WorktreeMergePayload, WorktreeMergeResult } from '@ruimte/contracts';
 import { Job, type ProgressSink } from './actions.ts';
-import { abortOperation, conflictedFiles, dropSquashMessage, gitPathExists, hasStaged, operationOf, squashWaits } from './conflict.ts';
+import { abortOperation, conflictedFiles, dropSquashMessage, existingGitPaths, hasStaged, operationOf, squashWaits } from './conflict.ts';
 import { resolveBase } from './status.ts';
-import { GitError, git, readGit, runGit, streamGit } from './run.ts';
+import { GitError, git, readGit, runGit, streamGit, verifyRev } from './run.ts';
 import type { Worktrees } from './worktrees.ts';
 import { PROJECT_DIR } from '../projects/project-files.ts';
 import { errorText } from '../error-text.ts';
@@ -237,7 +237,7 @@ export class WorktreeMerge {
             if (merged.code !== 0) {
                 // The exit code does not say whether git refused or ran into a conflict; what it left behind does.
                 const conflicts = await conflictedFiles(target.path);
-                const waiting = (await gitPathExists(target.path, 'MERGE_HEAD')) || (await gitPathExists(target.path, 'SQUASH_MSG'));
+                const waiting = (await existingGitPaths(target.path, ['MERGE_HEAD', 'SQUASH_MSG'])).size > 0;
                 const moved = (await git(['rev-parse', 'HEAD'], target.path))?.trim() !== head;
                 if (conflicts.length === 0 && !waiting && !moved) {
                     // Refused before touching anything, such as over a changed file of the person's the merge would overwrite.
@@ -337,7 +337,7 @@ export class WorktreeMerge {
             return null;
         }
         const local = base.startsWith('origin/') ? base.slice('origin/'.length) : base;
-        return (await runGit(['rev-parse', '--verify', '--quiet', `refs/heads/${local}`], main)).code === 0 ? local : null;
+        return (await verifyRev(`refs/heads/${local}`, main)) === null ? null : local;
     }
 }
 

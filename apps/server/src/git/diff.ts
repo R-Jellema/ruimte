@@ -6,7 +6,7 @@ import type { ChatCheckpointDiff, ChatCheckpointFile, GitDiffFile, GitDiffResult
 import { climbsOut } from '../fs/path-segment.ts';
 import { readCommit } from './log.ts';
 import { nativePath } from './native-path.ts';
-import { git, runGit, runGitBytes, toplevel, GitError } from './run.ts';
+import { git, runGit, runGitBytes, toplevel, verifyRev, GitError } from './run.ts';
 
 // Beyond these a diff stops being something a person reads, and the chat file stops being small.
 const MAX_FILES = 100;
@@ -302,8 +302,7 @@ const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
 /* A commit's parent, or the empty tree for the first commit, which has none to compare with. */
 async function parentOf(top: string, commit: string): Promise<string> {
-    const parent = (await git(['rev-parse', '--verify', '--quiet', `${commit}^`], top))?.trim();
-    return parent || EMPTY_TREE;
+    return (await verifyRev(`${commit}^`, top)) ?? EMPTY_TREE;
 }
 
 /*
@@ -313,8 +312,8 @@ async function parentOf(top: string, commit: string): Promise<string> {
  */
 export async function diffCommit(cwd: string, commit: string): Promise<GitDiffResult> {
     const top = await toplevel(cwd);
-    const hash = (await git(['rev-parse', '--verify', commit], top))?.trim();
-    if (!hash) {
+    const hash = await verifyRev(commit, top);
+    if (hash === null) {
         throw new GitError('git-failed', `${commit} is not a commit in this repository.`);
     }
     const diff = await diffTrees(top, await parentOf(top, hash), hash);
@@ -368,7 +367,7 @@ export async function diffCheckout(cwd: string, from: string | null): Promise<Gi
         if (!tree) {
             throw new GitError('git-failed', `Could not read the working tree of ${top}.`);
         }
-        const start = from ?? (await git(['rev-parse', '--verify', '--quiet', 'HEAD'], top))?.trim() ?? EMPTY_TREE;
+        const start = from ?? (await verifyRev('HEAD', top));
         return filesResult(await diffTrees(top, start || EMPTY_TREE, tree));
     } finally {
         await rm(scratch, { recursive: true, force: true });

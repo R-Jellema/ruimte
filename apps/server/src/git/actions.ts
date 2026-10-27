@@ -1,6 +1,6 @@
 import type { GitActionPayload, GitActionPhase, GitActionResult } from '@ruimte/contracts';
 import { conflictedFiles } from './conflict.ts';
-import { READ_ONLY_GIT, git, runGit, streamCommand, toplevel, GitError } from './run.ts';
+import { READ_ONLY_GIT, git, runGit, streamCommand, toplevel, verifyRev, GitError } from './run.ts';
 
 // A push over a slow link is allowed to take this long before the daemon gives up on it.
 const NETWORK_TIMEOUT_MS = 120_000;
@@ -296,7 +296,7 @@ export class GitActions {
         const subject = required(payload.subject?.trim(), 'a commit message');
         const body = payload.body?.trim() ?? '';
         const amend = payload.amend === true;
-        if (amend && (await git(['rev-parse', '--verify', '--quiet', 'HEAD'], top)) === null) {
+        if (amend && (await verifyRev('HEAD', top)) === null) {
             throw new GitError('git-failed', 'There is no commit to amend yet.');
         }
         await step('commit', ['commit', ...(amend ? ['--amend'] : []), '--message', subject, ...(body === '' ? [] : ['--message', body])]);
@@ -334,15 +334,14 @@ function stamp(): string {
  * that name is already there, in which case that is the branch the person means.
  */
 async function checkoutArgs(top: string, ref: string): Promise<string[]> {
-    const local = (await git(['rev-parse', '--verify', '--quiet', `refs/heads/${ref}`], top))?.trim();
-    if (local) {
+    if ((await verifyRev(`refs/heads/${ref}`, top)) !== null) {
         return ['checkout', '--end-of-options', ref];
     }
     const short = ref.slice(ref.indexOf('/') + 1);
-    const tracked = (await git(['rev-parse', '--verify', '--quiet', `refs/remotes/${ref}`], top))?.trim();
-    if (tracked) {
-        const existing = (await git(['rev-parse', '--verify', '--quiet', `refs/heads/${short}`], top))?.trim();
-        return existing ? ['checkout', '--end-of-options', short] : ['checkout', '--track', '--end-of-options', ref];
+    if ((await verifyRev(`refs/remotes/${ref}`, top)) !== null) {
+        return (await verifyRev(`refs/heads/${short}`, top)) !== null
+            ? ['checkout', '--end-of-options', short]
+            : ['checkout', '--track', '--end-of-options', ref];
     }
     return ['checkout', '--end-of-options', ref];
 }

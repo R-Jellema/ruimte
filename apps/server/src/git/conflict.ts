@@ -10,10 +10,11 @@ import type {
     GitOperation,
     GitResolvePayload
 } from '@ruimte/contracts';
+import { sha256 } from '../artifacts/artifact-fs.ts';
 import type { ProgressSink } from './actions.ts';
 import { parseNumstat } from './diff.ts';
 import { nativePath } from './native-path.ts';
-import { git, runGit, runGitBytes, streamGit, toplevel, GitError } from './run.ts';
+import { git, runGit, runGitBytes, streamGit, toplevel, GitError, type GitResult } from './run.ts';
 
 // A side larger than this is one nobody merges line by line; the file is then a choice between whole sides.
 const MAX_SIDE_BYTES = 1024 * 1024;
@@ -24,21 +25,38 @@ export async function conflictedFiles(cwd: string): Promise<string[]> {
     return output === null ? [] : [...new Set(output.split('\0').filter((path) => path !== ''))];
 }
 
-/* Where git keeps a file of its own for this checkout, such as MERGE_HEAD, or null when it has none. */
-export async function gitPath(cwd: string, name: string): Promise<string | null> {
-    const found = (await git(['rev-parse', '--git-path', name], cwd))?.trim();
-    if (found === undefined || found === '') {
-        return null;
-    }
-    const path = isAbsolute(found) ? nativePath(found) : join(cwd, found);
+/* A path `--git-path` printed, which is relative to `cwd` unless git wrote it absolute. */
+function gitPathOf(cwd: string, printed: string): string {
+    return isAbsolute(printed) ? nativePath(printed) : join(cwd, printed);
+}
+
+async function exists(path: string): Promise<boolean> {
     return await stat(path).then(
-        () => path,
-        () => null
+        () => true,
+        () => false
     );
 }
 
-export async function gitPathExists(cwd: string, name: string): Promise<boolean> {
-    return (await gitPath(cwd, name)) !== null;
+/* Where git keeps a file of its own for this checkout, such as MERGE_HEAD, or null when it has none. */
+export async function gitPath(cwd: string, name: string): Promise<string | null> {
+    const printed = (await git(['rev-parse', '--git-path', name], cwd))?.trim();
+    if (!printed) {
+        return null;
+    }
+    const path = gitPathOf(cwd, printed);
+    return (await exists(path)) ? path : null;
+}
+
+/* Which of these files of git's own exist for this checkout, asked of git in one call. */
+export async function existingGitPaths(cwd: string, names: readonly string[]): Promise<Set<string>> {
+    const printed = (await git(['rev-parse', ...names.flatMap((name) => ['--git-path', name])], cwd))?.split('\n') ?? [];
+    const found = await Promise.all(
+        names.map(async (_name, i) => {
+            const path = printed[i]?.trim();
+            return path ? await exists(gitPathOf(cwd, path)) : false;
+        })
+    );
+    return new Set(names.filter((_name, i) => found[i]));
 }
 
 async function readGitFile(cwd: string, name: string): Promise<string | null> {
@@ -51,31 +69,35 @@ export async function hasStaged(cwd: string): Promise<boolean> {
 }
 
 // SQUASH_MSG lingers after a commit; only unfinished index work makes it an operation.
-export async function squashWaits(cwd: string): Promise<boolean> {
-    return (await gitPathExists(cwd, 'SQUASH_MSG')) && ((await conflictedFiles(cwd)).length > 0 || (await hasStaged(cwd)));
+async function indexWorkWaits(cwd: string): Promise<boolean> {
+    return (await conflictedFiles(cwd)).length > 0 || (await hasStaged(cwd));
 }
+
+export async function squashWaits(cwd: string): Promise<boolean> {
+    return (await existingGitPaths(cwd, ['SQUASH_MSG'])).has('SQUASH_MSG') && (await indexWorkWaits(cwd));
+}
+
+const OPERATION_FILES = ['MERGE_HEAD', 'rebase-merge', 'rebase-apply', 'CHERRY_PICK_HEAD', 'REVERT_HEAD', 'SQUASH_MSG'];
 
 /*
  * Which operation stopped halfway in this checkout. A rebase writes a directory rather than a file,
  * and which of the two it writes depends on how it was started, so both are asked for.
  */
 export async function operationOf(cwd: string): Promise<GitOperation | null> {
-    if (await gitPathExists(cwd, 'MERGE_HEAD')) {
+    const present = await existingGitPaths(cwd, OPERATION_FILES);
+    if (present.has('MERGE_HEAD')) {
         return 'merge';
     }
-    if ((await gitPathExists(cwd, 'rebase-merge')) || (await gitPathExists(cwd, 'rebase-apply'))) {
+    if (present.has('rebase-merge') || present.has('rebase-apply')) {
         return 'rebase';
     }
-    if (await gitPathExists(cwd, 'CHERRY_PICK_HEAD')) {
+    if (present.has('CHERRY_PICK_HEAD')) {
         return 'cherry-pick';
     }
-    if (await gitPathExists(cwd, 'REVERT_HEAD')) {
+    if (present.has('REVERT_HEAD')) {
         return 'revert';
     }
-    if (await squashWaits(cwd)) {
-        return 'merge';
-    }
-    return null;
+    return present.has('SQUASH_MSG') && (await indexWorkWaits(cwd)) ? 'merge' : null;
 }
 
 /* A name a person recognizes for a commit: the ref that points at it, else its short hash. */
@@ -208,14 +230,10 @@ async function sideText(root: string, stage: Stage | undefined): Promise<{ text:
     return text === null || text.includes('\0') ? { text: null, omitted: 'binary' } : { text, omitted: null };
 }
 
-function digest(bytes: Uint8Array): string {
-    return new Bun.CryptoHasher('sha256').update(bytes).digest('hex');
-}
-
 /* The digest of what stands on disk right now, and the empty string for a file that is not there. */
 async function workingDigest(root: string, path: string): Promise<string> {
     const bytes = await readFile(join(root, path)).catch(() => null);
-    return bytes === null ? '' : digest(bytes);
+    return bytes === null ? '' : sha256(bytes);
 }
 
 /* The three versions of one unmerged file, with the digest a resolution is held against. */
@@ -256,28 +274,28 @@ export async function resolveConflict(payload: GitResolvePayload): Promise<numbe
         throw new GitError('git-failed', `${path} changed on disk while it was being resolved.`);
     }
     if (payload.take === 'delete') {
-        const removed = await runGit(['rm', '--force', '--', path], root);
-        if (removed.code !== 0) {
-            throw new GitError('git-failed', removed.stderr.trim() || `git rm ${path} failed`);
-        }
+        await mustRun(['rm', '--force', '--', path], root, `git rm ${path} failed`);
         return (await conflictedFiles(root)).length;
     }
     if (payload.take !== undefined) {
-        const taken = await runGit(['checkout', `--${payload.take}`, '--', path], root);
-        if (taken.code !== 0) {
-            throw new GitError('git-failed', taken.stderr.trim() || `git checkout --${payload.take} ${path} failed`);
-        }
+        await mustRun(['checkout', `--${payload.take}`, '--', path], root, `git checkout --${payload.take} ${path} failed`);
     } else {
         if (payload.content === undefined || payload.hash === undefined) {
             throw new GitError('git-failed', 'A resolution needs the merged file and the digest it was written over.');
         }
         await writeFile(join(root, path), payload.content, 'utf8');
     }
-    const staged = await runGit(['add', '--', path], root);
-    if (staged.code !== 0) {
-        throw new GitError('git-failed', staged.stderr.trim() || `git add ${path} failed`);
-    }
+    await mustRun(['add', '--', path], root, `git add ${path} failed`);
     return (await conflictedFiles(root)).length;
+}
+
+/* A git whose failure ends the request, with what git wrote or `failure` when it wrote nothing. */
+async function mustRun(args: string[], cwd: string, failure: string): Promise<GitResult> {
+    const result = await runGit(args, cwd);
+    if (result.code !== 0) {
+        throw new GitError('git-failed', result.stderr.trim() || failure);
+    }
+    return result;
 }
 
 const CONTINUE: Record<GitOperation, string[]> = {
@@ -305,12 +323,9 @@ export async function abortOperation(cwd: string): Promise<{ operation: GitOpera
     if (operation === null) {
         throw new GitError('git-failed', 'No merge or rebase waits in this checkout.');
     }
-    const squash = operation === 'merge' && !(await gitPathExists(root, 'MERGE_HEAD'));
+    const squash = operation === 'merge' && !(await existingGitPaths(root, ['MERGE_HEAD'])).has('MERGE_HEAD');
     const args = squash ? ['reset', '--merge'] : ABORT[operation];
-    const result = await runGit(args, root);
-    if (result.code !== 0) {
-        throw new GitError('git-failed', result.stderr.trim() || `git ${args.join(' ')} failed`);
-    }
+    const result = await mustRun(args, root, `git ${args.join(' ')} failed`);
     if (squash) {
         await dropSquashMessage(root);
     }

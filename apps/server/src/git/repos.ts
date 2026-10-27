@@ -6,8 +6,7 @@ import { isBelow } from '../fs/path-segment.ts';
 import { parseSharedFile, PROJECT_DIR, PROJECT_FILE } from '../projects/project-files.ts';
 import { readIdeaName } from '../projects/project-identity.ts';
 import { ignoredPaths } from './ignore.ts';
-import { nativePath } from './native-path.ts';
-import { git } from './run.ts';
+import { git, repositoryRoot } from './run.ts';
 
 /*
  * How deep the scan looks for a repository beside the project's own. One level covers a folder full of
@@ -136,8 +135,7 @@ async function addSubmodules(folder: string, checkouts: readonly string[], add: 
  * a project that is one corner of a large repository does not inherit that repository's submodules.
  */
 export async function listRepos(folder: string): Promise<GitReposResult> {
-    const top = (await git(['rev-parse', '--show-toplevel'], folder))?.trim();
-    const root = top ? nativePath(top) : null;
+    const root = await repositoryRoot(folder);
     const repos: GitRepo[] = [];
     const known = new Set<string>();
 

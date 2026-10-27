@@ -8,7 +8,7 @@ import { SharedWatch } from '../fs/shared-watch.ts';
 import { FolderWatcher } from '../fs/watch.ts';
 import { GitStatusWatcher } from './status-watcher.ts';
 import { forgetBase, readStatus } from './status.ts';
-import * as statusReader from './status.ts';
+import * as runner from './run.ts';
 import { gitIn } from './test-repo.ts';
 
 let root: string;
@@ -270,7 +270,7 @@ describe('GitStatusWatcher', () => {
         };
         const first = watcher.status(repo);
         await inside;
-        const lookups = spyOn(statusReader, 'repositoryRoot');
+        const lookups = spyOn(runner, 'repositoryRoot');
         try {
             const asked = [watcher.status(repo), watcher.status(repo), watcher.status(repo)];
             expect(lookups).toHaveBeenCalledTimes(3);

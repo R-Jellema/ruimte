@@ -4,8 +4,7 @@ import { basename, join } from 'node:path';
 import type { ChatCheckpointDiff } from '@ruimte/contracts';
 import { KeyedQueue } from '../keyed-queue.ts';
 import { diffTrees } from './diff.ts';
-import { nativePath } from './native-path.ts';
-import { GitError, git, gitOrThrow, runGit } from './run.ts';
+import { git, gitOrThrow, repositoryRoot, runGit, toplevel, verifyRev } from './run.ts';
 
 export interface CheckpointService {
     take(cwd: string): Promise<string | null>;
@@ -16,18 +15,19 @@ export interface CheckpointService {
     head(cwd: string): Promise<string | null>;
 }
 
+/* A folder's name with a short hash of its path, unique per checkout and still readable on disk. */
+export function folderKey(path: string): string {
+    return `${basename(path)}-${createHash('sha1').update(path).digest('hex').slice(0, 8)}`;
+}
+
 /* The name of the index file a checkout's turns are written through; removing a worktree removes it too. */
 export function checkpointIndexFile(top: string): string {
-    return `${basename(top)}-${createHash('sha1').update(top).digest('hex').slice(0, 8)}.index`;
+    return `${folderKey(top)}.index`;
 }
 
 // One index per repository, and one turn at a time in it: two chats in the same folder would
 // otherwise fight over the lock file git writes next to it.
 const queue = new KeyedQueue();
-
-function serialize<T>(key: string, work: () => Promise<T>): Promise<T> {
-    return queue.run(key, work);
-}
 
 /*
  * Capture each turn as a git tree through a private `GIT_INDEX_FILE`, leaving the person's index,
@@ -42,22 +42,8 @@ export class Checkpoints implements CheckpointService {
 
     /* The tree of the working tree as it is now, or null when there is nothing to checkpoint. */
     async take(cwd: string): Promise<string | null> {
-        const top = await this.toplevel(cwd);
-        if (top === null) {
-            return null;
-        }
-        const index = await this.indexFile(top);
-        if (index === null) {
-            return null;
-        }
-        return await serialize(index, async () => {
-            const env = { GIT_INDEX_FILE: index };
-            if ((await git(['add', '-A'], top, env)) === null) {
-                return null;
-            }
-            const tree = await git(['write-tree'], top, env);
-            return tree === null ? null : tree.trim() || null;
-        });
+        const top = await repositoryRoot(cwd);
+        return top === null ? null : await this.takeAt(top);
     }
 
     /*
@@ -70,14 +56,13 @@ export class Checkpoints implements CheckpointService {
     }
 
     async settle(cwd: string, tree: string): Promise<{ diff: ChatCheckpointDiff; after: string } | null> {
-        const top = await this.toplevel(cwd);
-        const prefix = await git(['rev-parse', '--show-prefix'], cwd);
+        const [top, prefix] = await Promise.all([repositoryRoot(cwd), git(['rev-parse', '--show-prefix'], cwd)]);
         if (top === null || prefix === null) {
             return null;
         }
         // The working tree as a tree of its own, so files the agent created are in the comparison
         // (`git diff <tree>` against the working tree only sees what git already tracks).
-        const now = await this.take(cwd);
+        const now = await this.takeAt(top);
         if (now === null) {
             return null;
         }
@@ -85,12 +70,8 @@ export class Checkpoints implements CheckpointService {
         return diff === null ? null : { diff, after: now };
     }
 
-    async head(cwd: string): Promise<string | null> {
-        const top = await this.toplevel(cwd);
-        if (top === null) {
-            return null;
-        }
-        return (await git(['rev-parse', '--verify', '--quiet', 'HEAD^{commit}'], top))?.trim() || null;
+    head(cwd: string): Promise<string | null> {
+        return verifyRev('HEAD^{commit}', cwd);
     }
 
     /* Whether git still has a tree; one no ref points at is collected after a while. */
@@ -104,25 +85,24 @@ export class Checkpoints implements CheckpointService {
      * Only ever run on a checkout nobody works in yet: it throws away what the working tree held.
      */
     async restore(cwd: string, tree: string): Promise<void> {
-        const top = await this.toplevel(cwd);
-        if (top === null) {
-            throw new GitError('not-a-repo', `${cwd} is not inside a git repository`);
-        }
+        const top = await toplevel(cwd);
         await gitOrThrow(['read-tree', '-u', '--reset', tree], top);
         await gitOrThrow(['reset', '--quiet'], top);
     }
 
-    private async toplevel(cwd: string): Promise<string | null> {
-        const top = await git(['rev-parse', '--show-toplevel'], cwd);
-        return top === null || top.trim() === '' ? null : nativePath(top.trim());
-    }
-
-    private async indexFile(top: string): Promise<string | null> {
+    private async takeAt(top: string): Promise<string | null> {
         try {
             await mkdir(this.root, { recursive: true, mode: 0o700 });
         } catch {
             return null;
         }
-        return join(this.root, checkpointIndexFile(top));
+        const index = join(this.root, checkpointIndexFile(top));
+        return await queue.run(index, async () => {
+            const env = { GIT_INDEX_FILE: index };
+            if ((await git(['add', '-A'], top, env)) === null) {
+                return null;
+            }
+            return (await git(['write-tree'], top, env))?.trim() || null;
+        });
     }
 }

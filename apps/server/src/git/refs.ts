@@ -8,18 +8,42 @@ const MAX_REFS = 200;
 
 const REF_FORMAT = `%(refname:short)${FIELD}%(committerdate:unix)${FIELD}%(HEAD)${FIELD}%(objectname)`;
 
-/* `worktree list --porcelain` writes a paragraph per checkout: `worktree <path>` and `branch <ref>`. */
-export function parseWorktreeBranches(output: string): Map<string, string> {
-    const branches = new Map<string, string>();
-    let path: string | null = null;
+/* One entry of `git worktree list --porcelain`. */
+export interface Listed {
+    path: string;
+    /* Null on a detached HEAD. */
+    branch: string | null;
+    head: string | null;
+    locked: boolean;
+    prunable: boolean;
+}
+
+/* `worktree list --porcelain` writes a paragraph per checkout, opened by `worktree <path>`. */
+export function parseWorktreeList(output: string): Listed[] {
+    const entries: Listed[] = [];
+    let current: Listed | null = null;
     for (const line of output.split('\n')) {
         if (line.startsWith('worktree ')) {
-            path = nativePath(line.slice('worktree '.length));
-        } else if (line.startsWith('branch refs/heads/') && path !== null) {
-            branches.set(line.slice('branch refs/heads/'.length), path);
+            current = { path: nativePath(line.slice('worktree '.length)), branch: null, head: null, locked: false, prunable: false };
+            entries.push(current);
+        } else if (current === null) {
+            continue;
+        } else if (line.startsWith('HEAD ')) {
+            current.head = line.slice('HEAD '.length);
+        } else if (line.startsWith('branch ')) {
+            current.branch = line.slice('branch '.length).replace(/^refs\/heads\//, '');
+        } else if (line === 'locked' || line.startsWith('locked ')) {
+            current.locked = true;
+        } else if (line === 'prunable' || line.startsWith('prunable ')) {
+            current.prunable = true;
         }
     }
-    return branches;
+    return entries;
+}
+
+/* The path of the checkout each branch is out in. */
+export function parseWorktreeBranches(output: string): Map<string, string> {
+    return new Map(parseWorktreeList(output).flatMap((entry) => (entry.branch === null ? [] : [[entry.branch, entry.path] as const])));
 }
 
 /* One line per ref: its short name, the date of its tip and `*` for the one HEAD is on. */

@@ -1,8 +1,7 @@
 import { GIT_STATUS_MAX_FILES, type GitFile, type GitStatus } from '@ruimte/contracts';
 import { operationOf } from './conflict.ts';
 import { parseNumstat, type Numstat } from './diff.ts';
-import { nativePath } from './native-path.ts';
-import { git, readGit } from './run.ts';
+import { git, readGit, repositoryRoot, verifyRev } from './run.ts';
 import { untrackedNumstat } from './untracked-lines.ts';
 
 // Every untracked file is read whole on every run, so only the first ones get real counts.
@@ -143,7 +142,7 @@ export async function resolveBase(root: string, now: number = Date.now()): Promi
     let base: string | null = (await git(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'], root))?.trim() || null;
     if (base === null) {
         for (const candidate of BASE_CANDIDATES) {
-            if ((await git(['rev-parse', '--verify', '--quiet', candidate.ref], root))?.trim()) {
+            if ((await verifyRev(candidate.ref, root)) !== null) {
                 base = candidate.name;
                 break;
             }
@@ -198,14 +197,11 @@ function fileOf(entry: PorcelainEntry, state: GitFile['state'], status: string, 
  */
 export async function readStatus(cwd: string): Promise<GitStatus> {
     const root = await repositoryRoot(cwd);
-    return root === null ? EMPTY : await readStatusAt(root);
+    return root === null ? noRepository() : await readStatusAt(root);
 }
 
-/* The top of the working tree `cwd` is in, or null outside a repository. */
-export async function repositoryRoot(cwd: string): Promise<string | null> {
-    const top = (await git(['rev-parse', '--show-toplevel'], cwd))?.trim();
-    return top ? nativePath(top) : null;
-}
+// Read from here by a caller outside this folder.
+export { repositoryRoot };
 
 /* What a folder outside any repository reads as. */
 export function noRepository(): GitStatus {
@@ -216,7 +212,7 @@ export function noRepository(): GitStatus {
 export async function readStatusAt(root: string): Promise<GitStatus> {
     const porcelain = await readGit(['status', '--porcelain=v2', '--branch', '-z', '--untracked-files=all'], root);
     if (porcelain === null) {
-        return EMPTY;
+        return noRepository();
     }
     const parsed = parsePorcelain(porcelain);
     const entries = parsed.entries.slice(0, GIT_STATUS_MAX_FILES);

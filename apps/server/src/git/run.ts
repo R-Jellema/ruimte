@@ -103,8 +103,8 @@ export async function runGitBytes(args: string[], cwd: string, options: GitOptio
 /* One git call in a directory, with its exit code kept: `check-ignore` answers 1 for "nothing
    matched", which is a result and not a failure. */
 export async function runGit(args: string[], cwd: string, options: GitOptions = {}): Promise<GitResult> {
-    const { code, stdout, stderr, timedOut } = await runGitBytes(args, cwd, options);
-    return { code, stdout: new TextDecoder().decode(stdout), stderr, ...(timedOut === undefined ? {} : { timedOut }) };
+    const result = await runGitBytes(args, cwd, options);
+    return { ...result, stdout: new TextDecoder().decode(result.stdout) };
 }
 
 /* The output of a git that succeeded, or null for every other outcome. */
@@ -130,13 +130,23 @@ export async function gitOrThrow(args: string[], cwd: string, env?: Record<strin
     return stdout;
 }
 
-/* The repository a directory belongs to, as the path git itself reports. */
-export async function toplevel(cwd: string): Promise<string> {
+/* The top of the working tree `cwd` is in, as the path git itself reports, or null outside a repository. */
+export async function repositoryRoot(cwd: string): Promise<string | null> {
     const top = (await git(['rev-parse', '--show-toplevel'], cwd))?.trim();
-    if (!top) {
+    return top ? nativePath(top) : null;
+}
+
+export async function toplevel(cwd: string): Promise<string> {
+    const top = await repositoryRoot(cwd);
+    if (top === null) {
         throw new GitError('not-a-repo', `${cwd} is not inside a git repository`);
     }
-    return nativePath(top);
+    return top;
+}
+
+/* The object a revision names, or null when it names none. A revision may come from a client, so it never parses as an option. */
+export async function verifyRev(rev: string, cwd: string): Promise<string | null> {
+    return (await git(['rev-parse', '--verify', '--quiet', '--end-of-options', rev], cwd))?.trim() || null;
 }
 
 export interface StreamOptions {
@@ -161,21 +171,24 @@ async function pump(stream: ReadableStream<Uint8Array>, onLine: (line: string) =
     const decoder = new TextDecoder();
     let pending = '';
     let whole = '';
+
+    const emit = (line: string): void => {
+        const trimmed = line.trim();
+        if (trimmed !== '') {
+            onLine(trimmed);
+        }
+    };
+
     for await (const chunk of stream) {
         const text = decoder.decode(chunk, { stream: true });
         whole += text;
         pending += text;
         const lines = pending.split(/\r\n|\r|\n/);
         pending = lines.pop() ?? '';
-        for (const line of lines) {
-            if (line.trim() !== '') {
-                onLine(line.trim());
-            }
-        }
+        lines.forEach(emit);
     }
-    if (pending.trim() !== '') {
-        onLine(pending.trim());
-    }
+    emit(pending);
+
     return whole;
 }
 
@@ -229,13 +242,12 @@ export async function streamWithTimeout(
     const timer = setTimeout(() => kill?.(), timeoutMs);
     try {
         return await streamCommand(command, args, cwd, {
+            ...options,
             onSpawn: (stop) => {
                 kill = stop;
                 options.onSpawn?.(stop);
             },
-            group: true,
-            ...(options.stdin === undefined ? {} : { stdin: options.stdin }),
-            ...(options.env === undefined ? {} : { env: options.env })
+            group: true
         });
     } finally {
         clearTimeout(timer);

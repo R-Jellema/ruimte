@@ -1,26 +1,21 @@
-import { createHash } from 'node:crypto';
 import { mkdir, realpath, rm } from 'node:fs/promises';
+import { basename, join, resolve } from 'node:path';
 import { fileExists } from '@adecore/agents';
-import { basename, isAbsolute, join, resolve } from 'node:path';
 import type { Worktree, WorktreeWork } from '@ruimte/contracts';
-import type { SessionSink } from '../sessions/manager.ts';
-import { checkpointIndexFile } from './checkpoints.ts';
-import { resolveBase } from './status.ts';
-import { nativePath } from './native-path.ts';
-import { GitError, READ_ONLY_GIT, git, gitOrThrow as run, runGit, toplevel } from './run.ts';
-import { WorktreeRegister, type WorktreeRecord } from './worktree-register.ts';
-import { KeyedQueue } from '../keyed-queue.ts';
-import type { WorktreeAgents } from './worktree-merge.ts';
 import { ClientSinks } from '../client-sinks.ts';
+import { KeyedQueue } from '../keyed-queue.ts';
+import type { SessionSink } from '../sessions/manager.ts';
+import { checkpointIndexFile, folderKey } from './checkpoints.ts';
+import { existingGitPaths } from './conflict.ts';
+import { parseWorktreeList, type Listed } from './refs.ts';
+import { GitError, READ_ONLY_GIT, git, gitOrThrow as run, runGit, toplevel, verifyRev } from './run.ts';
+import { parsePorcelain, resolveBase } from './status.ts';
+import type { WorktreeAgents } from './worktree-merge.ts';
+import { WorktreeRegister, type WorktreeRecord } from './worktree-register.ts';
 
 // Branch names carry slashes; the folder name must not.
 function safeName(branch: string): string {
     return branch.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'branch';
-}
-
-/* The folder of one repository under the worktrees root; the name predates the register, so it stays. */
-function repoFolderName(main: string): string {
-    return `${basename(main)}-${createHash('sha1').update(main).digest('hex').slice(0, 8)}`;
 }
 
 // The files git leaves in a worktree's git dir while an operation waits halfway, with the word a person knows it by.
@@ -63,56 +58,11 @@ interface RemoveResult {
     branchCommit?: string;
 }
 
-/* One entry of `git worktree list --porcelain`. */
-export interface Listed {
-    path: string;
-    /* Null on a detached HEAD. */
-    branch: string | null;
-    head: string | null;
-    locked: boolean;
-    prunable: boolean;
-}
-
-function parsePorcelain(output: string): Listed[] {
-    const entries: Listed[] = [];
-    let current: Listed | null = null;
-    for (const line of output.split('\n')) {
-        if (line.startsWith('worktree ')) {
-            current = { path: nativePath(line.slice('worktree '.length)), branch: null, head: null, locked: false, prunable: false };
-            entries.push(current);
-        } else if (!current) {
-            continue;
-        } else if (line.startsWith('HEAD ')) {
-            current.head = line.slice('HEAD '.length);
-        } else if (line.startsWith('branch ')) {
-            current.branch = line.slice('branch '.length).replace(/^refs\/heads\//, '');
-        } else if (line === 'locked' || line.startsWith('locked ')) {
-            current.locked = true;
-        } else if (line === 'prunable' || line.startsWith('prunable ')) {
-            current.prunable = true;
-        }
-    }
-    return entries;
-}
-
 /* Tracked changes and untracked files out of `status --porcelain=v2 -z`, one per file. */
 export function countStatus(output: string): { changed: number; untracked: number } {
-    const fields = output.split('\0');
-    let changed = 0;
-    let untracked = 0;
-    for (let i = 0; i < fields.length; i++) {
-        const field = fields[i]!;
-        if (field.startsWith('1 ') || field.startsWith('u ')) {
-            changed += 1;
-        } else if (field.startsWith('2 ')) {
-            changed += 1;
-            // A rename or copy carries the path it came from as the next field.
-            i += 1;
-        } else if (field.startsWith('? ')) {
-            untracked += 1;
-        }
-    }
-    return { changed, untracked };
+    const { entries } = parsePorcelain(output);
+    const untracked = entries.filter((entry) => entry.untracked).length;
+    return { changed: entries.length - untracked, untracked };
 }
 
 function workSentence(branch: string, work: WorktreeWork, target: string | null): string {
@@ -197,7 +147,7 @@ export class Worktrees {
 
     /* The register of a repository, by its main checkout. */
     registerOf(main: string): WorktreeRegister {
-        return new WorktreeRegister(join(this.root, repoFolderName(main)));
+        return new WorktreeRegister(join(this.root, folderKey(main)));
     }
 
     async list(repo: string, options: { inspect?: boolean } = {}): Promise<Worktree[]> {
@@ -285,7 +235,7 @@ export class Worktrees {
         const register = this.registerOf(main);
         const branchExists = await this.branchExists(main, branch);
         const based = options.base === undefined ? null : await this.resolveBase(repo, main, options.base, branchExists);
-        const dir = join(this.checkoutRoot() ?? this.root, repoFolderName(main));
+        const dir = join(this.checkoutRoot() ?? this.root, folderKey(main));
         await mkdir(dir, { recursive: true, mode: 0o700 });
         // Git answers real paths, and the register is keyed on what git answers.
         const path = join(await realpath(dir), safeName(branch));
@@ -347,8 +297,8 @@ export class Worktrees {
         if (branchExists) {
             throw new GitError('branch-exists', 'A base only applies to a new branch.');
         }
-        const commit = (await git(['rev-parse', '--verify', '--quiet', '--end-of-options', `${base}^{commit}`], repo))?.trim();
-        if (!commit) {
+        const commit = await verifyRev(`${base}^{commit}`, repo);
+        if (commit === null) {
             throw new GitError('ref-not-found', `${base} is not a branch, tag or commit of this repository.`);
         }
         return { commit, branch: (await this.branchExists(main, base)) ? base : null };
@@ -509,11 +459,11 @@ export class Worktrees {
         if (listed.code !== 0) {
             throw new GitError('git-failed', listed.stderr.trim() || 'git worktree failed');
         }
-        return parsePorcelain(listed.stdout);
+        return parseWorktreeList(listed.stdout);
     }
 
     private async branchExists(main: string, branch: string): Promise<boolean> {
-        return (await runGit(['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`], main)).code === 0;
+        return (await verifyRev(`refs/heads/${branch}`, main)) !== null;
     }
 
     /*
@@ -529,7 +479,7 @@ export class Worktrees {
         if (base !== null) {
             return base;
         }
-        if (record && (await runGit(['rev-parse', '--verify', '--quiet', `${record.from.commit}^{commit}`], main)).code === 0) {
+        if (record && (await verifyRev(`${record.from.commit}^{commit}`, main)) !== null) {
             return record.from.commit;
         }
         return null;
@@ -562,25 +512,20 @@ export class Worktrees {
         if (missing || entry === null) {
             return { work: { changed: 0, untracked: 0, ahead, ...moved }, target };
         }
-        const status = await run(['status', '--porcelain=v2', '-z', '-uall', '--ignore-submodules=all'], entry.path, READ_ONLY_GIT);
+        const [status, operation] = await Promise.all([
+            run(['status', '--porcelain=v2', '-z', '-uall', '--ignore-submodules=all'], entry.path, READ_ONLY_GIT),
+            this.operationIn(entry.path)
+        ]);
         const { changed, untracked } = countStatus(status);
-        const operation = await this.operationIn(entry.path);
         return { work: { changed, untracked, ahead, ...(operation === null ? {} : { operation }), ...moved }, target };
     }
 
     async operationIn(path: string): Promise<string | null> {
-        const output = await git(['rev-parse', ...OPERATIONS.flatMap((operation) => ['--git-path', operation.path])], path);
-        if (output === null) {
-            return null;
-        }
-        const paths = output.split('\n').filter((line) => line !== '');
-        for (const [index, operation] of OPERATIONS.entries()) {
-            const found = paths[index];
-            if (found !== undefined && (await fileExists(isAbsolute(found) ? nativePath(found) : join(path, found)))) {
-                return operation.name;
-            }
-        }
-        return null;
+        const present = await existingGitPaths(
+            path,
+            OPERATIONS.map((operation) => operation.path)
+        );
+        return OPERATIONS.find((operation) => present.has(operation.path))?.name ?? null;
     }
 
     private async removeCheckout(main: string, entry: Listed, missing: boolean, force: boolean): Promise<void> {

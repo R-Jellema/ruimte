@@ -4,8 +4,8 @@ import { PerClientWatches, settled, supportsRecursive, SYSTEM_WATCH, type Direct
 import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
 import { ignoredPaths } from './ignore.ts';
 import { nativePath } from './native-path.ts';
-import { git } from './run.ts';
-import { noRepository, readStatusAt, repositoryRoot, trackedFiles } from './status.ts';
+import { git, repositoryRoot } from './run.ts';
+import { noRepository, readStatusAt, trackedFiles } from './status.ts';
 import { ClientSinks } from '../client-sinks.ts';
 
 // A save, a formatter and a checkout all touch the repository in a burst; one status per burst is enough.

@@ -9,9 +9,10 @@ import {
     type GitFetchBundlePayload,
     type GitFetchBundleResult
 } from '@ruimte/contracts';
+import { sha256 } from '../artifacts/artifact-fs.ts';
 import { KeyedQueue } from '../keyed-queue.ts';
 import type { CheckpointService } from './checkpoints.ts';
-import { GitError, git, gitOrThrow, runGit, toplevel } from './run.ts';
+import { GitError, git, gitOrThrow, runGit, toplevel, verifyRev } from './run.ts';
 import type { Worktrees } from './worktrees.ts';
 
 const ID = /^[a-z0-9][a-z0-9-]{5,63}$/;
@@ -47,7 +48,7 @@ const NO_HOOKS = ['-c', 'core.hooksPath=/dev/null'];
 
 /* A machine id as a folder name, whatever characters the id holds. */
 function peerFolder(machineId: string): string {
-    return new Bun.CryptoHasher('sha256').update(machineId).digest('hex').slice(0, 32);
+    return sha256(machineId).slice(0, 32);
 }
 
 /*
@@ -238,7 +239,7 @@ export class BundleStore {
 
 /* The id the bundle of one piece of work always has, so sending it again replaces the earlier copy instead of adding to it. */
 export function bundleIdFor(key: string): string {
-    return `bundle-${new Bun.CryptoHasher('sha256').update(key).digest('hex').slice(0, 32)}`;
+    return `bundle-${sha256(key).slice(0, 32)}`;
 }
 
 /* Keeps the hash of a file without holding it in memory. */
@@ -257,10 +258,6 @@ async function committer(top: string): Promise<Record<string, string>> {
         ...(name?.trim() ? {} : { GIT_AUTHOR_NAME: 'Ruimte', GIT_COMMITTER_NAME: 'Ruimte' }),
         ...(email?.trim() ? {} : { GIT_AUTHOR_EMAIL: 'ruimte@localhost', GIT_COMMITTER_EMAIL: 'ruimte@localhost' })
     };
-}
-
-async function commitOf(top: string, ref: string): Promise<string | null> {
-    return (await git(['rev-parse', '--verify', '--quiet', '--end-of-options', `${ref}^{commit}`], top))?.trim() || null;
 }
 
 /* The commits of `haves` this repository has too, since a bundle can only leave out what the receiver and the sender share. */
@@ -288,26 +285,21 @@ export async function makeBundle(
 ): Promise<GitBundleResult> {
     const top = await toplevel(payload.path);
     const ref = `${HANDOFF}${id}`;
-    const head = await commitOf(top, 'HEAD');
+    const head = await verifyRev('HEAD^{commit}', top);
     let commit: string;
     let base: string | null = head;
     if (payload.from === 'branch') {
         if (payload.branch === undefined) {
             throw new GitError('no-branch', 'A bundle of a branch names the branch.');
         }
-        const tip = await commitOf(top, payload.branch);
+        const tip = await verifyRev(`${payload.branch}^{commit}`, top);
         if (tip === null) {
             throw new GitError('ref-not-found', `${payload.branch} is not a branch, tag or commit of this repository.`);
         }
         commit = tip;
         base = null;
     } else {
-        const tree =
-            payload.from === 'files'
-                ? await checkpoints.take(top)
-                : head === null
-                  ? null
-                  : (await git(['rev-parse', '--verify', `${head}^{tree}`], top))?.trim() || null;
+        const tree = payload.from === 'files' ? await checkpoints.take(top) : head === null ? null : await verifyRev(`${head}^{tree}`, top);
         if (tree === null) {
             throw new GitError(
                 'ref-not-found',
@@ -407,7 +399,7 @@ async function takeIn(
     }
     const kept = `${RECEIVED}${payload.bundleId}`;
     await gitOrThrow([...NO_HOOKS, 'fetch', '--quiet', '--no-tags', '--no-recurse-submodules', '--no-write-fetch-head', file, `+${source}:${kept}`], top);
-    const commit = (await commitOf(top, kept)) ?? '';
+    const commit = (await verifyRev(`${kept}^{commit}`, top)) ?? '';
     try {
         const name = payload.branch.replace(/^ruimte\//, '');
         if (!(await refIsValid(top, `refs/heads/ruimte/${name}`))) {
@@ -419,7 +411,7 @@ async function takeIn(
                 throw new GitError('git-failed', `${payload.branch} is not a usable branch name.`);
             }
             // Only from what it was a moment ago: a branch that moved meanwhile is not overwritten blind.
-            const before = (await git(['rev-parse', '--verify', '--quiet', remoteRef], top))?.trim() ?? '';
+            const before = (await verifyRev(remoteRef, top)) ?? '';
             await gitOrThrow([...NO_HOOKS, 'update-ref', remoteRef, commit, before], top);
         }
         const made = await worktrees.addFresh(
