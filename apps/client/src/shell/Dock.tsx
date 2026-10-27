@@ -2,7 +2,23 @@ import { TerminalDictationButton } from '@/dictation/TerminalDictationButton';
 import { useDictation } from '@/dictation/controller';
 import { useTranslation } from 'react-i18next';
 import { useEffect } from 'react';
-import { FileText, Globe, LayoutGrid, LayoutTemplate, Lock, LockOpen, MessageSquare, Minus, Plus, Save, StickyNote, Terminal, Type, X } from 'lucide-react';
+import {
+    FileText,
+    Globe,
+    LayoutGrid,
+    LayoutTemplate,
+    Lock,
+    LockOpen,
+    MessageSquare,
+    Minus,
+    Plus,
+    Save,
+    StickyNote,
+    Terminal,
+    Type,
+    X,
+    type LucideIcon
+} from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { isCanvasView } from '@ruimte/contracts';
 import { applyLayoutAction, createNodeAction, createTextAction, deleteLayoutAction, fitAction, setLocksAction } from '@/actions/client-actions';
@@ -76,20 +92,12 @@ export function Dock({ onHiddenChange }: { onHiddenChange?: (hidden: boolean) =>
             <Menu.Root>
                 <IconButton icon={Plus} label={t('dock.add')} render={<Menu.Trigger />} />
                 <Menu.Popup side="top" sideOffset={10} align="start">
-                    <Menu.Item onClick={() => void createNodeAction('terminal')}>
-                        <Icon icon={Terminal} size={14} /> {t('nodeKinds.terminal')} <Kbd shortcut={ADD_NODE_SHORTCUTS.terminal} />
-                    </Menu.Item>
-                    <Menu.Item onClick={() => void createNodeAction('chat')}>
-                        <Icon icon={MessageSquare} size={14} /> {t('nodeKinds.chat')} <Kbd shortcut={ADD_NODE_SHORTCUTS.chat} />
-                    </Menu.Item>
+                    <AddNodeItem kind="terminal" icon={Terminal} />
+                    <AddNodeItem kind="chat" icon={MessageSquare} />
                     <AgentSubmenus onPick={(target, provider, account) => void createNodeAction(target, { provider: provider.kind, account })} />
-                    <Menu.Item onClick={() => void createNodeAction('browser')}>
-                        <Icon icon={Globe} size={14} /> {t('nodeKinds.browser')} <Kbd shortcut={ADD_NODE_SHORTCUTS.browser} />
-                    </Menu.Item>
+                    <AddNodeItem kind="browser" icon={Globe} />
                     <RoutineAddItems />
-                    <Menu.Item onClick={() => void createNodeAction('group')}>
-                        <Icon icon={LayoutGrid} size={14} /> {t('nodeKinds.group')} <Kbd shortcut={ADD_NODE_SHORTCUTS.group} />
-                    </Menu.Item>
+                    <AddNodeItem kind="group" icon={LayoutGrid} />
                     {hasFolder && (
                         <Menu.Item onClick={() => useUi.getState().openFilePicker({ kind: 'node', at: centerOfCanvas() })}>
                             <Icon icon={FileText} size={14} /> {t('canvas:canvasMenu.file')}
@@ -97,9 +105,7 @@ export function Dock({ onHiddenChange }: { onHiddenChange?: (hidden: boolean) =>
                     )}
                     <RemoteMachineItems at={centerOfCanvas} />
                     <Menu.Separator />
-                    <Menu.Item onClick={() => void createNodeAction('note')}>
-                        <Icon icon={StickyNote} size={14} /> {t('nodeKinds.note')} <Kbd shortcut={ADD_NODE_SHORTCUTS.note} />
-                    </Menu.Item>
+                    <AddNodeItem kind="note" icon={StickyNote} />
                     <Menu.Item onClick={() => canvasStore.getState().setLineTool('line')}>
                         <Icon icon={Minus} size={14} /> {t('drawing:tools.line')}
                     </Menu.Item>
@@ -189,5 +195,14 @@ export function Dock({ onHiddenChange }: { onHiddenChange?: (hidden: boolean) =>
                 </Menu.Root>
             </ButtonGroup>
         </DockShell>
+    );
+}
+
+function AddNodeItem({ kind, icon }: { kind: keyof typeof ADD_NODE_SHORTCUTS; icon: LucideIcon }) {
+    const { t } = useTranslation('shell');
+    return (
+        <Menu.Item onClick={() => void createNodeAction(kind)}>
+            <Icon icon={icon} size={14} /> {t(`nodeKinds.${kind}`)} <Kbd shortcut={ADD_NODE_SHORTCUTS[kind]} />
+        </Menu.Item>
     );
 }

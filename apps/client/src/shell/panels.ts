@@ -1,12 +1,14 @@
 import { Activity, CircleAlert, Database, Folder, GitBranch, Mic, Package, Rocket, TabletSmartphone, type LucideIcon } from 'lucide-react';
 import { panelHidden, type PanelKind } from '@/state/ui';
 
-/* The panels, in the order their buttons sit in the toolbar. They share one stored width and each
-   clamps it to its own `minWidth` on screen only, so a wide minimum never overwrites it. A panel
-   without a button opens elsewhere: Processes from the Window menu, Launches from the launch chip,
-   and Voice Control beside the palette's button, since it only shows while a key is set. */
 export type PanelGroup = 'project' | 'connected' | 'made';
 
+/*
+ * The panels, in the order their buttons sit in the toolbar. They share one stored width and each
+ * clamps it to its own `minWidth` on screen only, so a wide minimum never overwrites it. A panel
+ * without a button opens elsewhere: Processes and Problems from the Window menu, Launches from the
+ * launch chip, and Voice Control beside the palette's button, since it only shows while a key is set.
+ */
 export const PANELS: { kind: PanelKind; icon: LucideIcon; minWidth: number; toolbar: boolean; group: PanelGroup }[] = [
     { kind: 'files', icon: Folder, minWidth: 240, toolbar: true, group: 'project' },
     { kind: 'git', icon: GitBranch, minWidth: 240, toolbar: true, group: 'project' },

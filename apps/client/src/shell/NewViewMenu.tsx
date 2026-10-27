@@ -1,6 +1,6 @@
 import { Fragment, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FileText, Frame, Globe, Heading, Minus, PenTool, Workflow, Terminal } from 'lucide-react';
+import { FileText, Frame, Globe, Heading, Minus, PenTool, Workflow, Terminal, type LucideIcon } from 'lucide-react';
 import type { ProviderInfo } from '@ruimte/contracts';
 import { ProviderRows } from '@/agents/ProviderRows';
 import { AgentSubmenu } from '@/agents/AgentMenus';
@@ -8,7 +8,7 @@ import { agentTargetLabel, type AgentTarget } from '@/agents/nodes';
 import { createViewAction } from '@/actions/client-actions';
 import { newSubheaderView } from '@/project/views';
 import { shownFolderOf, useProject } from '@/state/project';
-import { Tile, Icon, Menu, Kbd, SectionLabel } from '@adecore/ui';
+import { Tile, Icon, Menu, Kbd, SectionLabel, type Shortcut } from '@adecore/ui';
 import { labelCollator } from '@adecore/ui/format';
 import { useUi } from '@/state/ui';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
@@ -27,6 +27,24 @@ function inOrder(entries: (NewViewEntry | false)[]): ReactNode[] {
         .filter((entry): entry is NewViewEntry => entry !== false)
         .sort((one, other) => order.compare(one.label, other.label))
         .map((entry) => <Fragment key={entry.id}>{entry.node}</Fragment>);
+}
+
+function itemEntry(id: string, icon: LucideIcon, label: string, onClick: () => void, shortcut?: Shortcut): NewViewEntry {
+    return {
+        id,
+        label,
+        node: (
+            <Menu.Item onClick={onClick}>
+                <Icon icon={icon} size={14} /> {label}
+                {shortcut && (
+                    <>
+                        {' '}
+                        <Kbd shortcut={shortcut} />
+                    </>
+                )}
+            </Menu.Item>
+        )
+    };
 }
 
 export function NewViewTiles({ size = 'sm' }: { size?: 'sm' | 'md' }) {
@@ -78,83 +96,19 @@ export function NewViewItems() {
     return (
         <>
             {inOrder([
-                {
-                    id: 'canvas',
-                    label: t('viewKinds.canvas'),
-                    node: (
-                        <Menu.Item onClick={() => void createViewAction('canvas')}>
-                            <Icon icon={Frame} size={14} /> {t('viewKinds.canvas')} <Kbd shortcut={CANVAS_SHORTCUTS.newView} />
-                        </Menu.Item>
-                    )
-                },
-                {
-                    id: 'drawing',
-                    label: t('viewKinds.drawing'),
-                    node: (
-                        <Menu.Item onClick={() => void createViewAction('drawing')}>
-                            <Icon icon={PenTool} size={14} /> {t('viewKinds.drawing')}
-                        </Menu.Item>
-                    )
-                },
-                {
-                    id: 'diagram',
-                    label: t('viewKinds.diagram'),
-                    node: (
-                        <Menu.Item onClick={() => void createViewAction('diagram')}>
-                            <Icon icon={Workflow} size={14} /> {t('viewKinds.diagram')}
-                        </Menu.Item>
-                    )
-                },
-                {
-                    id: 'terminal',
-                    label: t('viewKinds.terminal'),
-                    node: (
-                        <Menu.Item onClick={() => void createViewAction('terminal')}>
-                            <Icon icon={Terminal} size={14} /> {t('viewKinds.terminal')}
-                        </Menu.Item>
-                    )
-                },
+                itemEntry('canvas', Frame, t('viewKinds.canvas'), () => void createViewAction('canvas'), CANVAS_SHORTCUTS.newView),
+                itemEntry('drawing', PenTool, t('viewKinds.drawing'), () => void createViewAction('drawing')),
+                itemEntry('diagram', Workflow, t('viewKinds.diagram'), () => void createViewAction('diagram')),
+                itemEntry('terminal', Terminal, t('viewKinds.terminal'), () => void createViewAction('terminal')),
                 { id: 'agent-chat', label: agentTargetLabel('chat'), node: <AgentSubmenu target="chat" onPick={pickAgent} /> },
                 { id: 'agent-terminal', label: agentTargetLabel('terminal'), node: <AgentSubmenu target="terminal" onPick={pickAgent} /> },
-                {
-                    id: 'browser',
-                    label: t('viewKinds.browser'),
-                    node: (
-                        <Menu.Item onClick={() => useUi.getState().setViewDialog({ kind: 'new-browser' })}>
-                            <Icon icon={Globe} size={14} /> {t('viewKinds.browser')}
-                        </Menu.Item>
-                    )
-                },
-                hasFolder && {
-                    id: 'file',
-                    label: t('viewMenu.filePick'),
-                    node: (
-                        <Menu.Item onClick={() => useUi.getState().openFilePicker({ kind: 'view' })}>
-                            <Icon icon={FileText} size={14} /> {t('viewMenu.filePick')}
-                        </Menu.Item>
-                    )
-                }
+                itemEntry('browser', Globe, t('viewKinds.browser'), () => useUi.getState().setViewDialog({ kind: 'new-browser' })),
+                hasFolder && itemEntry('file', FileText, t('viewMenu.filePick'), () => useUi.getState().openFilePicker({ kind: 'view' }))
             ])}
             <Menu.Separator />
             {inOrder([
-                {
-                    id: 'separator',
-                    label: t('viewKinds.separator'),
-                    node: (
-                        <Menu.Item onClick={() => void createViewAction('separator')}>
-                            <Icon icon={Minus} size={14} /> {t('viewKinds.separator')}
-                        </Menu.Item>
-                    )
-                },
-                {
-                    id: 'subheader',
-                    label: t('viewKinds.subheader'),
-                    node: (
-                        <Menu.Item onClick={() => void newSubheaderView()}>
-                            <Icon icon={Heading} size={14} /> {t('viewKinds.subheader')}
-                        </Menu.Item>
-                    )
-                }
+                itemEntry('separator', Minus, t('viewKinds.separator'), () => void createViewAction('separator')),
+                itemEntry('subheader', Heading, t('viewKinds.subheader'), () => void newSubheaderView())
             ])}
         </>
     );

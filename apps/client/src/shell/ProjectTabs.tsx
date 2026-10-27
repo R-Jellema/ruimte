@@ -164,18 +164,19 @@ export function ProjectTabs({ dirty }: { readonly dirty: boolean }) {
      * so the release is heard on the window itself, which keeps the pointer for as long as it is down.
      */
     const awaitRelease = (held: Press): void => {
+        const types = ['pointerup', 'mouseup', 'pointercancel'] as const;
         const release = (): void => {
-            removeEventListener('pointerup', release);
-            removeEventListener('mouseup', release);
-            removeEventListener('pointercancel', release);
+            for (const type of types) {
+                removeEventListener(type, release);
+            }
             if (press.current === held) {
                 press.current = null;
             }
             void endTabDrag(held.key, held.mode === 'window');
         };
-        addEventListener('pointerup', release);
-        addEventListener('mouseup', release);
-        addEventListener('pointercancel', release);
+        for (const type of types) {
+            addEventListener(type, release);
+        }
     };
 
     const onPointerMove = (event: PointerEvent<HTMLElement>): void => {
