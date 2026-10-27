@@ -24,7 +24,7 @@ async function tradeLocalSecret(endpoint: Endpoint, secret: string): Promise<voi
 
 /*
  * Runs before every connection and reconnect, because a ticket opens one socket only. The URL carries
- * a ticket and never the local secret, so a leaked address never opens a second socket. Only this machine's row has an address; every other one has a route.
+ * a ticket and never the local secret, so a leaked address never opens a second socket.
  */
 export async function socketAddressFor(endpointId: string): Promise<string> {
     const endpoint = useEndpoints.getState().endpoints.find((entry) => entry.id === endpointId);

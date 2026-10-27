@@ -1,8 +1,4 @@
-/*
- * Pulls raw samples off a microphone at the rate a speech model wants. The `AudioContext` does the
- * resampling: asking it for 16 kHz is how a 48 kHz microphone becomes something a model can read,
- * and doing it here means no other file has to know the rate.
- */
+/* Raw samples off a microphone at the rate a speech model wants; the `AudioContext` asked for 16 kHz does the resampling. */
 
 import { SPEECH_SPECTRUM_BAND_COUNT, spectrumBands, easeBands } from '@/audio/waveform';
 
@@ -17,8 +13,6 @@ const WORKLET_URL = new URL('./speech-tap.js', import.meta.url);
 /*
  * Reads a stream until `stop`. The samples handed over are a copy, because the shell serializes them
  * on its own schedule and the worklet reuses nothing it has already sent.
- *
- * The spectrum uses the same microphone graph as recognition.
  */
 export class SpeechCapture {
     readonly #onSamples: (samples: Float32Array) => void;
