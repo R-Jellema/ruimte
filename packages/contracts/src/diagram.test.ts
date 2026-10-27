@@ -3,7 +3,6 @@ import { type DiagramDocument } from './diagram-host.ts';
 import { ProjectDocumentSchema, isDiagramView, isOpenableView, isSessionView } from './project.ts';
 import { REQUEST_SCHEMAS } from './index.ts';
 
-/* The example from the design report, word for word. */
 const example: DiagramDocument = {
     version: 1,
     rev: 7,

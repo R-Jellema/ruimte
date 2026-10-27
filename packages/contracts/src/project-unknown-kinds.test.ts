@@ -9,11 +9,8 @@ import {
     storedViewsOf,
     type ProjectCanvasView
 } from './project.ts';
-import { duplicateIdIn, migrateSharedFile, withoutCrossViewEdges } from './project-migrate.ts';
-
-function migratedFile(value: unknown) {
-    return migrateSharedFile(value)?.file ?? null;
-}
+import { duplicateIdIn, withoutCrossViewEdges } from './project-migrate.ts';
+import { migratedFile } from './project-test-helpers.ts';
 import { withDuplicatedView, withRenamedView, withViewIcon } from './project-views.ts';
 
 /* A file as a newer Ruimte writes it: a view and a canvas node of kinds this version never heard of. */
@@ -56,7 +53,7 @@ function canvasOf(views: readonly unknown[]): ProjectCanvasView {
     return views[0] as ProjectCanvasView;
 }
 
-/* The entries a newer Ruimte owns, as text: a known entry is rewritten in the order of its schema, as it always was. */
+/* The entries a newer Ruimte owns, as text: a known entry is rewritten in the order of its schema. */
 function unknownEntriesOf(views: readonly unknown[]): string {
     return JSON.stringify([canvasOf(views).nodes[1], views[1]]);
 }

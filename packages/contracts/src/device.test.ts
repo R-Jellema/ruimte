@@ -3,6 +3,16 @@ import { EVENT_SCHEMAS, REQUEST_SCHEMAS } from './index.ts';
 import { DeviceInfoSchema, DeviceTargetPayloadSchema, deviceButtons, devicePermissions, deviceTools, type DeviceInfo } from './device.ts';
 import { liveStreamContentType, liveStreamFormatOf } from './live-stream.ts';
 
+const target = { platform: 'ios', backendId: 'simctl', deviceId: 'phone-1' } as const;
+
+function acceptsInput(input: unknown): boolean {
+    return REQUEST_SCHEMAS['device.input'].payload.safeParse({ ...target, input }).success;
+}
+
+function acceptsAction(action: Record<string, unknown>): boolean {
+    return REQUEST_SCHEMAS['device.action'].payload.safeParse({ ...target, ...action }).success;
+}
+
 describe('device contracts', () => {
     test('accepts a simulator identity and lifecycle state', () => {
         expect(
@@ -24,107 +34,28 @@ describe('device contracts', () => {
     });
 
     test('keeps pointer coordinates independent from the rendered view size', () => {
-        expect(
-            REQUEST_SCHEMAS['device.input'].payload.safeParse({
-                platform: 'ios',
-                backendId: 'simctl',
-                deviceId: 'phone-1',
-                input: { kind: 'pointer', phase: 'move', x: 0.25, y: 0.75 }
-            }).success
-        ).toBe(true);
-        expect(
-            REQUEST_SCHEMAS['device.input'].payload.safeParse({
-                platform: 'ios',
-                backendId: 'simctl',
-                deviceId: 'phone-1',
-                input: { kind: 'pointer', phase: 'move', x: 2, y: 0.75 }
-            }).success
-        ).toBe(false);
-        expect(
-            REQUEST_SCHEMAS['device.input'].payload.safeParse({
-                platform: 'ios',
-                backendId: 'simctl',
-                deviceId: 'phone-1',
-                input: { kind: 'pointer', phase: 'down', x: 0.5, y: 0.97, edge: 'bottom' }
-            }).success
-        ).toBe(true);
+        expect(acceptsInput({ kind: 'pointer', phase: 'move', x: 0.25, y: 0.75 })).toBe(true);
+        expect(acceptsInput({ kind: 'pointer', phase: 'move', x: 2, y: 0.75 })).toBe(false);
+        expect(acceptsInput({ kind: 'pointer', phase: 'down', x: 0.5, y: 0.97, edge: 'bottom' })).toBe(true);
     });
 
     test('accepts scroll, multi-touch and system gestures with bounded coordinates', () => {
-        const target = { platform: 'ios', backendId: 'simctl', deviceId: 'phone-1' } as const;
-        expect(
-            REQUEST_SCHEMAS['device.input'].payload.safeParse({
-                ...target,
-                input: { kind: 'scroll', deltaX: 14, deltaY: -32, x: 0.4, y: 0.6 }
-            }).success
-        ).toBe(true);
-        expect(
-            REQUEST_SCHEMAS['device.input'].payload.safeParse({
-                ...target,
-                input: { kind: 'multiPointer', phase: 'move', first: { x: 0.2, y: 0.5 }, second: { x: 0.8, y: 0.5 } }
-            }).success
-        ).toBe(true);
-        expect(REQUEST_SCHEMAS['device.input'].payload.safeParse({ ...target, input: { kind: 'button', button: 'appSwitcher' } }).success).toBe(true);
-        expect(
-            REQUEST_SCHEMAS['device.input'].payload.safeParse({
-                ...target,
-                input: { kind: 'multiPointer', phase: 'move', first: { x: -0.1, y: 0.5 }, second: { x: 0.8, y: 0.5 } }
-            }).success
-        ).toBe(false);
+        expect(acceptsInput({ kind: 'scroll', deltaX: 14, deltaY: -32, x: 0.4, y: 0.6 })).toBe(true);
+        expect(acceptsInput({ kind: 'multiPointer', phase: 'move', first: { x: 0.2, y: 0.5 }, second: { x: 0.8, y: 0.5 } })).toBe(true);
+        expect(acceptsInput({ kind: 'button', button: 'appSwitcher' })).toBe(true);
+        expect(acceptsInput({ kind: 'multiPointer', phase: 'move', first: { x: -0.1, y: 0.5 }, second: { x: 0.8, y: 0.5 } })).toBe(false);
     });
 
     test('supports HTTP and replaceable event streams', () => {
-        expect(REQUEST_SCHEMAS['device.open'].payload.safeParse({ backendId: 'simctl', platform: 'ios', deviceId: 'phone-1', stream: 'http' }).success).toBe(
-            true
-        );
-        expect(REQUEST_SCHEMAS['device.open'].payload.safeParse({ backendId: 'simctl', platform: 'ios', deviceId: 'phone-1', stream: 'events' }).success).toBe(
-            true
-        );
-        expect(
-            EVENT_SCHEMAS['device.frame'].safeParse({
-                deviceId: 'phone-1',
-                backendId: 'simctl',
-                platform: 'ios',
-                sequence: 1,
-                width: 1179,
-                height: 2556,
-                data: 'AQID'
-            }).success
-        ).toBe(true);
+        expect(REQUEST_SCHEMAS['device.open'].payload.safeParse({ ...target, stream: 'http' }).success).toBe(true);
+        expect(REQUEST_SCHEMAS['device.open'].payload.safeParse({ ...target, stream: 'events' }).success).toBe(true);
+        expect(EVENT_SCHEMAS['device.frame'].safeParse({ ...target, sequence: 1, width: 1179, height: 2556, data: 'AQID' }).success).toBe(true);
     });
 
     test('validates simulator settings and typed actions', () => {
-        expect(
-            REQUEST_SCHEMAS['device.action'].payload.safeParse({
-                backendId: 'simctl',
-                platform: 'ios',
-                deviceId: 'phone-1',
-                action: 'setLocation',
-                latitude: 52.3676,
-                longitude: 4.9041
-            }).success
-        ).toBe(true);
-        expect(
-            REQUEST_SCHEMAS['device.action'].payload.safeParse({
-                backendId: 'simctl',
-                platform: 'ios',
-                deviceId: 'phone-1',
-                action: 'setLocation',
-                latitude: 120,
-                longitude: 4.9041
-            }).success
-        ).toBe(false);
-        expect(
-            REQUEST_SCHEMAS['device.action'].payload.safeParse({
-                backendId: 'simctl',
-                platform: 'ios',
-                deviceId: 'phone-1',
-                action: 'setPermission',
-                appId: 'com.example.app',
-                permission: 'camera',
-                decision: 'grant'
-            }).success
-        ).toBe(true);
+        expect(acceptsAction({ action: 'setLocation', latitude: 52.3676, longitude: 4.9041 })).toBe(true);
+        expect(acceptsAction({ action: 'setLocation', latitude: 120, longitude: 4.9041 })).toBe(false);
+        expect(acceptsAction({ action: 'setPermission', appId: 'com.example.app', permission: 'camera', decision: 'grant' })).toBe(true);
     });
 
     test('reads what a device announces and keeps only what this version knows', () => {
@@ -161,7 +92,6 @@ describe('device contracts', () => {
     });
 
     test('parses the tools, buttons and settings a person drives from the node', () => {
-        const target = { platform: 'ios', backendId: 'simctl', deviceId: 'phone-1' } as const;
         const actions = [
             { action: 'setStatusBar', value: 'clean' },
             { action: 'setBattery', level: 40, charging: true },
@@ -177,15 +107,17 @@ describe('device contracts', () => {
             { action: 'setHinge', degrees: 130 },
             { action: 'setCamera', appId: 'com.example.app', source: 'file', path: '/work/atlas/qr.png' }
         ];
+
         for (const action of actions) {
-            expect(REQUEST_SCHEMAS['device.action'].payload.safeParse({ ...target, ...action }).success).toBe(true);
+            expect(acceptsAction(action)).toBe(true);
         }
-        expect(REQUEST_SCHEMAS['device.action'].payload.safeParse({ ...target, action: 'setBattery', level: 101, charging: false }).success).toBe(false);
-        expect(REQUEST_SCHEMAS['device.action'].payload.safeParse({ ...target, action: 'addMedia', paths: [] }).success).toBe(false);
-        expect(REQUEST_SCHEMAS['device.action'].payload.safeParse({ ...target, action: 'setHinge', degrees: 200 }).success).toBe(false);
-        expect(REQUEST_SCHEMAS['device.input'].payload.safeParse({ ...target, input: { kind: 'key', phase: 'down', usage: 0x04 } }).success).toBe(true);
-        expect(REQUEST_SCHEMAS['device.input'].payload.safeParse({ ...target, input: { kind: 'key', phase: 'down', usage: 0 } }).success).toBe(false);
-        expect(REQUEST_SCHEMAS['device.input'].payload.safeParse({ ...target, input: { kind: 'button', button: 'volumeUp' } }).success).toBe(true);
+
+        expect(acceptsAction({ action: 'setBattery', level: 101, charging: false })).toBe(false);
+        expect(acceptsAction({ action: 'addMedia', paths: [] })).toBe(false);
+        expect(acceptsAction({ action: 'setHinge', degrees: 200 })).toBe(false);
+        expect(acceptsInput({ kind: 'key', phase: 'down', usage: 0x04 })).toBe(true);
+        expect(acceptsInput({ kind: 'key', phase: 'down', usage: 0 })).toBe(false);
+        expect(acceptsInput({ kind: 'button', button: 'volumeUp' })).toBe(true);
         expect(
             REQUEST_SCHEMAS['device.detail'].result.safeParse({
                 ...target,
@@ -195,16 +127,16 @@ describe('device contracts', () => {
     });
 
     test('parses capture, record and clipboard requests', () => {
-        const target = { platform: 'android', backendId: 'android', deviceId: 'emulator-5554' } as const;
-        expect(REQUEST_SCHEMAS['device.capture'].payload.safeParse(target).success).toBe(true);
+        const android = { platform: 'android', backendId: 'android', deviceId: 'emulator-5554' } as const;
+        expect(REQUEST_SCHEMAS['device.capture'].payload.safeParse(android).success).toBe(true);
         expect(REQUEST_SCHEMAS['device.capture'].result.safeParse({ path: '/home/.ruimte/device-captures/shot.png', width: 1080, height: 2400 }).success).toBe(
             true
         );
-        expect(REQUEST_SCHEMAS['device.record'].payload.safeParse({ ...target, mode: 'start' }).success).toBe(true);
-        expect(REQUEST_SCHEMAS['device.record'].payload.safeParse({ ...target, mode: 'pause' }).success).toBe(false);
+        expect(REQUEST_SCHEMAS['device.record'].payload.safeParse({ ...android, mode: 'start' }).success).toBe(true);
+        expect(REQUEST_SCHEMAS['device.record'].payload.safeParse({ ...android, mode: 'pause' }).success).toBe(false);
         expect(REQUEST_SCHEMAS['device.record'].result.safeParse({ recording: false, path: '/home/.ruimte/device-captures/clip.mp4' }).success).toBe(true);
-        expect(REQUEST_SCHEMAS['device.clipboard'].payload.safeParse(target).success).toBe(true);
-        expect(REQUEST_SCHEMAS['device.clipboard'].payload.safeParse({ ...target, text: 'héllo 👋', paste: true }).success).toBe(true);
+        expect(REQUEST_SCHEMAS['device.clipboard'].payload.safeParse(android).success).toBe(true);
+        expect(REQUEST_SCHEMAS['device.clipboard'].payload.safeParse({ ...android, text: 'héllo 👋', paste: true }).success).toBe(true);
         expect(REQUEST_SCHEMAS['device.clipboard'].result.safeParse({ text: '' }).success).toBe(true);
     });
 

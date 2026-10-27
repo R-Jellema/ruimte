@@ -1,11 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { PROJECT_VERSION, ProjectLocalSchema, ProjectSaveLocalPayloadSchema, ProjectSharedFileSchema, type ProjectCanvasView } from './project.ts';
 import { duplicateIdIn, migrateLocal, migrateSharedFile, newerVersionIn, withoutCrossViewEdges } from './project-migrate.ts';
-
-/* The shared file a value migrates to, which is what every case here is about; the rev beside it has its own test. */
-function migratedFile(value: unknown) {
-    return migrateSharedFile(value)?.file ?? null;
-}
+import { migratedFile } from './project-test-helpers.ts';
 
 /* A copy of `.ruimte/project.json` of this repository, the way version 1 wrote it. */
 const V1_FILE = {

@@ -110,7 +110,7 @@ describe('chat.send', () => {
         expect(payload.safeParse({ chatId: 'c1', text: '  ' }).success).toBe(false);
         expect(result.safeParse({ queued: true, turnId: 'turn-1' }).success).toBe(true);
         expect(result.safeParse({ queued: true }).success).toBe(true);
-        // Any file type is welcome now, but it still needs a name, a type and bytes.
+        // Any mime type goes, but an attachment still needs a name, a type and bytes.
         expect(payload.safeParse({ chatId: 'c1', text: 'x', attachments: [{ ...png, mime: 'application/zip' }] }).success).toBe(true);
         expect(payload.safeParse({ chatId: 'c1', text: 'x', attachments: [{ ...png, mime: '' }] }).success).toBe(false);
         expect(payload.safeParse({ chatId: 'c1', text: 'x', attachments: [{ ...png, data: '' }] }).success).toBe(false);
@@ -301,32 +301,37 @@ describe('agent and chat', () => {
 });
 
 describe('project', () => {
+    const view = { kind: 'canvas', id: 'main', name: 'Canvas', nodes: [], texts: [], edges: [] };
+    const document = (views: unknown[]) => ProjectDocumentSchema.safeParse({ version: 3, rev: 1, name: 'p', color: 'violet', views });
+
     test('a note node carries its body and color, and an edge may connect any two ids without a label', () => {
-        const view = {
-            kind: 'canvas',
-            id: 'main',
-            name: 'Canvas',
+        const noteView = {
+            ...view,
             nodes: [{ id: 'n1', kind: 'note', title: 'Plan', x: 0, y: 0, w: 320, h: 240, body: '# Plan', color: 'blue' }],
-            texts: [],
             edges: [{ id: 'e1', from: 'n1', to: 'b1' }]
         };
-        const content = { name: 'p', color: 'violet', views: [view] };
+        const content = { name: 'p', color: 'violet', views: [noteView] };
         const { payload } = REQUEST_SCHEMAS['project.save'];
         expect(payload.safeParse({ projectId: 'p1', baseRev: 0, content }).success).toBe(true);
         // A kind this version does not know is carried along; a known kind with a broken field is not.
         expect(
-            payload.safeParse({ projectId: 'p1', baseRev: 0, content: { ...content, views: [{ ...view, nodes: [{ ...view.nodes[0], kind: 'sticky' }] }] } })
-                .success
+            payload.safeParse({
+                projectId: 'p1',
+                baseRev: 0,
+                content: { ...content, views: [{ ...noteView, nodes: [{ ...noteView.nodes[0], kind: 'sticky' }] }] }
+            }).success
         ).toBe(true);
         expect(
-            payload.safeParse({ projectId: 'p1', baseRev: 0, content: { ...content, views: [{ ...view, nodes: [{ ...view.nodes[0], color: 7 }] }] } }).success
+            payload.safeParse({
+                projectId: 'p1',
+                baseRev: 0,
+                content: { ...content, views: [{ ...noteView, nodes: [{ ...noteView.nodes[0], color: 7 }] }] }
+            }).success
         ).toBe(false);
         expect(payload.safeParse({ projectId: 'p1', baseRev: 0, content: { ...content, views: [] } }).success).toBe(true);
     });
 
     test('a separator view carries an id and, if a person gave it one, a label', () => {
-        const view = { kind: 'canvas', id: 'main', name: 'Canvas', nodes: [], texts: [], edges: [] };
-        const document = (views: unknown[]) => ProjectDocumentSchema.safeParse({ version: 3, rev: 1, name: 'p', color: 'violet', views });
         expect(document([view, { kind: 'separator', id: 's1' }]).success).toBe(true);
         expect(document([view, { kind: 'separator', id: 's1', name: 'Agents' }]).success).toBe(true);
         // An empty label is not a label: a separator without one is the bare line.
@@ -335,8 +340,6 @@ describe('project', () => {
     });
 
     test('a subheader view carries an id and the text it is, which is the one thing it cannot do without', () => {
-        const view = { kind: 'canvas', id: 'main', name: 'Canvas', nodes: [], texts: [], edges: [] };
-        const document = (views: unknown[]) => ProjectDocumentSchema.safeParse({ version: 3, rev: 1, name: 'p', color: 'violet', views });
         expect(document([view, { kind: 'subheader', id: 'h1', name: 'Agents' }]).success).toBe(true);
         // A heading is nothing but what it says, so one without a name is no heading at all.
         expect(document([view, { kind: 'subheader', id: 'h1' }]).success).toBe(false);
@@ -344,8 +347,6 @@ describe('project', () => {
     });
 
     test('a view may overrule the mark of its kind, from the same set a project picks from', () => {
-        const view = { kind: 'canvas', id: 'main', name: 'Canvas', nodes: [], texts: [], edges: [] };
-        const document = (views: unknown[]) => ProjectDocumentSchema.safeParse({ version: 3, rev: 1, name: 'p', color: 'violet', views });
         expect(document([{ ...view, icon: { kind: 'lucide', value: 'rocket' } }]).success).toBe(true);
         // A mark is a Lucide name and nothing else, so what a person typed themselves is refused.
         expect(document([{ ...view, icon: { kind: 'emoji', value: '\u{1f680}' } }]).success).toBe(false);
@@ -373,7 +374,6 @@ describe('project', () => {
     });
 
     test('a canvas file without an icon parses, and an icon is a Lucide name', () => {
-        const view = { kind: 'canvas', id: 'main', name: 'Canvas', nodes: [], texts: [], edges: [] };
         const before = { version: 3, rev: 4, name: 'p', color: 'violet', views: [view] };
         const parsed = ProjectDocumentSchema.safeParse(before);
         expect(parsed.success).toBe(true);
@@ -526,7 +526,7 @@ describe('git', () => {
         expect(result.safeParse({ commits: [], lines: [], omitted: 'gone' }).success).toBe(false);
     });
 
-    test('staging and discarding both need at least one path', () => {
+    test('repos are listed per folder, and staging needs at least one path', () => {
         expect(REQUEST_SCHEMAS['git.repos'].payload.safeParse({ folder: '/work/apps' }).success).toBe(true);
         expect(REQUEST_SCHEMAS['git.repos'].payload.safeParse({ folder: '/work/apps', fresh: true }).success).toBe(true);
         expect(
@@ -539,6 +539,14 @@ describe('git', () => {
         expect(REQUEST_SCHEMAS['git.stage'].payload.safeParse({ cwd: '/repo', paths: [], staged: true }).success).toBe(false);
         expect(REQUEST_SCHEMAS['git.discard'].payload.safeParse({ cwd: '/repo', paths: ['a'] }).success).toBe(true);
         expect(REQUEST_SCHEMAS['git.discard'].result.safeParse({ stash: null }).success).toBe(true);
+    });
+
+    test('a worktree starts at a base, and a ref answers the commit it names', () => {
+        expect(REQUEST_SCHEMAS['git.worktree-add'].payload.safeParse({ repo: '/r', branch: 'x', base: 'v1' }).success).toBe(true);
+        expect(REQUEST_SCHEMAS['git.worktree-add'].payload.safeParse({ repo: '/r', branch: 'x' }).success).toBe(true);
+        expect(REQUEST_SCHEMAS['git.worktree-add'].payload.safeParse({ repo: '/r', branch: 'x', base: '' }).success).toBe(false);
+        expect(REQUEST_SCHEMAS['git.ref-commit'].payload.safeParse({ cwd: '/r', ref: 'v1' }).success).toBe(true);
+        expect(REQUEST_SCHEMAS['git.ref-commit'].result.safeParse({ commit: 'abc', subject: 'init' }).success).toBe(true);
     });
 });
 
@@ -646,13 +654,5 @@ describe('usage', () => {
                 providers: [{ ...provider, windows: [], cost: null, unavailable: { reason: 'not-installed', message: null } }]
             }).success
         ).toBe(true);
-    });
-
-    test('a worktree starts at a base, and a ref answers the commit it names', () => {
-        expect(REQUEST_SCHEMAS['git.worktree-add'].payload.safeParse({ repo: '/r', branch: 'x', base: 'v1' }).success).toBe(true);
-        expect(REQUEST_SCHEMAS['git.worktree-add'].payload.safeParse({ repo: '/r', branch: 'x' }).success).toBe(true);
-        expect(REQUEST_SCHEMAS['git.worktree-add'].payload.safeParse({ repo: '/r', branch: 'x', base: '' }).success).toBe(false);
-        expect(REQUEST_SCHEMAS['git.ref-commit'].payload.safeParse({ cwd: '/r', ref: 'v1' }).success).toBe(true);
-        expect(REQUEST_SCHEMAS['git.ref-commit'].result.safeParse({ commit: 'abc', subject: 'init' }).success).toBe(true);
     });
 });

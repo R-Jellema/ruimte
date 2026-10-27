@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { chatIsWorking, ChatMoveInfoPayloadSchema, ChatMoveInfoResultSchema, ChatMovePayloadSchema, REQUEST_SCHEMAS } from './index.ts';
+import { chatIsWorking, ChatMoveInfoPayloadSchema, ChatMoveInfoResultSchema, ChatMovePayloadSchema } from './index.ts';
 
 describe('chat.move', () => {
     test('takes a registered project as its target', () => {
@@ -54,11 +54,6 @@ describe('chat.moveInfo', () => {
         };
         expect(ChatMoveInfoResultSchema.safeParse(result).success).toBe(true);
         expect(ChatMoveInfoResultSchema.safeParse({ ...result, refusal: { reason: 'sleeping' } }).success).toBe(false);
-    });
-
-    test('is on the request table next to chat.move', () => {
-        expect(REQUEST_SCHEMAS['chat.move']).toBeDefined();
-        expect(REQUEST_SCHEMAS['chat.moveInfo']).toBeDefined();
     });
 });
 

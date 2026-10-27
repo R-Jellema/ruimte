@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { LaunchesDetectPayloadSchema, LaunchesSharedFileSchema, launchPortOf, readLaunchEntries } from './launches.ts';
 
-/* The shared file from the design report, with a field and a kind a later release might add. */
+/* A shared file with a field and a kind a later release might add. */
 const file = {
     version: 1,
     launches: [
