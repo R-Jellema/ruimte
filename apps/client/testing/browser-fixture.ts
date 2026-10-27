@@ -5,6 +5,9 @@ import { reactCompilerPlugin } from './react-compiler-transform';
 
 export const clientDirectory = join(import.meta.dir, '..');
 
+/* Evaluates once the page has laid out and painted what the last step changed. */
+export const frame = 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))';
+
 // What Vite puts in `import.meta.env` for the client; Bun.build leaves it undefined.
 const viteEnv = { 'import.meta.env': JSON.stringify({ DEV: false, PROD: true, MODE: 'test', BASE_URL: '/' }) };
 
@@ -120,7 +123,7 @@ export async function withBrowserFixture(
         });
         await view.navigate(`http://127.0.0.1:${server.port}`);
         await view.resize(800, 600);
-        await view.evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+        await view.evaluate(frame);
         const errors = await view.evaluate<string[]>('window.errors');
         if (errors.length > 0) {
             throw new Error(errors.join('\n'));

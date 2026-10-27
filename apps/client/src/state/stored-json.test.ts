@@ -4,16 +4,7 @@ import { join, relative, sep } from 'node:path';
 import { z } from 'zod';
 import { storedJson, storedText, type KeyValueStorage } from './stored-json';
 import { fileURLToPath } from 'node:url';
-
-function memoryStorage(): KeyValueStorage & { values: Map<string, string> } {
-    const values = new Map<string, string>();
-    return {
-        values,
-        getItem: (key) => values.get(key) ?? null,
-        setItem: (key, value) => void values.set(key, value),
-        removeItem: (key) => void values.delete(key)
-    };
-}
+import { memoryStorage } from '../../testing/memory-storage';
 
 const refusing: KeyValueStorage = {
     getItem: () => {

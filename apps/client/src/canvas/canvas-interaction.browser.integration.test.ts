@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { join } from 'node:path';
-import { withBrowserFixture } from '../../testing/browser-fixture';
+import { frame, withBrowserFixture } from '../../testing/browser-fixture';
 
 test('connector labels stay over every path and remain editable in the browser', async () => {
     await withBrowserFixture(
@@ -68,7 +68,7 @@ test('the canvas keeps selection anchored during scroll, pans over focused bodie
             await view.cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x: 100, y: 100, button: 'left', buttons: 1, clickCount: 1 });
             await view.cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 250, y: 200, button: 'left', buttons: 1 });
             await view.cdp('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 250, y: 200, deltaX: 100, deltaY: 0 });
-            await view.evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+            await view.evaluate(frame);
             expect(await view.evaluate<number>('window.canvas.getState().camera.x')).toBe(-100);
             expect(await view.evaluate<string>(`document.querySelector('[data-canvas-surface] [class*="border-accent"]').style.left`)).toBe('0px');
             await view.cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 250, y: 200, button: 'left', buttons: 0, clickCount: 1 });
@@ -98,7 +98,7 @@ test('the canvas keeps selection anchored during scroll, pans over focused bodie
             selection:['a','b','c'], order:['a','b','c']
         }); })()`);
             await view.cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Alt', code: 'AltLeft', windowsVirtualKeyCode: 18, modifiers: 1 });
-            await view.evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+            await view.evaluate(frame);
             expect(
                 await view.evaluate<string | null>(`document.elementFromPoint(136, 350)?.closest('[data-gap-id]')?.getAttribute('data-gap-id') ?? null`)
             ).toBe('x:a:b');
@@ -114,7 +114,7 @@ test('the canvas keeps selection anchored during scroll, pans over focused bodie
             expect(await view.evaluate<number[]>('Object.values(window.canvas.getState().nodes).map(node=>node.x)')).toEqual([20, 152, 284]);
             await view.evaluate("window.canvas.getState().select(['a', 'b', 'c'])");
             await view.cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Alt', code: 'AltLeft', windowsVirtualKeyCode: 18, modifiers: 1 });
-            await view.evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+            await view.evaluate(frame);
             expect(
                 await view.evaluate<string | null>(`document.elementFromPoint(136, 350)?.closest('[data-gap-id]')?.getAttribute('data-gap-id') ?? null`)
             ).toBe('x:a:b');
@@ -139,7 +139,7 @@ test('the canvas keeps selection anchored during scroll, pans over focused bodie
 
             await view.evaluate('(() => { window.canvas.getState().clearSelection(); window.canvas.setState({camera:{x:0,y:0,zoom:1}}); })()');
             await view.cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Alt', code: 'AltLeft', windowsVirtualKeyCode: 18, modifiers: 1 });
-            await view.evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+            await view.evaluate(frame);
             expect(await view.evaluate<number>('document.querySelectorAll("[data-gap-id]").length')).toBe(2);
             await view.cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x: 136, y: 350, button: 'left', buttons: 1, clickCount: 1, modifiers: 1 });
             expect(await view.evaluate<string[]>('window.canvas.getState().heldNodeIds().sort()')).toEqual(['a', 'b', 'c']);
@@ -193,7 +193,7 @@ test('a node in a group resizes from its handle without moving the group', async
         async (view) => {
             // On the east edge of the inner node, inside the group, away from the port and the corners.
             await view.cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 407, y: 200 });
-            await view.evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+            await view.evaluate(frame);
             expect(await view.evaluate<string | null>(`document.elementFromPoint(407, 200)?.getAttribute('data-resize-node') ?? null`)).toBe('inner');
             await view.cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x: 407, y: 200, button: 'left', buttons: 1, clickCount: 1 });
             await view.cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 447, y: 200, button: 'left', buttons: 1 });

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { join } from 'node:path';
-import { clientDirectory, withBrowserFixture } from '../../../testing/browser-fixture';
+import { clientDirectory, frame, withBrowserFixture } from '../../../testing/browser-fixture';
 
 for (const tree of ['changes', 'commit'] as const) {
     test(`${tree} tree keeps git marks with recycled rows and refreshes unchanged paths`, async () => {
@@ -71,7 +71,7 @@ for (const tree of ['changes', 'commit'] as const) {
                 expect(result.checked).toBeGreaterThan(100);
                 expect(result.failures).toEqual([]);
                 await view.evaluate('window.updateCounts()');
-                await view.evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+                await view.evaluate(frame);
                 const refreshed = await view.evaluate<{ marks: string; expected: string; fontSize: string; backgrounds: string[]; padding: string[] }>(`(() => {
                     const row = document.querySelector('.adecore-file-tree-host').shadowRoot.querySelector('[data-type="item"][data-item-path$=".ts"]:not([data-item-parked="true"])');
                     const number = Number(row.dataset.itemPath.match(/file-(\\d+)/)[1]);

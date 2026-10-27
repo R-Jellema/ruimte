@@ -1,20 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { forgetLink, linkRequestOf, linkStep, rememberLink, rememberedLink, typedCode } from './link-request';
-import type { LoginStorage } from './web';
-
-function memoryStorage(): LoginStorage & { items: Map<string, string> } {
-    const items = new Map<string, string>();
-    return {
-        items,
-        getItem: (key) => items.get(key) ?? null,
-        setItem: (key, value) => {
-            items.set(key, value);
-        },
-        removeItem: (key) => {
-            items.delete(key);
-        }
-    };
-}
+import { memoryStorage } from '../../testing/memory-storage';
 
 describe('the /link address', () => {
     test('carries the code as the terminal printed it, or none', () => {
@@ -32,7 +18,7 @@ describe('a remembered link', () => {
         rememberLink(storage, 'BCDF-GHJK', 1_000);
         expect(rememberedLink(storage, 1_000 + 60_000)).toEqual({ code: 'BCDF-GHJK', openedAt: 1_000 });
         expect(rememberedLink(storage, 1_000 + 11 * 60_000)).toBeNull();
-        expect(storage.items.size).toBe(0);
+        expect(storage.values.size).toBe(0);
     });
 
     test('is gone once forgotten, and a broken entry reads as none', () => {

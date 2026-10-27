@@ -3,10 +3,9 @@ import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { PROTOCOL_VERSION } from '@ruimte/contracts';
 import { join } from 'node:path';
-import { clientDirectory, withBrowserFixture } from '../../testing/browser-fixture';
+import { clientDirectory, frame, withBrowserFixture } from '../../testing/browser-fixture';
 
 type View = InstanceType<typeof Bun.WebView>;
-const frame = 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))';
 const relative = 'src/例 folder with spaces/a sufficiently long file name.ts';
 const reference = `"${relative}:12:4-16"`;
 const path = `/repo/worktree/${relative}`;

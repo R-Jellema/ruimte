@@ -1,10 +1,9 @@
 import { expect, test } from 'bun:test';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { withBrowserFixture } from '../../testing/browser-fixture';
+import { frame, withBrowserFixture } from '../../testing/browser-fixture';
 
 const directory = import.meta.dir;
-const frame = 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))';
 const settle = 'new Promise(resolve => setTimeout(resolve, 180))';
 
 async function styles(): Promise<string> {

@@ -1,14 +1,13 @@
 import { expect, test } from 'bun:test';
 import { readFile, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
-import { clientDirectory, withBrowserFixture } from '../../testing/browser-fixture';
+import { clientDirectory, frame, withBrowserFixture } from '../../testing/browser-fixture';
 
 type View = InstanceType<typeof Bun.WebView>;
 const github = 'https://github.com/basmilius/ruimte';
 const localhost = 'http://localhost:5173';
 const wrapped = `${github}/issues/123?query=${'abcdefghij'.repeat(12)}&end=complete`;
 const output = `${github}\r\n${localhost}\r\n${wrapped}\r\n\x1b]8;;${github}/pull/12\x1b\\Pull request\x1b]8;;\x1b\\\r\n/tmp/example.ts:12\r\n\x1b]8;;file:///tmp/example.ts\x1b\\Local file\x1b]8;;\x1b\\\r\n\x1b]8;;javascript:alert(1)\x1b\\Unsafe link\x1b]8;;\x1b\\`;
-const frame = 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))';
 
 async function fixture(platform: 'darwin' | 'linux' | 'browser', shared: boolean, run: (view: View) => Promise<void>): Promise<void> {
     const apple = platform === 'darwin' || (platform === 'browser' && process.platform === 'darwin');

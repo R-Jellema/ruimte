@@ -1,8 +1,6 @@
 import { expect, test } from 'bun:test';
 import { join } from 'node:path';
-import { withBrowserFixture } from '../../testing/browser-fixture';
-
-const frame = 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))';
+import { frame, withBrowserFixture } from '../../testing/browser-fixture';
 
 test('image project colors persist and black SVG artwork is white in dark mode and black in light mode', async () => {
     await withBrowserFixture(

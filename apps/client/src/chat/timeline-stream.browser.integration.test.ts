@@ -1,9 +1,7 @@
 import { expect, test } from 'bun:test';
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { clientDirectory, withBrowserFixture } from '../../testing/browser-fixture';
-
-const frame = 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))';
+import { clientDirectory, frame, withBrowserFixture } from '../../testing/browser-fixture';
 
 test('streaming keeps older messages visible while the chat fits without scrolling', async () => {
     const assets = join(clientDirectory, 'dist/assets');

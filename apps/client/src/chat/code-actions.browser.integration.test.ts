@@ -1,10 +1,9 @@
 import { expect, test } from 'bun:test';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { clientDirectory, withBrowserFixture } from '../../testing/browser-fixture';
+import { clientDirectory, frame, withBrowserFixture } from '../../testing/browser-fixture';
 
 type View = InstanceType<typeof Bun.WebView>;
-const frame = 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))';
 const plain = '  héllo  \n\tkeep spaces\n\n';
 const long = 'const longLine = "' + 'wide text '.repeat(20) + '";';
 const shell = '```bash\nprintf ready\n```\n\nReply continues.\n';

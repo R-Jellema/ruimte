@@ -1,10 +1,9 @@
 import { expect, test } from 'bun:test';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { withBrowserFixture } from '../../testing/browser-fixture';
+import { frame, withBrowserFixture } from '../../testing/browser-fixture';
 
 const HOST_BOX = '(() => {const rect=document.querySelector(".browser-host").getBoundingClientRect(); return [rect.x,rect.y,rect.width,rect.height];})()';
-const frame = 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))';
 
 test('parked browser pages leave the node border visible at every canvas zoom', async () => {
     const styles = await readFile(join(import.meta.dir, '../styles.css'), 'utf8');

@@ -1,20 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { LoginStartQuerySchema } from '@ruimte/pulsar';
 import { PENDING_LOGIN_LIFETIME_MS, beginWebLogin, completeWebLogin, webRedirectUriFor, type LoginStorage } from './web';
-
-function memoryStorage(): LoginStorage & { items: Map<string, string> } {
-    const items = new Map<string, string>();
-    return {
-        items,
-        getItem: (key) => items.get(key) ?? null,
-        setItem: (key, value) => {
-            items.set(key, value);
-        },
-        removeItem: (key) => {
-            items.delete(key);
-        }
-    };
-}
+import { memoryStorage } from '../../testing/memory-storage';
 
 const REDIRECT = 'https://station.ruimte.app/pulsar/callback';
 
@@ -35,7 +22,7 @@ describe('signing in on the web', () => {
         const storage = memoryStorage();
         const query = await leave(storage);
         expect(query.redirect_uri).toBe(REDIRECT);
-        const pending = JSON.parse(storage.items.get('ruimte.pulsar.pendingLogin')!);
+        const pending = JSON.parse(storage.values.get('ruimte.pulsar.pendingLogin')!);
         expect(query.state).toBe(pending.state);
         expect(query.code_challenge_method).toBe('S256');
         const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pending.verifier));
@@ -46,7 +33,7 @@ describe('signing in on the web', () => {
         expect(back.verifier.length).toBeGreaterThanOrEqual(43);
         expect(back.verifier).toBe(pending.verifier);
         expect(back.confirm).toBe(false);
-        expect(storage.items.size).toBe(0);
+        expect(storage.values.size).toBe(0);
     });
 
     test('a login started from the account section comes back once saying so', async () => {

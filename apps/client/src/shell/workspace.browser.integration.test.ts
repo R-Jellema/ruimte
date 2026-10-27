@@ -1,8 +1,6 @@
 import { expect, test } from 'bun:test';
 import { join } from 'node:path';
-import { withBrowserFixture } from '../../testing/browser-fixture';
-
-const frame = 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))';
+import { frame, withBrowserFixture } from '../../testing/browser-fixture';
 
 test('the linked workspace preserves grid gestures, tabs and view bodies', async () => {
     await withBrowserFixture(

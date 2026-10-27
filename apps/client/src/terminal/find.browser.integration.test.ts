@@ -1,13 +1,12 @@
 import { expect, test } from 'bun:test';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { clientDirectory, withBrowserFixture } from '../../testing/browser-fixture';
+import { clientDirectory, frame, withBrowserFixture } from '../../testing/browser-fixture';
 
 const apple = process.platform === 'darwin';
 const NEEDLES = 30;
 // A needle on every tenth row of 300, far more than one screen holds, so a step has to scroll.
 const OUTPUT = Array.from({ length: 300 }, (_, i) => `row ${i} ${i % 10 === 0 ? 'needle' : 'hay'}`).join('\r\n');
-const frame = 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))';
 
 test('the find key opens the bar over a terminal, steps through the scrollback and hands the keyboard back', async () => {
     const css = await readFile(join(clientDirectory, 'node_modules/@xterm/xterm/css/xterm.css'), 'utf8');

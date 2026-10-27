@@ -1,11 +1,10 @@
 import { expect, test } from 'bun:test';
 import { join } from 'node:path';
-import { clientDirectory, withBrowserFixture } from '../../testing/browser-fixture';
+import { clientDirectory, frame, withBrowserFixture } from '../../testing/browser-fixture';
 
 type View = InstanceType<typeof Bun.WebView>;
 const path = '/repo/a folder/a file.ts';
 const markdown = `[Named source](</repo/a folder/a file.ts:12:4-16>) and \`/repo/a folder/a file.ts#L12C4-L16\``;
-const frame = 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))';
 
 async function fixture(run: (view: View) => Promise<void>): Promise<void> {
     await withBrowserFixture(

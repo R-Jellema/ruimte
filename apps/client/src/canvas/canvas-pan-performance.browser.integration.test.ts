@@ -1,9 +1,7 @@
 import { expect, test } from 'bun:test';
 import { Glob } from 'bun';
 import { join } from 'node:path';
-import { clientDirectory, withBrowserFixture } from '../../testing/browser-fixture';
-
-const frame = 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))';
+import { clientDirectory, frame, withBrowserFixture } from '../../testing/browser-fixture';
 
 /*
  * Counts React's commits and the components each one ran, the way the devtools hook sees them: a

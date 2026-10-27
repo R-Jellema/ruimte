@@ -1,11 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { createDailyDedupe, createScrubber } from '@ruimte/telemetry';
 import { CLIENT_TAGS, connectionEvent, storageDedupeStore } from './events';
-
-function memoryStorage(): Pick<Storage, 'getItem' | 'setItem'> & { values: Map<string, string> } {
-    const values = new Map<string, string>();
-    return { values, getItem: (key) => values.get(key) ?? null, setItem: (key, value) => void values.set(key, value) };
-}
+import { memoryStorage } from '../../testing/memory-storage';
 
 describe('connectionEvent', () => {
     test('a drop names the link, the kind of machine and the close code, and groups by them', () => {

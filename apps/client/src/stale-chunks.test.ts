@@ -1,17 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { reloadOnStaleChunk } from '@/stale-chunks';
+import { memoryStorage } from '../testing/memory-storage';
 
 type Watch = Parameters<typeof reloadOnStaleChunk>[0];
-
-function memoryStorage(): Pick<Storage, 'getItem' | 'setItem'> {
-    const values = new Map<string, string>();
-    return {
-        getItem: (key) => values.get(key) ?? null,
-        setItem: (key, value) => {
-            values.set(key, value);
-        }
-    };
-}
 
 /* A page on build A that counts its reloads; `fail` is a chunk that did not load. */
 function page(options: Partial<Watch> = {}) {

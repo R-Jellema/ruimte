@@ -2,11 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { FakeLanguageTransport } from './fake-daemon';
 import { readPanelHeight, writePanelHeight } from './panel-height';
 import { ProjectLanguage } from './ruimte-project-language';
-
-function memoryStorage(): Pick<Storage, 'getItem' | 'setItem'> {
-    const values = new Map<string, string>();
-    return { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => void values.set(key, value) };
-}
+import { memoryStorage } from '../../testing/memory-storage';
 
 describe('the height of the peek and call hierarchy panel', () => {
     test('is nothing until a person has dragged it', () => {
