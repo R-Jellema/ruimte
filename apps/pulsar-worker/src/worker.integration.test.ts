@@ -2163,29 +2163,6 @@ describe('model benchmarks', () => {
         expect(await errorCode(response)).toBe('no-benchmarks');
     });
 
-    test('the migration preserves a cached response from before the additional metrics', async () => {
-        const upgrade = miniflare('pulsar-benchmarks-upgrade', { bindings: { PUBLIC_ORIGIN, ARTIFICIAL_ANALYSIS_API_KEY: API_KEY } });
-        try {
-            await migrate(upgrade, (file) => file < '0015_benchmark_measurements.sql');
-            const models = [
-                {
-                    id: 'claude-opus-5-5',
-                    name: 'Claude Opus 5.5',
-                    provider: 'claude',
-                    legacy: false,
-                    points: [{ effort: 'low', intelligence: 42.3, costPerTask: 0.55 }]
-                }
-            ];
-            await database(upgrade).run('INSERT INTO model_benchmarks (id, fetched_at, models) VALUES (1, ?, ?)', 123, JSON.stringify(models));
-            await migrate(upgrade, (file) => file >= '0015_benchmark_measurements.sql');
-            const response = await dispatch('/v1/models/benchmarks', { on: upgrade });
-            expect(response.status).toBe(200);
-            expect(await response.json()).toEqual({ fetchedAt: 123, models, labs: BENCHMARK_LABS });
-        } finally {
-            await upgrade.dispose();
-        }
-    });
-
     test('follows every page and hands out only what the comparison displays', async () => {
         pages = [
             page(1, true, [
@@ -2392,14 +2369,19 @@ describe('model benchmarks', () => {
         });
         try {
             await migrate(failed);
-            await database(failed).run('INSERT INTO model_benchmarks (id, fetched_at, models) VALUES (1, ?, ?)', 123, '[]');
+            await database(failed).run('INSERT INTO benchmark_refreshes (id, fetched_at) VALUES (1, ?)', 123);
             asked = [];
             pages = [429];
             const options = { on: failed, method: 'POST', headers: { authorization: `Bearer ${DEPLOY_TOKEN}` } };
             const response = await dispatch('/internal/benchmarks/refresh', options);
             expect(response.status).toBe(502);
             expect(await response.json()).toMatchObject({ refreshed: false });
-            expect(await (await dispatch('/v1/models/benchmarks', { on: failed })).json()).toEqual({ fetchedAt: 123, models: [], labs: BENCHMARK_LABS });
+            expect(await (await dispatch('/v1/models/benchmarks', { on: failed })).json()).toEqual({
+                fetchedAt: 123,
+                models: [],
+                measurements: [],
+                labs: BENCHMARK_LABS
+            });
             expect((await dispatch('/internal/benchmarks/refresh', options)).status).toBe(429);
             expect(asked).toHaveLength(1);
         } finally {

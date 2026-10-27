@@ -250,18 +250,6 @@ export async function refreshBenchmarks(env: Env): Promise<BenchmarkRefresh | nu
     return { fetchedAt, measured: snapshot.measurements.size };
 }
 
-// The snapshot from before `benchmark_measurements`, for an address book that has not refreshed since. Goes with `model_benchmarks`.
-async function previousSnapshot(db: D1Database): Promise<Omit<ModelBenchmarksResult, 'labs'> | null> {
-    const row = await db.prepare('SELECT fetched_at, models, details FROM model_benchmarks WHERE id = 1').first<{
-        fetched_at: number;
-        models: string;
-        details: string | null;
-    }>();
-    return row === null
-        ? null
-        : { fetchedAt: row.fetched_at, models: JSON.parse(row.models) as BenchmarkModel[], ...(row.details === null ? {} : JSON.parse(row.details)) };
-}
-
 export async function readBenchmarks(env: Env): Promise<Response> {
     if (!env.ARTIFICIAL_ANALYSIS_API_KEY) {
         return failure('not-configured', 'Model benchmarks are not configured on this address book yet');
@@ -270,13 +258,8 @@ export async function readBenchmarks(env: Env): Promise<Response> {
         fetched_at: number;
         intelligence_index_version: number | null;
     }>();
-    // From the code rather than the snapshot, so a new lab shows with the deploy instead of the next refresh.
-    const labs = [...BENCHMARK_LABS];
     if (!refresh) {
-        const previous = await previousSnapshot(env.DB);
-        return previous === null
-            ? failure('no-benchmarks', 'The address book has not fetched any model benchmarks yet')
-            : json({ ...previous, labs } satisfies ModelBenchmarksResult);
+        return failure('no-benchmarks', 'The address book has not fetched any model benchmarks yet');
     }
     const sources = await benchmarkSources(env.DB);
     const { results } = await env.DB.prepare(
@@ -284,5 +267,6 @@ export async function readBenchmarks(env: Env): Promise<Response> {
     ).all<{ source_id: string; measurement: string }>();
     const measurements = new Map(results.map((row) => [row.source_id, JSON.parse(row.measurement) as Measurement]));
     const result = benchmarksFrom(sources, measurements, refresh.fetched_at, refresh.intelligence_index_version ?? undefined);
-    return json({ ...result, labs } satisfies ModelBenchmarksResult);
+    // From the code rather than the refresh, so a new lab shows with the deploy instead of the next refresh.
+    return json({ ...result, labs: [...BENCHMARK_LABS] } satisfies ModelBenchmarksResult);
 }
