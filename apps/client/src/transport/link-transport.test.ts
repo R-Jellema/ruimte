@@ -447,20 +447,15 @@ describe('LinkTransport', () => {
             }
         });
 
-        test('a long request waits past the timeout for its answer', async () => {
+        test('a request that waits on a model, a history or a download waits past the timeout for its answer', async () => {
             const { transport } = await opened();
-            const reply = transport.request('ondevice.generate', { id: 'g1', purpose: 'explain', prompt: 'What does this do?' });
-            let settled = false;
-            reply.catch(() => undefined).finally(() => (settled = true));
-            await tick(60);
-            expect(settled).toBe(false);
-            transport.dispose();
-            await expect(reply).rejects.toThrow(/closed before the machine answered/);
-        });
-
-        test('bundling and fetching a whole history wait past the timeout', async () => {
-            const { transport } = await opened();
-            const replies = [transport.request('git.bundle', {} as never), transport.request('git.fetchBundle', {} as never)];
+            const replies = [
+                transport.request('ondevice.generate', { id: 'g1', purpose: 'explain', prompt: 'What does this do?' }),
+                transport.request('git.bundle', {} as never),
+                transport.request('git.fetchBundle', {} as never),
+                transport.request('provider.installAgent', { id: 'agent' }),
+                transport.request('provider.update', { provider: 'claude' })
+            ];
             let settled = 0;
             for (const reply of replies) {
                 reply.catch(() => undefined).finally(() => settled++);
@@ -468,19 +463,7 @@ describe('LinkTransport', () => {
             await tick(60);
             expect(settled).toBe(0);
             transport.dispose();
-            await Promise.allSettled(replies);
-        });
-
-        test('installing an agent and updating a CLI wait past the timeout, since the machine downloads them', async () => {
-            const { transport } = await opened();
-            const replies = [transport.request('provider.installAgent', { id: 'agent' }), transport.request('provider.update', { provider: 'claude' })];
-            let settled = 0;
-            for (const reply of replies) {
-                reply.catch(() => undefined).finally(() => settled++);
-            }
-            await tick(60);
-            expect(settled).toBe(0);
-            transport.dispose();
+            await expect(replies[0]!).rejects.toThrow(/closed before the machine answered/);
             await Promise.allSettled(replies);
         });
     });
