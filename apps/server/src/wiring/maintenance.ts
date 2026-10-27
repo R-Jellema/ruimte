@@ -1,4 +1,3 @@
-import { isIdle } from '@ruimte/contracts';
 import { sweepComputerScreenshots } from '../computer/screenshots.ts';
 import { Maintenance, type Sweeper } from '../maintenance/maintenance.ts';
 import { sweepDeviceCaptures, sweepScreenshots } from '../shots.ts';
@@ -14,11 +13,14 @@ function sweepersOf(home: string): Sweeper[] {
     ];
 }
 
-/* Idle in the sense a self-update waits for: no terminal with work in it and no agent in a turn. */
+/*
+ * Idle means no agent in a turn, since an agent may still read a shot it asked for. A terminal does not
+ * count: a dev server never ends, and a pass that waited on one would never run.
+ */
 export function wireMaintenance(home: string, processes: ProcessesBundle): Maintenance {
     return new Maintenance({
         sweepers: sweepersOf(home),
-        idle: () => isIdle(processes.machineWork()),
+        idle: () => processes.machineWork().agents === 0,
         now: Date.now,
         log: (line) => console.log(line)
     });

@@ -265,7 +265,7 @@ $RUIMTE_HOME/
 
 The desktop shell and helpers write a few entries of their own in the same home: `speech.json` and the speech models under `models/`, and `apple-foundation/` for the Apple helper's sessions, which go with their chat. The shell removes `models/coreml-cache`, a cache no release reads any more, when it starts.
 
-Disposable files go on the rule of the code that writes them: `screenshots/` after a day, `device-captures/` after a week (never `placed/`) and the computer use helper's captures after an hour. Each folder is swept when something new is written there, and by a maintenance pass when the daemon starts and every hour after while no terminal has work in it and no agent is in a turn (`src/maintenance`). A pass reads at most 5000 entries and removes at most 1000 files per folder, removes only regular files whose name or time says they expired, keeps any other, and stops between two files when the daemon shuts down.
+Disposable files go on the rule of the code that writes them: `screenshots/` after a day, `device-captures/` after a week (never `placed/`) and the computer use helper's captures after an hour. Each folder is swept when something new is written there, and by a maintenance pass when the daemon starts and every hour after while no agent is in a turn, whatever the terminals run (`src/maintenance`). A pass reads at most 5000 entries and removes at most 1000 files per folder, removes only regular files whose name or time says they expired, keeps any other, and stops between two files when the daemon shuts down.
 
 File names are the id passed through `encodeURIComponent`, so an id can never name a path outside its directory.
 
