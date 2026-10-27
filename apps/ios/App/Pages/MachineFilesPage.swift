@@ -179,21 +179,18 @@ struct FileContentPage: View {
                 } else if isHTML, !showSource, initialLine == nil, let value = state.value,
                     value.text("kind") == "text"
                 {
-                    VStack(spacing: 0) {
-                        RemotePageStatus(state: state) { Task { await load() } }
+                    underStatus {
                         MobileScrollViewport { insets in
                             HTMLFilePreview(html: value.text("text"), viewportInsets: insets)
                         }
                     }
                 } else if let value = state.value, isMedia(value) {
-                    VStack(spacing: 0) {
-                        RemotePageStatus(state: state) { Task { await load() } }
-                        mediaContents(value)
-                    }
-                    .task(id: versionKey(value)) { await startPlayer(for: versionKey(value), audio: isAudio(value)) }
+                    underStatus { mediaContents(value) }
+                        .task(id: versionKey(value)) {
+                            await startPlayer(for: versionKey(value), audio: value.text("mime").hasPrefix("audio/"))
+                        }
                 } else if let value = state.value, let image = shown.image {
-                    VStack(spacing: 0) {
-                        RemotePageStatus(state: state) { Task { await load() } }
+                    underStatus {
                         FileImageView(image: image.image, name: name)
                         FileFooter(items: [
                             "\(image.pixelWidth) × \(image.pixelHeight)", mobileByteCount(value["size"]?.numberValue),
@@ -201,8 +198,7 @@ struct FileContentPage: View {
                         ])
                     }
                 } else if let value = state.value, let pdf = shown.pdf {
-                    VStack(spacing: 0) {
-                        RemotePageStatus(state: state) { Task { await load() } }
+                    underStatus {
                         FilePDFView(document: pdf, page: $pdfPage)
                         FileFooter(items: [
                             String(localized: "Page \(Format.number(Double(pdfPage))) of \(Format.number(Double(pdf.pageCount)))"),
@@ -210,8 +206,7 @@ struct FileContentPage: View {
                         ])
                     }
                 } else if let value = state.value, value.text("kind") == "binary", shown.svg == nil {
-                    VStack(spacing: 0) {
-                        RemotePageStatus(state: state) { Task { await load() } }
+                    underStatus {
                         FileFallbackView(
                             client: client, path: path, mime: value.text("mime"), size: value["size"]?.numberValue,
                             reason: shown.unreadable ?? unsupportedReason(value))
@@ -233,9 +228,7 @@ struct FileContentPage: View {
                         Button("Save") { Task { await save() } }.disabled(edit.saving || !edit.changed)
                     }
                 } else {
-                    if initialLine == nil,
-                        isHTML || ["md", "markdown"].contains(URL(fileURLWithPath: path).pathExtension.lowercased())
-                    {
+                    if initialLine == nil, isHTML || isMarkdown {
                         ToolbarItem(placement: .topBarTrailing) {
                             Button(showSource ? "Preview" : "Source") { showSource.toggle() }
                         }
@@ -285,9 +278,15 @@ struct FileContentPage: View {
         }
     }
     private var name: String { URL(fileURLWithPath: path).lastPathComponent }
+    private var fileExtension: String { URL(fileURLWithPath: path).pathExtension.lowercased() }
+    private var isHTML: Bool { ["html", "htm"].contains(fileExtension) }
+    private var isMarkdown: Bool { ["md", "markdown"].contains(fileExtension) }
 
-    private var isHTML: Bool {
-        ["html", "htm"].contains(URL(fileURLWithPath: path).pathExtension.lowercased())
+    private func underStatus(@ViewBuilder _ content: () -> some View) -> some View {
+        VStack(spacing: 0) {
+            RemotePageStatus(state: state) { Task { await load() } }
+            content()
+        }
     }
 
     private var fileContents: some View {
@@ -296,11 +295,8 @@ struct FileContentPage: View {
                 RemotePageStatus(state: state) { Task { await load() } }
                 if let value = state.value {
                     if value.text("kind") == "text" {
-                        if ["md", "markdown"].contains(URL(fileURLWithPath: path).pathExtension.lowercased())
-                            && !showSource && initialLine == nil
-                        {
-                            MarkdownMessage(text: value.text("text")).frame(
-                                maxWidth: .infinity, alignment: .leading)
+                        if isMarkdown && !showSource && initialLine == nil {
+                            MarkdownMessage(text: value.text("text")).frame(maxWidth: .infinity, alignment: .leading)
                         } else if initialLine != nil || !changes.isEmpty {
                             FileLinesView(
                                 text: value.text("text"), language: value["language"]?.stringValue,
@@ -404,10 +400,6 @@ struct FileContentPage: View {
     private func isMedia(_ value: JSONValue) -> Bool {
         let mime = value.text("mime")
         return value.text("kind") == "binary" && (mime.hasPrefix("video/") || mime.hasPrefix("audio/"))
-    }
-
-    private func isAudio(_ value: JSONValue) -> Bool {
-        value.text("mime").hasPrefix("audio/")
     }
 
     private func unsupportedReason(_ value: JSONValue) -> String {
@@ -623,18 +615,27 @@ private struct HTMLFilePreview: UIViewRepresentable {
 
 private struct SafeSVGPreview: UIViewRepresentable {
     let data: Data
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.defaultWebpagePreferences.allowsContentJavaScript = false
         config.websiteDataStore = .nonPersistent()
         return WKWebView(frame: .zero, configuration: config)
     }
+
     func updateUIView(_ view: WKWebView, context: Context) {
+        guard context.coordinator.loaded != data else { return }
+        context.coordinator.loaded = data
         // SVG is an image inside an isolated document; links and embedded scripts cannot run.
         let base64 = data.base64EncodedString()
         view.loadHTMLString(
             "<meta name='viewport' content='width=device-width,initial-scale=1'><meta http-equiv='Content-Security-Policy' content=\"default-src 'none'; img-src data:; style-src 'unsafe-inline'\"><style>body{margin:0}img{width:100%;height:auto}</style><img alt='File preview' src='data:image/svg+xml;base64,\(base64)'>",
             baseURL: nil)
     }
-}
 
+    final class Coordinator {
+        var loaded: Data?
+    }
+}

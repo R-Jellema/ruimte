@@ -73,20 +73,18 @@ import SwiftUI
                 guard let self, !available, phase == .running else { return }
                 phase = .ended(dropped: true)
             })
-        before = (try? await client.request(WireRequest.accountsList.rawValue, payload: .object([:]))).flatMap {
-            status(in: $0)
-        }
+        before = (try? await client.request(.accountsList)).flatMap { status(in: $0) }
         do {
             started = true
             _ = try await client.request(
-                WireRequest.sessionLogin.rawValue,
+                .sessionLogin,
                 payload: .object([
                     "sessionId": .string(sessionID), "kind": .string(kind), "account": .string(accountID),
                     "cols": .number(Double(Self.cols)), "rows": .number(Double(Self.rows)),
                 ]))
             if phase == .starting { phase = .running }
             // Watching is a courtesy: the status still arrives on the machine's own clock.
-            _ = try? await client.request(WireRequest.accountsWatchLogin.rawValue, payload: .object(["id": .string(accountID)]))
+            _ = try? await client.request(.accountsWatchLogin, payload: .object(["id": .string(accountID)]))
         } catch {
             started = false
             phase = .failed(error.localizedDescription)
@@ -105,7 +103,7 @@ import SwiftUI
         stopWatching()
         guard started else { return }
         started = false
-        _ = try? await client.request(WireRequest.sessionKill.rawValue, payload: .object(["sessionId": .string(sessionID)]))
+        _ = try? await client.request(.sessionKill, payload: .object(["sessionId": .string(sessionID)]))
     }
 
     private func stopWatching() {

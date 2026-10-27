@@ -41,16 +41,6 @@ struct MachineWork: Equatable, Sendable {
     let terminals: Int
     let agents: Int
 
-    init(terminals: Int, agents: Int) {
-        self.terminals = terminals
-        self.agents = agents
-    }
-
-    init(_ value: JSONValue?) {
-        terminals = Int(value?["terminals"]?.numberValue ?? 0)
-        agents = Int(value?["agents"]?.numberValue ?? 0)
-    }
-
     var idle: Bool { terminals == 0 && agents == 0 }
 
     var summary: String {
@@ -60,6 +50,13 @@ struct MachineWork: Equatable, Sendable {
         case (0, _): return String(localized: "\(agents) agents")
         default: return String(localized: "\(terminals) terminals and \(agents) agents")
         }
+    }
+}
+
+extension MachineWork {
+    init(_ value: JSONValue?) {
+        self.init(
+            terminals: Int(value?["terminals"]?.numberValue ?? 0), agents: Int(value?["agents"]?.numberValue ?? 0))
     }
 }
 
@@ -109,8 +106,7 @@ struct MachineUpdate: Equatable, Sendable {
 
     /// What installing does from here; nil when it cannot happen from a phone.
     var action: String? {
-        guard installable else { return nil }
-        guard app else { return nil }
+        guard installable, app else { return nil }
         return status == "ready"
             ? String(localized: "Restart", comment: "Button that restarts the app on a machine to install an update")
             : String(localized: "Update", comment: "Button that installs an update")
@@ -215,10 +211,10 @@ final class MachineEndpoint {
     func start() {
         guard subscriptions.isEmpty else { return }
         subscriptions = [
-            client.subscribe(WireEvent.endpointChanged.rawValue) { [weak self] value in
+            client.subscribe(.endpointChanged) { [weak self] value in
                 self?.merge(value)
             },
-            client.subscribe(WireEvent.endpointUpdateChanged.rawValue) { [weak self] value in
+            client.subscribe(.endpointUpdateChanged) { [weak self] value in
                 guard let self, let update = MachineUpdate(value["update"]) else { return }
                 self.update = update
             },
@@ -241,9 +237,7 @@ final class MachineEndpoint {
     func refresh() async {
         generation += 1
         let operation = generation
-        guard let value = try? await client.request(WireRequest.endpointInfo.rawValue, payload: .object([:])),
-            operation == generation
-        else { return }
+        guard let value = try? await client.request(.endpointInfo), operation == generation else { return }
         apply(value)
     }
 
@@ -308,7 +302,7 @@ final class MachineEndpoint {
         }
         let started = ContinuousClock.now
         do {
-            _ = try await client.request(WireRequest.serverPing.rawValue, payload: .object([:]))
+            _ = try await client.request(.serverPing)
             latency = Int(((ContinuousClock.now - started) / .milliseconds(1)).rounded())
         } catch {
             latency = nil
@@ -335,7 +329,7 @@ final class MachineEndpoint {
         // A machine that does not offer the closed lid is not told about it.
         if closedLid != nil { payload["keepAwakeLidClosed"] = .bool(next.lidClosed) }
         do {
-            let answer = try await client.request(WireRequest.endpointSetIdentity.rawValue, payload: .object(payload))
+            let answer = try await client.request(.endpointSetIdentity, payload: .object(payload))
             apply(answer)
             problem = nil
         } catch {
@@ -351,7 +345,7 @@ final class MachineEndpoint {
         defer { savingLanDoor = false }
         do {
             let answer = try await client.request(
-                WireRequest.endpointSetIdentity.rawValue,
+                .endpointSetIdentity,
                 payload: .object(["name": currentName, "icon": previous["icon"] ?? .null, "lanDoor": .bool(open)]))
             apply(answer)
             problem = nil
@@ -365,7 +359,7 @@ final class MachineEndpoint {
     func setIdentity(name: String, icon: MachineIcon?) async throws {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let answer = try await client.request(
-            WireRequest.endpointSetIdentity.rawValue,
+            .endpointSetIdentity,
             payload: .object([
                 "name": trimmed.isEmpty ? .null : .string(trimmed),
                 "icon": icon.map { .object(["kind": .string($0.kind), "value": .string($0.value)]) } ?? .null,
@@ -378,8 +372,7 @@ final class MachineEndpoint {
         guard install != .asking, install != .installing else { return }
         install = .asking
         do {
-            let answer = try await client.request(
-                WireRequest.endpointInstallUpdate.rawValue, payload: .object(["confirm": .bool(false)]))
+            let answer = try await client.request(.endpointInstallUpdate, payload: .object(["confirm": .bool(false)]))
             install = .confirming(MachineWork(answer["ending"]))
             problem = nil
         } catch {
@@ -397,8 +390,7 @@ final class MachineEndpoint {
         guard case .confirming = install else { return }
         install = .installing
         do {
-            let answer = try await client.request(
-                WireRequest.endpointInstallUpdate.rawValue, payload: .object(["confirm": .bool(true)]))
+            let answer = try await client.request(.endpointInstallUpdate, payload: .object(["confirm": .bool(true)]))
             install = answer["started"]?.boolValue == true ? .started : .idle
             problem = nil
         } catch {

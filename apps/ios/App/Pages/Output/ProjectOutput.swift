@@ -168,8 +168,40 @@ enum OutputMachine {
     }
 }
 
-/// What the machine keeps of one project's Output, live while a page shows it: `artifact.watch` while it is open and
-/// again after every reconnect, since what changed while the link was down was pushed to nobody.
+/// `artifact.watch` while a page shows Output, held again after every reconnect, since what changed while the link was
+/// down was pushed to nobody.
+@MainActor final class OutputWatch {
+    private var stops: [() -> Void] = []
+    private var lease: MachineSubscription?
+
+    func start(
+        _ client: any MachineRequesting, changed: @escaping @MainActor @Sendable (JSONValue) -> Void,
+        connection: @escaping @MainActor @Sendable (Bool) -> Void, reload: @escaping @MainActor @Sendable () async -> Void
+    ) {
+        guard stops.isEmpty else { return }
+        lease = OutputMachine.watch(client)
+        stops.append(client.subscribe(.artifactChanged, handler: changed))
+        stops.append(
+            client.observeConnection { [weak self] available in
+                connection(available)
+                guard available else { return }
+                Task {
+                    _ = try? await self?.lease?.refresh()
+                    await reload()
+                }
+            })
+    }
+
+    func stop() {
+        stops.forEach { $0() }
+        stops.removeAll()
+        let lease = lease
+        self.lease = nil
+        Task { await lease?.release() }
+    }
+}
+
+/// What the machine keeps of one project's Output, live while a page shows it.
 @MainActor @Observable final class ProjectOutput {
     let client: any MachineRequesting
     let projectID: String
@@ -177,8 +209,7 @@ enum OutputMachine {
     private(set) var items: [OutputItem]?
     private(set) var reachable = true
     private(set) var problem: String?
-    @ObservationIgnored private var subscriptions: [() -> Void] = []
-    @ObservationIgnored private var lease: MachineSubscription?
+    @ObservationIgnored private let watch = OutputWatch()
 
     init(client: any MachineRequesting, projectID: String) {
         self.client = client
@@ -188,33 +219,21 @@ enum OutputMachine {
     func groups(now: Date) -> [OutputGroup] { OutputGroup.groups(items ?? [], now: now) }
 
     func start() {
-        guard subscriptions.isEmpty else { return }
-        lease = OutputMachine.watch(client)
-        subscriptions.append(
-            client.subscribe(WireEvent.artifactChanged.rawValue) { [weak self] payload in
+        watch.start(
+            client,
+            changed: { [weak self] payload in
                 guard let self, payload.text("projectId") == projectID else { return }
                 Task { await self.load() }
-            })
-        subscriptions.append(
-            client.observeConnection { [weak self] available in
-                guard let self else { return }
-                reachable = available
-                if available { Task { await self.watchAndLoad() } }
-            })
+            },
+            connection: { [weak self] in self?.reachable = $0 },
+            reload: { [weak self] in await self?.load() })
     }
 
-    func stop() {
-        subscriptions.forEach { $0() }
-        subscriptions.removeAll()
-        let lease = lease
-        self.lease = nil
-        Task { await lease?.release() }
-    }
+    func stop() { watch.stop() }
 
     func load() async {
         do {
-            let answer = try await client.request(
-                WireRequest.artifactList.rawValue, payload: .object(["projectId": .string(projectID)]))
+            let answer = try await client.request(.artifactList, payload: .object(["projectId": .string(projectID)]))
             items = answer.list("artifacts").map(OutputItem.init(json:))
             reachable = true
             problem = nil
@@ -226,11 +245,6 @@ enum OutputMachine {
                 problem = error.localizedDescription
             }
         }
-    }
-
-    private func watchAndLoad() async {
-        _ = try? await lease?.refresh()
-        await load()
     }
 }
 
@@ -250,8 +264,7 @@ enum OutputMachine {
     /// The CLIs the machine knows, for the name of the model that made a version.
     private(set) var providers: [JSONValue] = []
     var selectedID: String?
-    @ObservationIgnored private var subscriptions: [() -> Void] = []
-    @ObservationIgnored private var lease: MachineSubscription?
+    @ObservationIgnored private let watch = OutputWatch()
 
     init(client: any MachineRequesting, artifactID: String, pinned: String? = nil) {
         self.client = client
@@ -269,42 +282,25 @@ enum OutputMachine {
     }
 
     func start() {
-        guard subscriptions.isEmpty else { return }
-        lease = OutputMachine.watch(client)
-        subscriptions.append(
-            client.subscribe(WireEvent.artifactChanged.rawValue) { [weak self] payload in
+        watch.start(
+            client,
+            changed: { [weak self] payload in
                 guard let self, payload.text("artifactId") == artifactID else { return }
                 if payload["removed"]?.boolValue == true {
                     gone = true
                 } else {
                     Task { await self.load() }
                 }
-            })
-        subscriptions.append(
-            client.observeConnection { [weak self] available in
-                guard let self else { return }
-                reachable = available
-                if available {
-                    Task {
-                        _ = try? await self.lease?.refresh()
-                        await self.load()
-                    }
-                }
-            })
+            },
+            connection: { [weak self] in self?.reachable = $0 },
+            reload: { [weak self] in await self?.load() })
     }
 
-    func stop() {
-        subscriptions.forEach { $0() }
-        subscriptions.removeAll()
-        let lease = lease
-        self.lease = nil
-        Task { await lease?.release() }
-    }
+    func stop() { watch.stop() }
 
     func load() async {
         do {
-            let answer = try await client.request(
-                WireRequest.artifactGet.rawValue, payload: .object(["artifactId": .string(artifactID)]))
+            let answer = try await client.request(.artifactGet, payload: .object(["artifactId": .string(artifactID)]))
             let artifact = answer["artifact"] ?? .object([:])
             title = artifact.text("title")
             kind = artifact.text("kind")
@@ -326,9 +322,7 @@ enum OutputMachine {
             }
             return
         }
-        if providers.isEmpty,
-            let answer = try? await client.request(WireRequest.providerList.rawValue, payload: .object([:]))
-        {
+        if providers.isEmpty, let answer = try? await client.request(.providerList) {
             providers = answer.list("providers")
         }
     }

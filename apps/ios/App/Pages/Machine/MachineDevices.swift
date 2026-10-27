@@ -155,7 +155,7 @@ final class MachineDevices {
         loading = !loaded
         defer { if attempt == reads { loading = false } }
         do {
-            let result = try await client.request(WireRequest.deviceList.rawValue, payload: .object([:]))
+            let result = try await client.request(.deviceList)
             guard attempt == reads else { return }
             devices = result.list("devices").compactMap(MachineDevice.init)
             notes = Self.notes(result.list("unavailable"), platform: platform())
@@ -212,10 +212,7 @@ final class MachineDevices {
             let note: String
             switch entry.text("code") {
             case "adb-unavailable":
-                note = String(
-                    localized:
-                        "Install the Android SDK to use Android emulators and devices."
-                )
+                note = String(localized: "Install the Android SDK to use Android emulators and devices.")
             case "simctl-unavailable", "devicectl-unavailable":
                 note = String(localized: "Install Xcode to use iOS simulators and iPhones.")
             default: note = entry.text("message", fallback: entry.text("code"))

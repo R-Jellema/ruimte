@@ -303,11 +303,12 @@ struct OutputFileRows: View {
                     }
                     Spacer(minLength: 8)
                     if file.readable {
+                        let name = OutputFiles.safeName(file.shortName)
                         ShareLink(
-                            item: OutputSharedFile(name: OutputFiles.safeName(file.shortName)) { [model, version] in
+                            item: OutputSharedFile(name: name) { [model, version] in
                                 try await model.read(version, file: index)
                             },
-                            preview: SharePreview(OutputFiles.safeName(file.shortName))
+                            preview: SharePreview(name)
                         ) {
                             Image(lucide: "share", size: 18).accessibilityLabel("Share")
                         }

@@ -93,6 +93,11 @@ struct UsageAmount: Equatable, Sendable {
     var tokens = UsageTokens()
 
     func value(_ metric: UsageMetric) -> Double { metric == .tokens ? tokens.total : costUsd }
+
+    mutating func add(_ other: UsageAmount) {
+        costUsd += other.costUsd
+        tokens = tokens + other.tokens
+    }
 }
 
 /// The buckets of one `usage.summary` folded into what the page draws: a bar per slot stacked per CLI, a total per
@@ -249,9 +254,6 @@ struct UsageReport: Equatable, Sendable {
         let parts = path.split(separator: "/")
         return parts.count <= 3 ? path : "…/" + parts.suffix(3).joined(separator: "/")
     }
-
-    /// Tokens as a person reads them at a glance: 48M, 3.1K.
-    static func tokens(_ value: Double) -> String { Format.tokens(value) }
 }
 
 enum UsageBreakdown: String, CaseIterable, Identifiable, Sendable {
@@ -264,12 +266,5 @@ enum UsageBreakdown: String, CaseIterable, Identifiable, Sendable {
         case .projects: String(localized: "Projects")
         case .day: String(localized: "Day")
         }
-    }
-}
-
-extension UsageAmount {
-    mutating func add(_ other: UsageAmount) {
-        costUsd += other.costUsd
-        tokens = tokens + other.tokens
     }
 }

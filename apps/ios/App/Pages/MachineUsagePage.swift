@@ -103,7 +103,7 @@ struct MachineUsagePage: View {
     }
 
     private func format(_ value: Double) -> String {
-        metric == .tokens ? UsageReport.tokens(value) : money.string(amount: value)
+        metric == .tokens ? Format.tokens(value) : money.string(amount: value)
     }
 
     /// A chart value in what the page counts in: tokens, or money in the page's currency.
@@ -200,11 +200,11 @@ struct MachineUsagePage: View {
     private func tiles(_ report: UsageReport) -> some View {
         let tokens = report.total.tokens
         let tiles: [(String, String)] = [
-            (String(localized: "Processed", comment: "Tokens processed"), UsageReport.tokens(tokens.total)),
-            (String(localized: "Uncached", comment: "Input tokens read without a cache"), UsageReport.tokens(tokens.input)),
-            (String(localized: "Cached", comment: "Input tokens read from a cache"), UsageReport.tokens(tokens.cacheRead)),
-            (String(localized: "Cache writes"), UsageReport.tokens(tokens.cacheWrite)),
-            (String(localized: "Output", comment: "Output tokens"), UsageReport.tokens(tokens.output)),
+            (String(localized: "Processed", comment: "Tokens processed"), Format.tokens(tokens.total)),
+            (String(localized: "Uncached", comment: "Input tokens read without a cache"), Format.tokens(tokens.input)),
+            (String(localized: "Cached", comment: "Input tokens read from a cache"), Format.tokens(tokens.cacheRead)),
+            (String(localized: "Cache writes"), Format.tokens(tokens.cacheWrite)),
+            (String(localized: "Output", comment: "Output tokens"), Format.tokens(tokens.output)),
             (String(localized: "Cache savings"), money.string(usd: report.cacheSavingsUsd)),
         ]
         return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
@@ -250,7 +250,7 @@ struct MachineUsagePage: View {
     }
 
     private func breakdownRow(_ row: UsageReport.Row, report: UsageReport, top: Double) -> some View {
-        let amount = metric == .tokens ? UsageReport.tokens(row.tokens) : row.costUsd.map { money.string(usd: $0) } ?? String(localized: "No price")
+        let amount = metric == .tokens ? Format.tokens(row.tokens) : row.costUsd.map { money.string(usd: $0) } ?? String(localized: "No price")
         let share = report.share(row, metric: metric)
         let title = breakdown == .day ? (UsageReport.date(row.title).map { Format.weekdayDay($0) } ?? row.title) : row.title
         var detail = breakdown == .projects ? row.detail : String(localized: "\(Format.number(row.calls)) calls")
@@ -370,9 +370,9 @@ struct MachineUsagePage: View {
         let client = client
         let period = period
         await state.load {
-            let result = try await client.request(WireRequest.usageSummary.rawValue, payload: period.payload())
-            limits = try? await client.request(WireRequest.usageLimits.rawValue)
-            let list = try? await client.request(WireRequest.accountsList.rawValue)
+            let result = try await client.request(.usageSummary, payload: period.payload())
+            limits = try? await client.request(.usageLimits)
+            let list = try? await client.request(.accountsList)
             accounts = list.map(ProviderAccountList.init)
             loginCommands = (list?["loginCommands"]?.objectValue ?? [:]).compactMapValues(\.stringValue)
             return result

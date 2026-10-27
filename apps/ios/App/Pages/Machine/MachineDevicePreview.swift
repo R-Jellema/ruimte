@@ -30,15 +30,14 @@ final class MachineDevicePreview {
         guard unsubscribe == nil else { return }
         let deviceID = device.deviceID
         let backendID = device.backendID
-        unsubscribe = client.subscribe(WireEvent.deviceFrame.rawValue) { [weak self] frame in
+        unsubscribe = client.subscribe(.deviceFrame) { [weak self] frame in
             guard frame.text("deviceId") == deviceID, frame.text("backendId") == backendID else { return }
             self?.draw(frame)
         }
         do {
             _ = try await client.request(
-                WireRequest.deviceOpen.rawValue,
-                payload: device.target.setting("stream", .string("events")).setting(
-                    "formats", .array([.string("jpeg")])))
+                .deviceOpen,
+                payload: device.target.setting("stream", .string("events")).setting("formats", .array([.string("jpeg")])))
             opened = true
         } catch {
             if case .server(let code, _) = error as? MachineClientError, code == "device-format-unsupported" {
@@ -56,7 +55,7 @@ final class MachineDevicePreview {
         opened = false
         let client = client
         let target = device.target
-        Task { _ = try? await client.request(WireRequest.deviceDetach.rawValue, payload: target) }
+        Task { _ = try? await client.request(.deviceDetach, payload: target) }
     }
 
     private func draw(_ frame: JSONValue) {

@@ -77,19 +77,7 @@ struct MachineDevicesPage: View {
                             columns: [GridItem(.adaptive(minimum: 260), spacing: 12, alignment: .top)], spacing: 12
                         ) {
                             ForEach(group.devices) { device in
-                                Group {
-                                    if device.booted && device.canStream {
-                                        RunningDeviceCard(
-                                            client: session.rpc, device: device,
-                                            busy: devices.changing[device.id] != nil, opening: opening == device.id,
-                                            projects: projects.listed,
-                                            open: { project in Task { await open(device, in: project) } },
-                                            shutdown: { Task { await devices.shutdown(device) } })
-                                    } else {
-                                        row(device)
-                                    }
-                                }
-                                .padding(.vertical, MobileSpacing.small)
+                                cell(device).padding(.vertical, MobileSpacing.small)
                             }
                         }
                     }
@@ -124,18 +112,7 @@ struct MachineDevicesPage: View {
                     MobileSectionHeader(title: group.title)
                         .padding(.top, group.id == devices.groups.first?.id ? 0 : MobileSpacing.large)
                     MobileRowGroup(items: group.devices) { device in
-                        Group {
-                            if device.booted && device.canStream {
-                                RunningDeviceCard(
-                                    client: session.rpc, device: device, busy: devices.changing[device.id] != nil,
-                                    opening: opening == device.id, projects: projects.listed,
-                                    open: { project in Task { await open(device, in: project) } },
-                                    shutdown: { Task { await devices.shutdown(device) } })
-                            } else {
-                                row(device)
-                            }
-                        }
-                        .modifier(MachinePageRow())
+                        cell(device).modifier(MachinePageRow())
                     }
                 }
             }
@@ -143,6 +120,18 @@ struct MachineDevicesPage: View {
                 Text(devices.notes.joined(separator: "\n")).font(.footnote).foregroundStyle(MobileStyle.muted)
                     .listRowInsets(MachinesPage.textInsets)
             }
+        }
+    }
+
+    @ViewBuilder private func cell(_ device: MachineDevice) -> some View {
+        if device.booted && device.canStream {
+            RunningDeviceCard(
+                client: session.rpc, device: device, busy: devices.changing[device.id] != nil,
+                opening: opening == device.id, projects: projects.listed,
+                open: { project in Task { await open(device, in: project) } },
+                shutdown: { Task { await devices.shutdown(device) } })
+        } else {
+            row(device)
         }
     }
 

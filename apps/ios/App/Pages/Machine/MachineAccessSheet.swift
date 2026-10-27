@@ -71,7 +71,7 @@ final class MachineAccess {
 
     func load() async {
         await state.read(loaded: !clients.isEmpty) { stillTheLatest in
-            let result = try await client.request(WireRequest.authSessions.rawValue, payload: .object([:]))
+            let result = try await client.request(.authSessions)
             try stillTheLatest()
             clients = result.list("sessions").map(MachineClientAccess.init)
                 .sorted { ($0.current ? 1 : 0, $0.lastSeenAt) > ($1.current ? 1 : 0, $1.lastSeenAt) }
@@ -83,7 +83,7 @@ final class MachineAccess {
     func revoke(_ access: MachineClientAccess) async -> Bool {
         var revoked = false
         await state.perform {
-            _ = try await client.request(WireRequest.authRevoke.rawValue, payload: .object(["id": .string(access.id)]))
+            _ = try await client.request(.authRevoke, payload: .object(["id": .string(access.id)]))
             clients.removeAll { $0.id == access.id }
             revoked = true
         }
