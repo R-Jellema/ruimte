@@ -62,7 +62,7 @@ Beside the reports go, under the same stamp and the same scrubber (`src/telemetr
 - a session per run, without a user, for the share of runs that crashed;
 - every `console.warn` line, its first line only and scrubbed like an error's message; no other level;
 - up to 30 breadcrumbs of fixed words (`DAEMON_MOMENTS`): the start wired, serving and stopping, and a client opened or closed by its kind (`local`, `account` or `machine`), never a request, a path or a name;
-- the metrics `daemon.request.duration` (how long a handler took, by the area of its request: `session`, `fs`, `chat`), `daemon.loop.lag` (how late the latest one-second tick of the minute fired, once a minute), `daemon.memory` (resident memory in MB, once a minute) and `daemon.clients` (connected clients by kind, once a minute).
+- the metrics `daemon.request.duration` (how long a handler took, by the area of its request: `session`, `fs`, `chat`), `daemon.loop.lag` (how late the slowest one-second tick of the minute fired, once a minute), `daemon.memory` (resident memory in MB, once a minute) and `daemon.clients` (connected clients by kind, once a minute).
 
 Each report carries the version, the platform, the architecture and how the daemon runs (`service`, `desktop` or `standalone`). The binary carries its source map, so Bun maps a stack trace back to the source before it leaves. The same error goes out once a day at most (`telemetry/sent.json`).
 
