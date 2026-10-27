@@ -2,16 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import type { LiveStreamFrame } from '@ruimte/contracts';
 import { DEVICE_HELPER_MAGIC, DeviceHelperDecoder, encodeDeviceHelperMessage, type DeviceHelperMessage } from './helper-protocol.ts';
 import { DeviceHelperFailure, DeviceHelperSource, HELPER_CALL_TIMEOUT_MS, type DeviceHelperProcess } from './helper-source.ts';
-
-function join(...chunks: Uint8Array[]): Uint8Array {
-    const result = new Uint8Array(chunks.reduce((size, chunk) => size + chunk.byteLength, 0));
-    let offset = 0;
-    for (const chunk of chunks) {
-        result.set(chunk, offset);
-        offset += chunk.byteLength;
-    }
-    return result;
-}
+import { concatBytes } from './device-test-helpers.ts';
 
 class FakeHelperProcess implements DeviceHelperProcess {
     readonly writes: Uint8Array[] = [];
@@ -37,7 +28,7 @@ class FakeHelperProcess implements DeviceHelperProcess {
     }
 
     emit(message: DeviceHelperMessage): void {
-        this.output.enqueue(join(DEVICE_HELPER_MAGIC, encodeDeviceHelperMessage(message)));
+        this.output.enqueue(concatBytes(DEVICE_HELPER_MAGIC, encodeDeviceHelperMessage(message)));
     }
 
     emitAfterPreamble(message: Parameters<typeof encodeDeviceHelperMessage>[0]): void {
@@ -75,13 +66,13 @@ describe('DeviceHelperSource', () => {
         source.input({ kind: 'pointer', phase: 'down', x: 0.5, y: 0.25 });
 
         expect(frames).toEqual([{ sequence: 1, width: 1179, height: 2556, data: new Uint8Array([1, 2, 3]) }]);
-        const commands = new DeviceHelperDecoder().push(join(...process.writes));
+        const commands = new DeviceHelperDecoder().push(concatBytes(...process.writes));
         expect(commands).toEqual([{ type: 'input', input: { kind: 'pointer', phase: 'down', x: 0.5, y: 0.25 } }]);
 
         const stopping = source.stop();
         process.exit(0);
         await stopping;
-        expect(new DeviceHelperDecoder().push(join(...process.writes))).toEqual([
+        expect(new DeviceHelperDecoder().push(concatBytes(...process.writes))).toEqual([
             { type: 'input', input: { kind: 'pointer', phase: 'down', x: 0.5, y: 0.25 } },
             { type: 'stop' }
         ]);
@@ -156,7 +147,7 @@ describe('DeviceHelperSource', () => {
 
         const pose = source.call({ method: 'pose', name: 'book', fromDegrees: 180 });
         const warning = source.call({ method: 'memoryWarning' });
-        const [first, second] = new DeviceHelperDecoder().push(join(...process.writes)) as Array<Extract<DeviceHelperMessage, { type: 'call' }>>;
+        const [first, second] = new DeviceHelperDecoder().push(concatBytes(...process.writes)) as Array<Extract<DeviceHelperMessage, { type: 'call' }>>;
         process.emitAfterPreamble({ type: 'reply', id: second!.id, ok: false, message: 'No warning today' });
         process.emitAfterPreamble({ type: 'reply', id: first!.id, ok: true, value: true });
 
@@ -189,7 +180,7 @@ describe('DeviceHelperSource', () => {
 
         const answered = source.call({ method: 'isFoldable' });
         const hanging = source.call({ method: 'memoryWarning' });
-        const [first] = new DeviceHelperDecoder().push(join(...process.writes)) as Array<Extract<DeviceHelperMessage, { type: 'call' }>>;
+        const [first] = new DeviceHelperDecoder().push(concatBytes(...process.writes)) as Array<Extract<DeviceHelperMessage, { type: 'call' }>>;
         process.emitAfterPreamble({ type: 'reply', id: first!.id, ok: true, value: true });
         expect(await answered).toBe(true);
         expect(timers.map((entry) => entry.ms)).toEqual([HELPER_CALL_TIMEOUT_MS]);

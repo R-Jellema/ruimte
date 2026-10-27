@@ -1,16 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { DEVICE_HELPER_MAGIC, DeviceHelperDecoder, encodeDeviceHelperMessage } from './helper-protocol.ts';
 import { runDeviceHelper, type DeviceNativeAddon } from './native-helper.ts';
-
-function join(...chunks: Uint8Array[]): Uint8Array {
-    const result = new Uint8Array(chunks.reduce((size, chunk) => size + chunk.byteLength, 0));
-    let offset = 0;
-    for (const chunk of chunks) {
-        result.set(chunk, offset);
-        offset += chunk.byteLength;
-    }
-    return result;
-}
+import { concatBytes } from './device-test-helpers.ts';
 
 describe('runDeviceHelper', () => {
     test('streams MJPEG frames and translates protocol input into native HID calls', async () => {
@@ -107,7 +98,7 @@ describe('runDeviceHelper', () => {
         const input = new ReadableStream<Uint8Array>({
             start(controller) {
                 controller.enqueue(
-                    join(
+                    concatBytes(
                         DEVICE_HELPER_MAGIC,
                         encodeDeviceHelperMessage({ type: 'input', input: { kind: 'pointer', phase: 'down', x: 0.25, y: 0.75, edge: 'bottom' } }),
                         encodeDeviceHelperMessage({
@@ -132,7 +123,7 @@ describe('runDeviceHelper', () => {
         expect(await runDeviceHelper('phone-1', { addon, duoHidPath: '/native/serve-sim-duo-hid', input, write: (bytes) => output.push(bytes.slice()) })).toBe(
             0
         );
-        expect(new DeviceHelperDecoder().push(join(...output))).toEqual([
+        expect(new DeviceHelperDecoder().push(concatBytes(...output))).toEqual([
             { type: 'ready', width: 1179, height: 2556 },
             { type: 'frame', frame: { sequence: 0, width: 1179, height: 2556, data: new Uint8Array([0xff, 0xd8, 0xff]) } },
             { type: 'reply', id: 7, ok: true },
@@ -196,7 +187,7 @@ describe('runDeviceHelper', () => {
                 write: (bytes) => output.push(bytes.slice())
             })
         ).toBe(1);
-        expect(new DeviceHelperDecoder().push(join(...output))).toEqual([
+        expect(new DeviceHelperDecoder().push(concatBytes(...output))).toEqual([
             { type: 'error', code: 'device-helper-native', message: 'CoreSimulator capture unavailable' }
         ]);
     });

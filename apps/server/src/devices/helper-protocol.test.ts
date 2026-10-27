@@ -1,15 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { DEVICE_HELPER_MAGIC, DeviceHelperDecoder, encodeDeviceHelperMessage, type DeviceHelperMessage } from './helper-protocol.ts';
-
-function join(...chunks: Uint8Array[]): Uint8Array {
-    const result = new Uint8Array(chunks.reduce((size, chunk) => size + chunk.byteLength, 0));
-    let offset = 0;
-    for (const chunk of chunks) {
-        result.set(chunk, offset);
-        offset += chunk.byteLength;
-    }
-    return result;
-}
+import { concatBytes } from './device-test-helpers.ts';
 
 describe('device helper protocol', () => {
     test('decodes split ready and frame messages without base64', () => {
@@ -17,7 +8,7 @@ describe('device helper protocol', () => {
             { type: 'ready', width: 1179, height: 2556 },
             { type: 'frame', frame: { sequence: 7, width: 1179, height: 2556, data: new Uint8Array([1, 2, 3]) } }
         ];
-        const bytes = join(DEVICE_HELPER_MAGIC, ...messages.map(encodeDeviceHelperMessage));
+        const bytes = concatBytes(DEVICE_HELPER_MAGIC, ...messages.map(encodeDeviceHelperMessage));
         const decoder = new DeviceHelperDecoder();
 
         expect(decoder.push(bytes.slice(0, 11))).toEqual([]);
@@ -31,7 +22,7 @@ describe('device helper protocol', () => {
 
         expect(
             decoder.push(
-                join(DEVICE_HELPER_MAGIC, encodeDeviceHelperMessage(input), encodeDeviceHelperMessage(keys), encodeDeviceHelperMessage({ type: 'stop' }))
+                concatBytes(DEVICE_HELPER_MAGIC, encodeDeviceHelperMessage(input), encodeDeviceHelperMessage(keys), encodeDeviceHelperMessage({ type: 'stop' }))
             )
         ).toEqual([input, keys, { type: 'stop' }]);
     });
@@ -41,7 +32,7 @@ describe('device helper protocol', () => {
         const reply: DeviceHelperMessage = { type: 'reply', id: 4, ok: true, value: false };
         const failed: DeviceHelperMessage = { type: 'reply', id: 5, ok: false, message: 'No hinge' };
 
-        expect(new DeviceHelperDecoder().push(join(DEVICE_HELPER_MAGIC, ...[call, reply, failed].map(encodeDeviceHelperMessage)))).toEqual([
+        expect(new DeviceHelperDecoder().push(concatBytes(DEVICE_HELPER_MAGIC, ...[call, reply, failed].map(encodeDeviceHelperMessage)))).toEqual([
             call,
             reply,
             failed
@@ -52,7 +43,7 @@ describe('device helper protocol', () => {
     test('rejects unknown preambles and oversized frames', () => {
         expect(() => new DeviceHelperDecoder().push(new Uint8Array(DEVICE_HELPER_MAGIC.byteLength))).toThrow('Unknown device helper protocol');
 
-        const invalid = join(DEVICE_HELPER_MAGIC, encodeDeviceHelperMessage({ type: 'stop' }));
+        const invalid = concatBytes(DEVICE_HELPER_MAGIC, encodeDeviceHelperMessage({ type: 'stop' }));
         invalid[DEVICE_HELPER_MAGIC.byteLength + 1] = 0xff;
         expect(() => new DeviceHelperDecoder().push(invalid)).toThrow('too large');
     });

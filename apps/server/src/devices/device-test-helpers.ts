@@ -3,6 +3,16 @@ import type { DeviceTree, DeviceTreeNode } from './device-tree.ts';
 import type { DeviceBackend, DeviceKeyboard, DeviceSource } from './manager.ts';
 import { DeviceRecordings, type RecordingProcess } from './recordings.ts';
 
+export function concatBytes(...chunks: Uint8Array[]): Uint8Array {
+    const joined = new Uint8Array(chunks.reduce((size, chunk) => size + chunk.byteLength, 0));
+    let offset = 0;
+    for (const chunk of chunks) {
+        joined.set(chunk, offset);
+        offset += chunk.byteLength;
+    }
+    return joined;
+}
+
 /* The first bytes of a png of this size: the signature and a header chunk, which is all a size is read from. */
 export function pngOf(width: number, height: number): Uint8Array {
     const bytes = new Uint8Array(33);

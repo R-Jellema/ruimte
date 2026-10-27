@@ -11,6 +11,7 @@ import {
     ScrcpyProtocolError,
     ScrcpyVideoReader
 } from './scrcpy-protocol.ts';
+import { concatBytes } from './device-test-helpers.ts';
 
 const codecH264 = new Uint8Array([0x68, 0x32, 0x36, 0x34]);
 
@@ -31,16 +32,6 @@ function packet(flags: number, payload: number[]): Uint8Array {
     return new Uint8Array(bytes.buffer);
 }
 
-function join(...parts: Uint8Array[]): Uint8Array {
-    const joined = new Uint8Array(parts.reduce((total, part) => total + part.byteLength, 0));
-    let offset = 0;
-    for (const part of parts) {
-        joined.set(part, offset);
-        offset += part.byteLength;
-    }
-    return joined;
-}
-
 const sps = [0, 0, 0, 1, 0x67, 0x42, 0xc0, 0x2a];
 const idr = [0, 0, 0, 1, 0x65, 0x88];
 const slice = [0, 0, 0, 1, 0x41, 0x9a];
@@ -48,7 +39,15 @@ const slice = [0, 0, 0, 1, 0x41, 0x9a];
 describe('ScrcpyVideoReader', () => {
     test('puts the codec configuration in front of every key frame', () => {
         const reader = new ScrcpyVideoReader({ dummyByte: true });
-        const stream = join(new Uint8Array([0]), codecH264, session(916, 2048), packet(0x40, sps), packet(0x20, idr), packet(0x00, slice), packet(0x20, idr));
+        const stream = concatBytes(
+            new Uint8Array([0]),
+            codecH264,
+            session(916, 2048),
+            packet(0x40, sps),
+            packet(0x20, idr),
+            packet(0x00, slice),
+            packet(0x20, idr)
+        );
 
         expect(reader.push(stream)).toEqual([
             { width: 916, height: 2048, keyFrame: true, data: new Uint8Array([...sps, ...idr]) },
@@ -59,7 +58,7 @@ describe('ScrcpyVideoReader', () => {
 
     test('reads a stream that arrives one byte at a time', () => {
         const reader = new ScrcpyVideoReader({ dummyByte: false });
-        const stream = join(codecH264, session(572, 1280), packet(0x40, sps), packet(0x20, idr));
+        const stream = concatBytes(codecH264, session(572, 1280), packet(0x40, sps), packet(0x20, idr));
         const frames = [...stream].flatMap((byte) => reader.push(new Uint8Array([byte])));
 
         expect(frames).toEqual([{ width: 572, height: 1280, keyFrame: true, data: new Uint8Array([...sps, ...idr]) }]);
@@ -67,9 +66,11 @@ describe('ScrcpyVideoReader', () => {
 
     test('takes the size of a new capture session and drops the old configuration', () => {
         const reader = new ScrcpyVideoReader({ dummyByte: false });
-        reader.push(join(codecH264, session(916, 2048), packet(0x40, sps), packet(0x20, idr)));
+        reader.push(concatBytes(codecH264, session(916, 2048), packet(0x40, sps), packet(0x20, idr)));
 
-        expect(reader.push(join(session(2048, 916), packet(0x20, idr)))).toEqual([{ width: 2048, height: 916, keyFrame: true, data: new Uint8Array(idr) }]);
+        expect(reader.push(concatBytes(session(2048, 916), packet(0x20, idr)))).toEqual([
+            { width: 2048, height: 916, keyFrame: true, data: new Uint8Array(idr) }
+        ]);
     });
 
     test('refuses a codec other than H.264', () => {
@@ -178,9 +179,9 @@ describe('ScrcpyDeviceMessageReader', () => {
     test('reads acknowledgements and the clipboard split anywhere, and reads past keyboard output', () => {
         const reader = new ScrcpyDeviceMessageReader();
         const text = new TextEncoder().encode('hé 👋');
-        const clipboard = join(new Uint8Array([0, 0, 0, 0, text.byteLength]), text);
+        const clipboard = concatBytes(new Uint8Array([0, 0, 0, 0, text.byteLength]), text);
         const uhid = new Uint8Array([2, 0, 1, 0, 3, 9, 9, 9]);
-        const stream = join(clipboard, ack(3n), uhid, ack(4n));
+        const stream = concatBytes(clipboard, ack(3n), uhid, ack(4n));
 
         const messages = [...stream].flatMap((byte) => reader.push(new Uint8Array([byte])));
 
