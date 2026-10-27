@@ -139,16 +139,10 @@ for (const kind of ['drawing', 'diagram'] as const) {
                         }
                     };
                     const state = () => (kind === 'drawing' ? stores.drawings.of('view').getState() : stores.diagrams.of('view').getState());
-                    const ids = () =>
-                        kind === 'drawing'
-                            ? stores.drawings
-                                  .of('view')
-                                  .getState()
-                                  .elements.map((element) => element.id)
-                            : stores.diagrams
-                                  .of('view')
-                                  .getState()
-                                  .content.nodes.map((node) => node.id);
+                    const ids = () => {
+                        const current = state();
+                        return 'elements' in current ? current.elements.map((element) => element.id) : current.content.nodes.map((node) => node.id);
+                    };
                     return { client, add, state, ids, loaded };
                 });
                 try {

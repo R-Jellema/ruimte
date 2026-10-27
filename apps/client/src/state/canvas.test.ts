@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { groupFrame, NodeKindSchema, ProjectCanvasViewSchema, ProjectNodeSchema, ProjectTextSchema, type ProjectCanvasView } from '@ruimte/contracts';
 import { toWorld } from '@/canvas/math';
 import { forgetCameraHistories } from '@/state/camera-history';
@@ -434,8 +434,11 @@ describe('the node the keyboard is in', () => {
 });
 
 describe('text elements', () => {
-    test('a new text has no style of its own and keeps what it is given through a save', () => {
+    beforeEach(() => {
         focusedCanvas().setState({ nodes: {}, texts: {}, order: [], edges: [], selection: [], viewId: 'main' });
+    });
+
+    test('a new text has no style of its own and keeps what it is given through a save', () => {
         const id = canvas().addText({ x: 40, y: 40 });
         expect(canvas().texts[id]).toMatchObject({ text: '', size: 18 });
         expect(canvas().texts[id]!.font).toBeUndefined();
@@ -449,7 +452,6 @@ describe('text elements', () => {
     });
 
     test('text layout and decorations survive schema validation and undo', () => {
-        focusedCanvas().setState({ nodes: {}, texts: {}, order: [], edges: [], selection: [], viewId: 'main' });
         const id = canvas().addText({ x: 40, y: 40 });
         canvas().updateText(id, 'A long label\nwith two lines');
         const style = { underline: true, strikethrough: true, align: 'center' as const, maxWidth: 240, color: 'violet' };
@@ -463,7 +465,6 @@ describe('text elements', () => {
     });
 
     test('resizing text records the whole drag as one undo step', () => {
-        focusedCanvas().setState({ nodes: {}, texts: {}, order: [], edges: [], selection: [], viewId: 'main' });
         const id = canvas().addText({ x: 40, y: 40 });
         canvas().updateText(id, 'A label');
         canvas().styleText(id, { color: 'blue' });
@@ -481,7 +482,6 @@ describe('text elements', () => {
     });
 
     test('styling a text that is gone changes nothing', () => {
-        focusedCanvas().setState({ nodes: {}, texts: {}, order: [], edges: [], selection: [], viewId: 'main' });
         const before = canvas().texts;
         canvas().styleText('text-gone', { italic: true });
         expect(canvas().texts).toBe(before);
