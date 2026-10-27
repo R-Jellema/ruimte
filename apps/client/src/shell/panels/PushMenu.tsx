@@ -28,15 +28,18 @@ export function PushMenu({ button, active, entries, busy, onPush, onPushAll }: P
     const main = one ? button : pushAllButton(entries);
     const ahead = (one ? entries : pushable(entries)).reduce((count, entry) => count + entry.ahead, 0);
     const anyRow = entries.some((entry) => !entry.button.disabled);
+    const nothing = main.disabled || (one && active === null);
 
     return (
         <SplitButton
             size="xs"
-            variant="ghost"
+            /* Only standing out while there is something to send; an idle button stays out of the way.
+               A push under way keeps it as it was, so it does not flicker. */
+            variant={nothing ? 'ghost' : 'primary'}
             className="tabular-nums"
             tooltip={main.reason}
             aria-label={main.label}
-            disabled={main.disabled || busy || (one && active === null)}
+            disabled={nothing || busy}
             onClick={() => {
                 if (!one) {
                     onPushAll();
