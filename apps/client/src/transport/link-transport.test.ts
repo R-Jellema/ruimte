@@ -4,7 +4,7 @@ import i18next from 'i18next';
 import type { LinkProblem } from '@/telemetry/events';
 import { linkMetrics, type PageMetric } from '@/telemetry/metrics';
 import { LinkTransport, type Link, type LinkEvents } from './link-transport';
-import type { SignalRoute, TransportStatus } from './transport';
+import type { SignalRoute, TransportError, TransportStatus } from './transport';
 
 class FakeLink implements Link {
     // The frames of requests; the protocol check the transport sends on its own lands in `checks`.
@@ -431,6 +431,19 @@ describe('LinkTransport', () => {
             await tick(1);
             await expect(reply).rejects.toMatchObject({ code: 'timeout' });
             link.events.message(JSON.stringify({ id: idOf(link, 0), ok: true, result: { sessions: [] } }));
+        });
+
+        test('a request the closing link takes down names the request and where it was asked', async () => {
+            const { transport, link } = await opened();
+            const reply = transport.request('session.list', {});
+            link.events.close(null);
+            const error = (await reply.catch((reason: unknown) => reason)) as TransportError;
+
+            expect(error.code).toBe('disconnected');
+            expect(error.request).toBe('session.list');
+            expect((error.cause as Error).name).toBe('RequestCallSite');
+            expect((error.cause as Error).stack).toContain('link-transport.test.ts');
+            transport.dispose();
         });
 
         test('a reply in time settles the request and no timeout follows it', async () => {

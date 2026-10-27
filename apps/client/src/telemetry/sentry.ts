@@ -6,10 +6,12 @@ import {
     functionToStringIntegration,
     init,
     linkedErrorsIntegration,
-    metrics
+    metrics,
+    withScope
 } from '@sentry/browser';
 import { createDailyDedupe, createScrubber, TELEMETRY_DATA_COLLECTION, TELEMETRY_DSN, telemetryRelease } from '@ruimte/telemetry';
 import { useProjectList } from '@/state/project-list';
+import { TransportError } from '@/transport/transport';
 import { CLIENT_TAGS, connectionEvent, storageDedupeStore, type ConnectionProblem } from './events';
 import type { PageMetric } from './metrics';
 
@@ -65,7 +67,12 @@ export function startReporter(options: ReporterOptions): void {
 
 /* `onerror` and `onunhandledrejection` for what nothing caught, `react.errorboundary` for what a boundary did. */
 export function reportError(error: unknown, mechanism: string, handled: boolean): void {
-    captureException(error, { mechanism: { type: mechanism, handled } });
+    withScope((scope) => {
+        if (error instanceof TransportError && error.request !== undefined) {
+            scope.setTag('request', error.request);
+        }
+        captureException(error, { mechanism: { type: mechanism, handled } });
+    });
 }
 
 export function reportConnection(problem: ConnectionProblem): void {

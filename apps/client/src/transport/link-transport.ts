@@ -108,6 +108,7 @@ const NO_METER: LinkMeter = { connected: () => undefined, reconnecting: () => un
 interface Pending {
     type: RequestType;
     sentAt: number;
+    callSite: Error;
     resolve(result: unknown): void;
     reject(error: TransportError): void;
     // Asked by `readBytes`, which resolves with the `BytesPiece` of a binary reply; a JSON answer is no reply to it.
@@ -425,10 +426,13 @@ export class LinkTransport implements PooledTransport {
             return Promise.reject(new TransportError('not-connected', i18next.t('machines:connection.notConnected')));
         }
         const id = String(this.nextId++);
+        const callSite = new Error(`${type} was asked here`);
+        callSite.name = 'RequestCallSite';
         const promise = new Promise<R>((resolve, reject) => {
             const entry: Pending = {
                 type,
                 sentAt: this.now(),
+                callSite,
                 resolve: resolve as (result: unknown) => void,
                 reject,
                 ...(bytes ? { bytes: true as const } : {})
@@ -438,7 +442,10 @@ export class LinkTransport implements PooledTransport {
                     this.pending.delete(id);
                     this.report({ kind: 'timeout', request: type });
                     reject(
-                        new TransportError('timeout', i18next.t('machines:connection.timedOut', { type, seconds: Math.round(this.requestTimeoutMs / 1000) }))
+                        new TransportError('timeout', i18next.t('machines:connection.timedOut', { type, seconds: Math.round(this.requestTimeoutMs / 1000) }), {
+                            request: type,
+                            cause: callSite
+                        })
                     );
                 }, this.requestTimeoutMs);
             }
@@ -466,7 +473,7 @@ export class LinkTransport implements PooledTransport {
         this.pending.clear();
         for (const entry of entries) {
             clearTimeout(entry.timer);
-            entry.reject(new TransportError(code, message));
+            entry.reject(new TransportError(code, message, { request: entry.type, cause: entry.callSite }));
         }
     }
 
@@ -503,12 +510,14 @@ export class LinkTransport implements PooledTransport {
             return;
         }
         if (!frame.ok) {
-            entry.reject(new TransportError(frame.error.code, frame.error.message));
+            entry.reject(new TransportError(frame.error.code, frame.error.message, { request: entry.type, cause: entry.callSite }));
             return;
         }
         const result = REQUEST_SCHEMAS[entry.type].result.safeParse(frame.result);
         if (!result.success || entry.bytes) {
-            entry.reject(new TransportError('bad-reply', i18next.t('machines:connection.badReply', { type: entry.type })));
+            entry.reject(
+                new TransportError('bad-reply', i18next.t('machines:connection.badReply', { type: entry.type }), { request: entry.type, cause: entry.callSite })
+            );
             return;
         }
         entry.resolve(result.data);

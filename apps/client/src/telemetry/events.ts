@@ -1,5 +1,4 @@
 import type { DedupeStore } from '@ruimte/telemetry';
-import { TransportError } from '@/transport/transport';
 
 /* This client's own machine, or one of the account. */
 export type MachineKind = 'local' | 'remote';
@@ -49,12 +48,6 @@ export function connectionEvent(problem: ConnectionProblem): ConnectionEvent {
                 tags: { problem: 'protocol-refused', ...where, mismatch: problem.mismatch }
             };
     }
-}
-
-/* A request the link took down with it when it closed. The drop is reported as a connection event, so
-   a caller that let the rejection go adds a second report of the same moment and nothing more. */
-export function isLostToDrop(reason: unknown): boolean {
-    return reason instanceof TransportError && reason.code === 'disconnected';
 }
 
 const SENT_KEY = 'ruimte.telemetry.sent';

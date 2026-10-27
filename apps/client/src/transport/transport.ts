@@ -43,11 +43,17 @@ export interface Transport {
 // A rejected request always carries a code, so callers can branch without parsing messages.
 export class TransportError extends Error {
     readonly code: string;
+    readonly request?: RequestType;
 
-    constructor(code: string, message: string) {
-        super(message);
+    /* `cause` is where the request was asked: a reply settles it from the socket's handler, so the
+       error's own stack never names the caller that left it unhandled. */
+    constructor(code: string, message: string, options?: { request?: RequestType; cause?: Error }) {
+        super(message, options?.cause === undefined ? undefined : { cause: options.cause });
         this.name = 'TransportError';
         this.code = code;
+        if (options?.request !== undefined) {
+            this.request = options.request;
+        }
     }
 }
 
