@@ -7,7 +7,7 @@ import { ProviderRegistry } from '../providers/registry.ts';
 import { waitFor } from '../sessions/test-helpers.ts';
 import { AttachmentStore } from '@adecore/agents/chat';
 import { ChatManager } from './chat-manager.ts';
-import { ChatRecorder } from './chat-test-helpers.ts';
+import { ChatRecorder, processAlive } from './chat-test-helpers.ts';
 
 /*
  * The fakes run as real child processes here, since the in-process tests cannot show that frames
@@ -48,15 +48,6 @@ function crashed() {
     return recorder.info?.running === false && recorder.info.status === 'error';
 }
 
-function alive(pid: number): boolean {
-    try {
-        process.kill(pid, 0);
-        return true;
-    } catch {
-        return false;
-    }
-}
-
 describe('ChatManager over real processes', () => {
     test('Claude Code answers over its pipes and a crash reports the exit code', async () => {
         await manager.create({ chatId: 'chat-claude', cwd: home });
@@ -87,11 +78,11 @@ describe('ChatManager over real processes', () => {
         await manager.send('chat-tree', 'start a grandchild');
         await waitFor(() => recorder.idle, 'the Claude turn to end');
         const pid = Number(/^grandchild (\d+)$/.exec(recorder.ofKind('assistant')[0]?.text ?? '')?.[1]);
-        expect(alive(pid)).toBe(true);
+        expect(processAlive(pid)).toBe(true);
         try {
             await manager.get('chat-tree')!.dispose();
             // Reaped by whoever adopts it, which takes a moment after the signal.
-            await waitFor(() => !alive(pid), 'the grandchild to go');
+            await waitFor(() => !processAlive(pid), 'the grandchild to go');
         } finally {
             if (pid > 0) {
                 try {

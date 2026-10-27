@@ -2,8 +2,10 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { waitFor, waitForAsync } from '../sessions/test-helpers.ts';
 import { connectAppleMcp, type AppleMcpConnection, type AppleMcpServer } from './apple-mcp.ts';
 import { AppleStdioTransport } from './apple-mcp-stdio.ts';
+import { processAlive } from './chat-test-helpers.ts';
 
 let cwd: string;
 const fixture = String.raw`
@@ -61,23 +63,6 @@ afterEach(async () => {
     await rm(cwd, { recursive: true, force: true });
 });
 
-function alive(pid: number): boolean {
-    try {
-        process.kill(pid, 0);
-        return true;
-    } catch {
-        return false;
-    }
-}
-async function eventually(condition: () => Promise<boolean> | boolean): Promise<void> {
-    for (let attempt = 0; attempt < 200; attempt++) {
-        if (await condition()) {
-            return;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 10));
-    }
-    throw new Error('The MCP fixture did not reach the expected state.');
-}
 function server(env: Record<string, string> = {}): AppleMcpServer {
     return { command: process.execPath, args: [join(cwd, 'fixture.mjs')], env };
 }
@@ -105,8 +90,8 @@ describe('Apple MCP real stdio connection', () => {
         }
         const serverPid = Number(await readFile(join(cwd, 'server.pid'), 'utf8'));
         const childPid = Number(await readFile(join(cwd, 'descendant.pid'), 'utf8'));
-        await eventually(() => !alive(serverPid) && !alive(childPid));
-        expect(alive(childPid)).toBe(false);
+        await waitFor(() => !processAlive(serverPid) && !processAlive(childPid), 'the server and its child to end');
+        expect(processAlive(childPid)).toBe(false);
     });
 
     test('aborts a pending tool request and leaves the connection closable', async () => {
@@ -114,10 +99,10 @@ describe('Apple MCP real stdio connection', () => {
         const controller = new AbortController();
         try {
             const pending = connection.call('hang', {}, controller.signal);
-            await eventually(() => exists('call.pending'));
+            await waitForAsync(() => exists('call.pending'), 'the call to reach the server');
             controller.abort();
             await expect(pending).rejects.toThrow();
-            await eventually(() => exists('call.cancelled'));
+            await waitForAsync(() => exists('call.cancelled'), 'the server to hear the cancel');
         } finally {
             controller.abort();
             await connection.close();
@@ -128,11 +113,11 @@ describe('Apple MCP real stdio connection', () => {
         const controller = new AbortController();
         const pending = connectAppleMcp(server({ HANG_INITIALIZE: '1' }), cwd, {}, controller.signal);
         try {
-            await eventually(() => exists('initialize.pending'));
+            await waitForAsync(() => exists('initialize.pending'), 'the handshake to reach the server');
             controller.abort();
             await expect(pending).rejects.toThrow();
             const pid = Number(await readFile(join(cwd, 'server.pid'), 'utf8'));
-            await eventually(() => !alive(pid));
+            await waitFor(() => !processAlive(pid), 'the server to end');
         } finally {
             controller.abort();
             await pending.then(

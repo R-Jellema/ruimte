@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { waitFor, waitForAsync } from '../sessions/test-helpers.ts';
 import { executeAppleCommand } from './apple-command-tool.ts';
+import { processAlive } from './chat-test-helpers.ts';
 
 let cwd: string;
 beforeEach(async () => {
@@ -11,25 +13,6 @@ beforeEach(async () => {
 afterEach(async () => {
     await rm(cwd, { recursive: true, force: true });
 });
-
-async function eventually(condition: () => Promise<boolean> | boolean): Promise<void> {
-    for (let attempt = 0; attempt < 200; attempt++) {
-        if (await condition()) {
-            return;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 10));
-    }
-    throw new Error('The child process did not reach the expected state.');
-}
-
-function alive(pid: number): boolean {
-    try {
-        process.kill(pid, 0);
-        return true;
-    } catch {
-        return false;
-    }
-}
 
 describe('Apple local command real process', () => {
     test('runs from the project directory with closed stdin and an explicit environment', async () => {
@@ -47,14 +30,14 @@ describe('Apple local command real process', () => {
         const pending = executeAppleCommand(cwd, 'sleep 60 & printf "%s" "$!" > child.pid; wait', controller.signal);
         let childPid = 0;
         try {
-            await eventually(async () => {
+            await waitForAsync(async () => {
                 childPid = Number(await readFile(join(cwd, 'child.pid'), 'utf8').catch(() => '0'));
                 return childPid > 0;
-            });
+            }, 'the child process to write its id');
             controller.abort();
             await expect(pending).rejects.toThrow();
-            await eventually(() => !alive(childPid));
-            expect(alive(childPid)).toBe(false);
+            await waitFor(() => !processAlive(childPid), 'the child process to end');
+            expect(processAlive(childPid)).toBe(false);
         } finally {
             controller.abort();
             await pending.catch(() => undefined);

@@ -5,6 +5,16 @@ import { ChatStore } from '@adecore/agents/chat';
 
 type Check = () => boolean;
 
+/* Whether a process with this id still runs. */
+export function processAlive(pid: number): boolean {
+    try {
+        process.kill(pid, 0);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 /*
  * What one client of a chat has seen. `until` is checked again on every event instead of on a
  * clock, so a test waits exactly as long as the chat takes and a wait that never ends is a bug.
