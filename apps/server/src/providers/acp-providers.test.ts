@@ -31,10 +31,7 @@ const GROK_SESSION_MODES = ['default', 'plan', 'ask'];
 function run(provider: ChatProvider, options: FakeAcpOptions, overrides: Partial<BackendLaunch> = {}) {
     const events: BackendEvent[] = [];
     const methods: string[] = [];
-    let onTurnDone: () => void = () => undefined;
-    const turnDone = new Promise<void>((resolve) => {
-        onTurnDone = resolve;
-    });
+    const done = Promise.withResolvers<void>();
     const fake = inProcess((io) => {
         const program = fakeAcpWith(options)(io);
         return {
@@ -66,12 +63,18 @@ function run(provider: ChatProvider, options: FakeAcpOptions, overrides: Partial
             onEvent: (event) => {
                 events.push(event);
                 if (event.type === 'turn.done') {
-                    onTurnDone();
+                    done.resolve();
                 }
             }
         }
     );
-    return { backend, events, methods, fake, turnDone };
+    return { backend, events, methods, fake, turnDone: done.promise };
+}
+
+const HELLO = { promptId: 'p1', text: 'hello', preamble: null, attachments: [], mentions: [], skills: [] };
+
+function textOf(events: BackendEvent[]): string {
+    return events.flatMap((event) => (event.type === 'text.done' ? [event.text] : [])).join('');
 }
 
 describe('Grok', () => {
@@ -98,10 +101,9 @@ describe('Grok', () => {
         await backend.start();
         expect(fake.started[0]?.argv).toEqual(['--no-auto-update', 'agent', 'stdio']);
         expect(methods).toEqual(['initialize', 'session/new', 'authenticate', 'session/new']);
-        backend.sendTurn({ promptId: 'p1', text: 'hello', preamble: null, attachments: [], mentions: [], skills: [] });
+        backend.sendTurn(HELLO);
         await turnDone;
-        const text = events.flatMap((event) => (event.type === 'text.done' ? [event.text] : [])).join('');
-        expect(text).toBe('echo: hello');
+        expect(textOf(events)).toBe('echo: hello');
         expect(events).toContainEqual(expect.objectContaining({ type: 'turn.done', promptId: 'p1', state: 'done' }));
         expect(methods).not.toContain('session/set_model');
         await backend.dispose();
@@ -248,7 +250,7 @@ describe('Copilot', () => {
             const turnUsage = { totalTokens: 1500, inputTokens: 1100, outputTokens: 400, cachedReadTokens: 1000 };
             const { backend, turnDone } = run(copilot, { turnUsage });
             await backend.start();
-            backend.sendTurn({ promptId: 'p1', text: 'hello', preamble: null, attachments: [], mentions: [], skills: [] });
+            backend.sendTurn(HELLO);
             await turnDone;
             await backend.dispose();
 
@@ -356,9 +358,9 @@ describe('Antigravity', () => {
         await backend.start();
         expect(fake.started[0]?.argv).toEqual(['--uid=']);
         expect(methods).toEqual(['initialize', 'session/new', 'authenticate', 'session/new']);
-        backend.sendTurn({ promptId: 'p1', text: 'hello', preamble: null, attachments: [], mentions: [], skills: [] });
+        backend.sendTurn(HELLO);
         await turnDone;
-        expect(events.flatMap((event) => (event.type === 'text.done' ? [event.text] : [])).join('')).toBe('echo: hello');
+        expect(textOf(events)).toBe('echo: hello');
         await backend.dispose();
     });
 

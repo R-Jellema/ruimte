@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, setDefaultTimeout, test } from 'bun:test';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { ChatTurnItem, ProjectContent } from '@ruimte/contracts';
+import type { ChatTurnItem } from '@ruimte/contracts';
 import { ManualClock, claudeStoppingOnResume, type FakeCli } from '@adecore/agents/testing';
 import { BundleStore } from '../git/bundles.ts';
 import { Checkpoints } from '../git/checkpoints.ts';
@@ -11,6 +11,7 @@ import { projectLinks } from '../projects/project-file-test-helpers.ts';
 import { ProjectStore } from '../projects/project-store.ts';
 import { bootTestDaemon, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
 import type { PeerLink } from './peer-connection.ts';
+import { leadContent } from './test-helpers.ts';
 
 /*
  * Two daemons in one process, A that gives a task and B that runs it, with a link between them that
@@ -23,24 +24,6 @@ setDefaultTimeout(30_000);
 
 const A = 'machine-a';
 const B = 'machine-b';
-
-function leadContent(): ProjectContent {
-    return {
-        name: 'repo',
-        color: '#123456',
-        views: [
-            {
-                kind: 'canvas',
-                id: 'main',
-                name: 'Canvas',
-                nodes: [{ id: 'chat-lead', kind: 'chat', title: 'Lead', x: 0, y: 0, w: 560, h: 640, provider: 'claude' }],
-                texts: [],
-                edges: [],
-                layouts: []
-            }
-        ]
-    };
-}
 
 interface Side {
     home: string;

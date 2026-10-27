@@ -4,6 +4,7 @@ import { verifySignature } from '@ruimte/pulsar/verify-node';
 import { generateKeyPair, signMessage } from '../auth/keys.ts';
 import { BrokerRelay, weriftIceServers } from './broker-relay.ts';
 import { SignalGate } from './signal-gate.ts';
+import { OFFER, signedSignal } from './test-helpers.ts';
 
 const BROKER_URL = 'ws://broker.test:4400';
 const NONCE = 'n'.repeat(32);
@@ -112,15 +113,8 @@ async function setup(
     return { relay, machine, paired, pairedKeys, sockets, socket, received, replies };
 }
 
-const offer: SignalEnvelope = { connectionId: 'attempt-0001', signal: { kind: 'offer', sdp: 'v=0\r\na=fingerprint:sha-256 AA' } };
-
 function relayedFrom(from: { publicKey: string; privateKey: string }, to: string, envelope: SignalEnvelope, signer = from) {
-    return {
-        type: 'relayed',
-        from: from.publicKey,
-        envelope,
-        signature: signMessage(signer.privateKey, signalMessage(from.publicKey, to, envelope))
-    };
+    return { type: 'relayed', ...signedSignal(from, to, envelope, signer) };
 }
 
 const TURN = { urls: ['turn:turn.example.com:3478?transport=udp', 'turn:turn.example.com:3478?transport=tcp'], username: '1:m-x', credential: 'one' };
@@ -249,11 +243,11 @@ describe('BrokerRelay and ICE servers', () => {
 describe('BrokerRelay', () => {
     test('announces with the machine key, hands a paired signal to the answer code and signs the reply back', async () => {
         const { relay, machine, paired, socket, received, replies } = await setup();
-        socket.deliver(relayedFrom(paired, machine.publicKey, offer));
+        socket.deliver(relayedFrom(paired, machine.publicKey, OFFER));
         await waitUntil(() => received.length === 1);
-        expect(received[0]).toEqual(offer);
+        expect(received[0]).toEqual(OFFER);
 
-        const answer: SignalEnvelope = { connectionId: offer.connectionId, signal: { kind: 'answer', sdp: 'v=0\r\na=fingerprint:sha-256 BB' } };
+        const answer: SignalEnvelope = { connectionId: OFFER.connectionId, signal: { kind: 'answer', sdp: 'v=0\r\na=fingerprint:sha-256 BB' } };
         replies[0]!(answer);
         await waitUntil(() => socket.sent.length === 3);
         const frame = socket.sent[2] as Extract<BrokerPeerFrame, { type: 'relay' }>;
@@ -265,9 +259,9 @@ describe('BrokerRelay', () => {
 
     test('a signature that does not verify gets nothing at all, not even a refusal', async () => {
         const { relay, machine, paired, socket, received } = await setup();
-        socket.deliver(relayedFrom(paired, machine.publicKey, offer, generateKeyPair()));
+        socket.deliver(relayedFrom(paired, machine.publicKey, OFFER, generateKeyPair()));
         // Signed for another receiver: the same bytes do not verify for this machine.
-        socket.deliver(relayedFrom(paired, generateKeyPair().publicKey, offer));
+        socket.deliver(relayedFrom(paired, generateKeyPair().publicKey, OFFER));
         await tick();
         expect(received).toEqual([]);
         expect(socket.sent).toHaveLength(2);
@@ -277,15 +271,15 @@ describe('BrokerRelay', () => {
     test('a key nobody paired gets one signed not-paired for its offer, and no peer connection', async () => {
         const { relay, machine, socket, received } = await setup();
         const stranger = generateKeyPair();
-        socket.deliver(relayedFrom(stranger, machine.publicKey, offer));
+        socket.deliver(relayedFrom(stranger, machine.publicKey, OFFER));
         await waitUntil(() => socket.sent.length === 3);
         const frame = socket.sent[2] as Extract<BrokerPeerFrame, { type: 'relay' }>;
         expect(frame.to).toBe(stranger.publicKey);
-        expect(frame.envelope).toEqual({ connectionId: offer.connectionId, signal: { kind: 'close', reason: 'not-paired' } });
+        expect(frame.envelope).toEqual({ connectionId: OFFER.connectionId, signal: { kind: 'close', reason: 'not-paired' } });
         expect(verifySignature(machine.publicKey, signalMessage(machine.publicKey, stranger.publicKey, frame.envelope), frame.signature)).toBe(true);
 
-        // Anything but an offer from that key is not worth an answer.
-        socket.deliver(relayedFrom(stranger, machine.publicKey, { connectionId: offer.connectionId, signal: { kind: 'close', reason: 'done' } }));
+        // Anything but an OFFER from that key is not worth an answer.
+        socket.deliver(relayedFrom(stranger, machine.publicKey, { connectionId: OFFER.connectionId, signal: { kind: 'close', reason: 'done' } }));
         await tick();
         expect(socket.sent).toHaveLength(3);
         expect(received).toEqual([]);
@@ -294,12 +288,12 @@ describe('BrokerRelay', () => {
 
     test('an attempt belongs to the key that offered it', async () => {
         const { relay, machine, paired, pairedKeys, socket, received } = await setup();
-        socket.deliver(relayedFrom(paired, machine.publicKey, offer));
+        socket.deliver(relayedFrom(paired, machine.publicKey, OFFER));
         await waitUntil(() => received.length === 1);
         // Paired as well, but not the owner of this attempt.
         const other = generateKeyPair();
         pairedKeys.add(other.publicKey);
-        socket.deliver(relayedFrom(other, machine.publicKey, { connectionId: offer.connectionId, signal: { kind: 'close', reason: 'done' } }));
+        socket.deliver(relayedFrom(other, machine.publicKey, { connectionId: OFFER.connectionId, signal: { kind: 'close', reason: 'done' } }));
         await tick();
         expect(received).toHaveLength(1);
         await relay.stop();
@@ -375,7 +369,7 @@ describe('BrokerRelay', () => {
         await waitUntil(() => warnings.length === 1);
         expect(warnings[0]).toContain('ENOSPC');
 
-        socket.deliver(relayedFrom(paired, machine.publicKey, offer));
+        socket.deliver(relayedFrom(paired, machine.publicKey, OFFER));
         await waitUntil(() => received.length === 1);
         await relay.stop();
     });

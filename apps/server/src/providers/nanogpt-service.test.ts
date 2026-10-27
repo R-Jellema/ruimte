@@ -1,22 +1,13 @@
 import { afterEach, describe, expect, setSystemTime, test } from 'bun:test';
-import { mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { UsageService } from '@adecore/agents/usage';
 import type { ApiFetch } from './keyed-api-service.ts';
 import { NANOGPT_URL, NanoGptService } from './nanogpt-service.ts';
+import { tempHomes } from './test-helpers.ts';
 
-const homes: string[] = [];
-afterEach(async () => {
-    setSystemTime();
-    await Promise.all(homes.splice(0).map((home) => rm(home, { recursive: true, force: true })));
-});
-
-async function home(): Promise<string> {
-    const folder = await mkdtemp(join(tmpdir(), 'ruimte-nanogpt-'));
-    homes.push(folder);
-    return folder;
-}
+const home = tempHomes('ruimte-nanogpt-');
+afterEach(() => setSystemTime());
 
 const MODELS = {
     data: [

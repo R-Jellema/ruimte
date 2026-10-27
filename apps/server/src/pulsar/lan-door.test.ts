@@ -4,6 +4,7 @@ import { verifySignature } from '@ruimte/pulsar/verify-node';
 import { generateKeyPair, signMessage } from '../auth/keys.ts';
 import { ATTEMPTS_PER_MINUTE, AddressLimiter, DoorSession, OPEN_PER_ADDRESS } from './lan-door.ts';
 import { SignalGate } from './signal-gate.ts';
+import { OFFER, signedSignal } from './test-helpers.ts';
 
 const machine = generateKeyPair();
 const MACHINE_ID = 'machine-1';
@@ -47,15 +48,8 @@ function setup(known: string[] = []) {
     return { session, socket, received, replies };
 }
 
-const offer: SignalEnvelope = { connectionId: 'attempt-0001', signal: { kind: 'offer', sdp: 'v=0\r\na=fingerprint:sha-256 AA' } };
-
 function signalFrom(key: { publicKey: string; privateKey: string }, envelope: SignalEnvelope, signer = key) {
-    return JSON.stringify({
-        type: 'signal',
-        from: key.publicKey,
-        envelope,
-        signature: signMessage(signer.privateKey, signalMessage(key.publicKey, machine.publicKey, envelope))
-    });
+    return JSON.stringify({ type: 'signal', ...signedSignal(key, machine.publicKey, envelope, signer) });
 }
 
 describe('DoorSession', () => {
@@ -72,10 +66,10 @@ describe('DoorSession', () => {
         const client = generateKeyPair();
         const { session, socket, received, replies } = setup([client.publicKey]);
         await session.receive(JSON.stringify({ type: 'hello', nonce: NONCE }));
-        await session.receive(signalFrom(client, offer));
-        expect(received).toEqual([offer]);
+        await session.receive(signalFrom(client, OFFER));
+        expect(received).toEqual([OFFER]);
 
-        const answer: SignalEnvelope = { connectionId: offer.connectionId, signal: { kind: 'answer', sdp: 'v=0\r\na=fingerprint:sha-256 BB' } };
+        const answer: SignalEnvelope = { connectionId: OFFER.connectionId, signal: { kind: 'answer', sdp: 'v=0\r\na=fingerprint:sha-256 BB' } };
         replies[0]!(answer);
         const frame = socket.sent[1] as Extract<LanDoorMachineFrame, { type: 'signal' }>;
         expect(frame.envelope).toEqual(answer);
@@ -86,18 +80,18 @@ describe('DoorSession', () => {
         const stranger = generateKeyPair();
         const { session, socket, received } = setup();
         await session.receive(JSON.stringify({ type: 'hello', nonce: NONCE }));
-        await session.receive(signalFrom(stranger, offer));
+        await session.receive(signalFrom(stranger, OFFER));
         expect(received).toEqual([]);
         expect(socket.sent[1]).toMatchObject({
             type: 'signal',
-            envelope: { connectionId: offer.connectionId, signal: { kind: 'close', reason: 'not-paired' } }
+            envelope: { connectionId: OFFER.connectionId, signal: { kind: 'close', reason: 'not-paired' } }
         });
     });
 
     test('a signal before hello, a second hello, a second key or a forged signature closes the socket', async () => {
         const client = generateKeyPair();
         const early = setup([client.publicKey]);
-        await early.session.receive(signalFrom(client, offer));
+        await early.session.receive(signalFrom(client, OFFER));
         expect(early.socket.sent).toEqual([{ type: 'error', code: 'bad-frame', message: 'Say hello first' }]);
         expect(early.socket.closedWith?.[0]).toBe(4003);
         expect(early.received).toEqual([]);
@@ -110,14 +104,14 @@ describe('DoorSession', () => {
         const other = generateKeyPair();
         const switching = setup([client.publicKey, other.publicKey]);
         await switching.session.receive(JSON.stringify({ type: 'hello', nonce: NONCE }));
-        await switching.session.receive(signalFrom(client, offer));
-        await switching.session.receive(signalFrom(other, { ...offer, connectionId: 'attempt-0002' }));
+        await switching.session.receive(signalFrom(client, OFFER));
+        await switching.session.receive(signalFrom(other, { ...OFFER, connectionId: 'attempt-0002' }));
         expect(switching.received).toHaveLength(1);
         expect(switching.socket.closedWith).not.toBeNull();
 
         const forged = setup([client.publicKey]);
         await forged.session.receive(JSON.stringify({ type: 'hello', nonce: NONCE }));
-        await forged.session.receive(signalFrom(client, offer, generateKeyPair()));
+        await forged.session.receive(signalFrom(client, OFFER, generateKeyPair()));
         expect(forged.received).toEqual([]);
         expect(forged.socket.sent[1]).toEqual({ type: 'error', code: 'bad-frame', message: 'That signature does not hold' });
     });

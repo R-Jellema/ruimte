@@ -1,24 +1,15 @@
 import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
-import { mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { UsageService } from '@adecore/agents/usage';
 import { UsageSummaryResultSchema } from '@ruimte/contracts';
 import { ANTHROPIC_URL, ANTHROPIC_VERSION, AnthropicClaudeApiService, anthropicHttpError, defaultModelOf } from './anthropic-claude-api-service.ts';
 import type { ApiFetch } from './keyed-api-service.ts';
+import { tempHomes } from './test-helpers.ts';
 
-const homes: string[] = [];
+const home = tempHomes('ruimte-claude-api-');
 beforeEach(() => setSystemTime(new Date('2026-10-24T12:00:00Z')));
-afterEach(async () => {
-    setSystemTime();
-    await Promise.all(homes.splice(0).map((home) => rm(home, { recursive: true, force: true })));
-});
-
-async function home(): Promise<string> {
-    const folder = await mkdtemp(join(tmpdir(), 'ruimte-claude-api-'));
-    homes.push(folder);
-    return folder;
-}
+afterEach(() => setSystemTime());
 
 const MODELS = [
     {

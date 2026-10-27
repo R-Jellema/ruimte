@@ -2,33 +2,15 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { ProjectContent } from '@ruimte/contracts';
 import { ManualClock } from '@adecore/agents/testing';
 import { MAX_RESULT_LENGTH } from '../canvas/tasks.ts';
 import { projectLinks } from '../projects/project-file-test-helpers.ts';
 import { ProjectStore } from '../projects/project-store.ts';
 import { bootTestDaemon, runVerb, type TestDaemon } from '../tasks/test-daemon.ts';
 import type { PeerLink } from './peer-connection.ts';
+import { leadContent } from './test-helpers.ts';
 
 const MACHINE = 'machine-b';
-
-function content(): ProjectContent {
-    return {
-        name: 'repo',
-        color: '#123456',
-        views: [
-            {
-                kind: 'canvas',
-                id: 'main',
-                name: 'Canvas',
-                nodes: [{ id: 'chat-lead', kind: 'chat', title: 'Lead', x: 0, y: 0, w: 560, h: 640, provider: 'claude' }],
-                texts: [],
-                edges: [],
-                layouts: []
-            }
-        ]
-    };
-}
 
 let root: string;
 let home: string;
@@ -63,7 +45,7 @@ beforeEach(async () => {
     store = new ProjectStore(home, projectLinks());
     const opened = await store.openProject({ folder });
     projectId = opened.summary.projectId;
-    await store.save(projectId, opened.document.rev, content());
+    await store.save(projectId, opened.document.rev, leadContent());
     store.release(projectId);
     clock = new ManualClock();
     open = null;
