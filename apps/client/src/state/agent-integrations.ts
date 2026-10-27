@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { messageOf } from '@adecore/ui';
 import type { AgentIntegration, AgentIntegrationFile, AgentIntegrationReport, AgentIntegrationsSummary, AgentKind } from '@ruimte/contracts';
 import { LOCAL_ENDPOINT_ID } from '@/state/endpoints';
 import { hasLocalMachine } from '@/state/local-machine';
@@ -93,4 +95,27 @@ export function startAgentIntegrationsPrompt(): () => void {
         offServers();
         offUi();
     };
+}
+
+/* Turns a CLI's integration on or off and keeps what each change reported, one at a time. */
+export function useIntegrationChoice() {
+    const [reports, setReports] = useState<Record<string, AgentIntegrationReport[]>>({});
+    const [busy, setBusy] = useState<string | null>(null);
+    const [error, setError] = useState<{ provider: AgentKind; message: string } | null>(null);
+
+    const change = async (provider: AgentKind, on: boolean): Promise<void> => {
+        setBusy(provider);
+        setError(null);
+
+        try {
+            const report = await setAgentIntegration(provider, on);
+            setReports((current) => ({ ...current, [provider]: report }));
+        } catch (e) {
+            setError({ provider, message: messageOf(e) });
+        } finally {
+            setBusy(null);
+        }
+    };
+
+    return { reports, busy, error, change };
 }

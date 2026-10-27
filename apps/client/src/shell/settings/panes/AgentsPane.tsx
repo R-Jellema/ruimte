@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { CLOSED_LID_BATTERY_FLOOR, type AgentIntegrationFile, type AgentIntegrationReport, type AgentKind, type RuntimeMode } from '@ruimte/contracts';
+import { CLOSED_LID_BATTERY_FLOOR, type AgentIntegrationFile, type RuntimeMode } from '@ruimte/contracts';
 import {
     rememberChatPreferences,
     rememberReadingWidth,
@@ -27,7 +27,7 @@ import {
 } from '@/state/keep-awake';
 import { IntegrationDetails, IntegrationReports } from '@/shell/AgentIntegrationsDialog';
 import { CliMark } from '@adecore/agents-react/providers';
-import { INTEGRATION_NAMES, loadIntegrationFiles, setAgentIntegration, useAgentIntegrations } from '@/state/agent-integrations';
+import { INTEGRATION_NAMES, loadIntegrationFiles, useAgentIntegrations, useIntegrationChoice } from '@/state/agent-integrations';
 import { isApplePlatform } from '@/desktop/bridge';
 import { hasLocalMachine } from '@/state/local-machine';
 import { MachineSwitchSections } from '@/shell/settings/MachineSwitchSection';
@@ -249,9 +249,7 @@ function IntegrationsSection() {
     const { t } = useTranslation('settings');
     const summary = useAgentIntegrations();
     const [files, setFiles] = useState<AgentIntegrationFile[] | null>(null);
-    const [reports, setReports] = useState<Record<string, AgentIntegrationReport[]>>({});
-    const [busy, setBusy] = useState<string | null>(null);
-    const [error, setError] = useState<{ provider: AgentKind; message: string } | null>(null);
+    const { reports, busy, error, change } = useIntegrationChoice();
     const listed = summary !== null && hasLocalMachine();
 
     useEffect(() => {
@@ -265,19 +263,6 @@ function IntegrationsSection() {
     if (!listed) {
         return null;
     }
-
-    const change = async (provider: AgentKind, on: boolean): Promise<void> => {
-        setBusy(provider);
-        setError(null);
-        try {
-            const report = await setAgentIntegration(provider, on);
-            setReports((current) => ({ ...current, [provider]: report }));
-        } catch (e) {
-            setError({ provider, message: messageOf(e) });
-        } finally {
-            setBusy(null);
-        }
-    };
 
     return (
         <SettingsSection

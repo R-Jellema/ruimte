@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AgentIntegration, AgentIntegrationFile, AgentIntegrationReport, AgentKind } from '@ruimte/contracts';
 import { CliMark } from '@adecore/agents-react/providers';
 import { useLocalTilde } from '@/format/home-path';
-import { INTEGRATION_NAMES, pendingReview, providersToKeep, setAgentIntegration, useAgentIntegrations } from '@/state/agent-integrations';
+import { INTEGRATION_NAMES, pendingReview, providersToKeep, setAgentIntegration, useAgentIntegrations, useIntegrationChoice } from '@/state/agent-integrations';
 import { useUi } from '@/state/ui';
-import { Button, Dialog, FormError, Skeleton, messageOf } from '@adecore/ui';
+import { Button, Dialog, FormError, Skeleton } from '@adecore/ui';
 
 const OUTCOME_KEYS = {
     written: 'written',
@@ -89,9 +89,7 @@ export function AgentIntegrationsDialog() {
     const { t } = useTranslation(['settings', 'common']);
     const open = useUi((s) => s.agentIntegrations);
     const summary = useAgentIntegrations();
-    const [reports, setReports] = useState<Record<string, AgentIntegrationReport[]>>({});
-    const [busy, setBusy] = useState<string | null>(null);
-    const [error, setError] = useState<string | null>(null);
+    const { reports, busy, error, change: choose } = useIntegrationChoice();
     const answered = Object.keys(reports).length > 0;
     const pending = pendingReview(summary);
     const firstAsked = (summary?.providers ?? []).find(
@@ -104,19 +102,6 @@ export function AgentIntegrationsDialog() {
             useUi.getState().setAgentIntegrations(false);
         }
     }, [open, pending, answered]);
-
-    const choose = async (provider: AgentIntegration['provider'], on: boolean): Promise<void> => {
-        setBusy(provider);
-        setError(null);
-        try {
-            const report = await setAgentIntegration(provider, on);
-            setReports((current) => ({ ...current, [provider]: report }));
-        } catch (e) {
-            setError(messageOf(e));
-        } finally {
-            setBusy(null);
-        }
-    };
 
     // Leaving a migrated row without a choice keeps what it has, which counts as having seen it.
     const close = (): void => {
@@ -176,7 +161,7 @@ export function AgentIntegrationsDialog() {
                         );
                     })}
                 </div>
-                {error !== null && <FormError className="mt-3">{error}</FormError>}
+                {error !== null && <FormError className="mt-3">{error.message}</FormError>}
                 <Dialog.Footer>
                     <Button disabled={busy !== null} onClick={close}>
                         {t(pending ? 'settings:agents.integrations.notNow' : 'common:action.done')}
