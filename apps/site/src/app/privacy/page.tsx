@@ -111,6 +111,13 @@ export default function Privacy() {
                     </li>
                 </ul>
                 <p>
+                    The desktop app keeps a day of its own and sends it the same way, once the day is over. It counts what the machine never sees: which of the
+                    app&apos;s commands you gave and whether you used the menu, a keyboard shortcut or the command palette, which panels you opened, how often
+                    you opened Settings and which sections you looked at, how often the app started and opened a window, and whether it installed an update. Its
+                    day has the same date, version, operating system and processor type as the machine&apos;s, and says whether the app is signed in. A command
+                    that exists once per view, launch or agent counts under one name for all of them, so the name of your view or launch never goes out.
+                </p>
+                <p>
                     A day carries no identifier. There is no account, no install id and no key of the machine in it, and no names, paths, prompts, file contents
                     or anything you typed. A model outside Ruimte&apos;s list is counted as &quot;other&quot;, so its name is never sent. Observatory does not
                     store the address a day comes from. Versions before 0.22 send their days through Ruimte&apos;s own server on Cloudflare first, which does
@@ -118,8 +125,9 @@ export default function Privacy() {
                 </p>
                 <p>
                     Usage statistics are on by default. To turn them off, open Settings in the desktop app on the computer that runs the machine, go to Account,
-                    pick the machine and switch off Usage statistics. Ruimte then deletes the days it has not sent yet. A build from the source code on your own
-                    computer sends nothing.
+                    pick the machine and switch off Usage statistics. Ruimte then deletes the days it has not sent yet. The desktop app follows the same switch,
+                    so it stops counting and deletes its own unsent days too. A desktop app that only connects to machines elsewhere has no machine of its own
+                    and sends nothing. A build from the source code on your own computer sends nothing.
                 </p>
             </Section>
 
