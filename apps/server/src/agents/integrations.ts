@@ -1,8 +1,8 @@
-import { mkdir, readFile, realpath, rename, stat } from 'node:fs/promises';
+import { mkdir, readFile, rename } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
 import type { AgentIntegrationFile, AgentIntegrationReport, AgentIntegrationsSummary, AgentKind } from '@ruimte/contracts';
-import { isNotFound, writeAtomic, Serializer } from '@adecore/agents';
+import { fileExists, isNotFound, writeAtomic, Serializer } from '@adecore/agents';
 import { errorText } from '../error-text.ts';
 import { isRecord } from '../is-record.ts';
 import {
@@ -15,6 +15,7 @@ import {
     holdsOurHook,
     hookPathIn,
     installInFolder,
+    realOrSelf,
     type FolderInstall
 } from './install.ts';
 import { revokeAntigravityRules, revokeCodexRules, revokeHooks, type LedgerEntry } from './revoke.ts';
@@ -67,10 +68,6 @@ function expandHome(path: string, env: Record<string, string | undefined>): stri
         return home;
     }
     return path.startsWith('~/') ? join(home, path.slice(2)) : path;
-}
-
-async function realOrSelf(path: string): Promise<string> {
-    return await realpath(path).catch(() => path);
 }
 
 async function jsonOrNull(path: string): Promise<unknown> {
@@ -262,10 +259,7 @@ export class AgentIntegrations {
                         continue;
                     }
                     seen.add(key);
-                    const present = await stat(target.path).then(
-                        () => true,
-                        () => false
-                    );
+                    const present = await fileExists(target.path);
                     const ours =
                         present && (target.kind === 'rules' ? await hasOurRules(kind, target.path) : holdsOurHook(await jsonOrNull(target.path), kind));
                     files.push({ provider: kind, path: target.path, kind: target.kind, present, ours });
@@ -351,12 +345,11 @@ export class AgentIntegrations {
     private async revokeEverywhere(kind: AgentKind): Promise<AgentIntegrationReport[]> {
         const state = this.stateOf(kind);
         const ledger = new Map<string, Written>();
-        for (const entry of state.written) {
-            ledger.set(await realOrSelf(entry.path), entry);
-        }
         const targets = new Map<string, { path: string; kind: 'hooks' | 'rules' }>();
         for (const entry of state.written) {
-            targets.set(await realOrSelf(entry.path), { path: entry.path, kind: entry.kind });
+            const key = await realOrSelf(entry.path);
+            ledger.set(key, entry);
+            targets.set(key, { path: entry.path, kind: entry.kind });
         }
         for (const folder of this.foldersOf(kind)) {
             for (const target of this.targetsIn(kind, folder)) {

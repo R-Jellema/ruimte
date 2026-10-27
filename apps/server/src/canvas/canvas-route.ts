@@ -21,15 +21,19 @@ function text(lines: string[], status = 200): Response {
     return new Response(lines.length === 0 ? '' : `${lines.join('\n')}\n`, { status, headers: TEXT });
 }
 
-function refusal(code: string, message: string, lines: string[] = [], status = 422): Response {
+export function refusal(code: string, message: string, lines: string[] = [], status = 422): Response {
     return new Response(`${refusalBody(code, message, lines)}\n`, { status, headers: TEXT });
+}
+
+export function bearerToken(request: Request): string | null {
+    const header = request.headers.get('authorization') ?? '';
+    return header.startsWith('Bearer ') ? header.slice(7).trim() || null : null;
 }
 
 /* The session or chat the request's bearer token speaks for; null for a missing or unknown token. */
 export function bearerCaller(request: Request, targetForToken: (token: string) => string | null): string | null {
-    const header = request.headers.get('authorization') ?? '';
-    const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
-    return token ? targetForToken(token) : null;
+    const token = bearerToken(request);
+    return token === null ? null : targetForToken(token);
 }
 
 interface CanvasRouteDeps {

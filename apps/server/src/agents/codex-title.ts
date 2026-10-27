@@ -2,6 +2,7 @@ import { stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { usageRoots } from '@adecore/agents/usage';
 import { cleanTitle, readLines } from '@adecore/agents';
+import { isRecord } from '../is-record.ts';
 
 // Every line of the index is about a name; one without this key is not worth parsing.
 const MARKER = '"thread_name"';
@@ -71,13 +72,12 @@ export class CodexTitleReader {
         } catch {
             return;
         }
-        if (typeof record !== 'object' || record === null) {
+        if (!isRecord(record)) {
             return;
         }
-        const entry = record as Record<string, unknown>;
-        const name = cleanTitle(entry.thread_name);
-        if (typeof entry.id === 'string' && name !== null) {
-            names.set(entry.id, name);
+        const name = cleanTitle(record.thread_name);
+        if (typeof record.id === 'string' && name !== null) {
+            names.set(record.id, name);
         }
     }
 }

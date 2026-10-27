@@ -1,9 +1,8 @@
 import { CodedError } from '@adecore/agents';
-import { refusalBody } from '@adecore/agents/context';
+import { ARTIFACT_LIMITS } from '@ruimte/contracts';
 import type { Artifacts } from '../artifacts/artifacts.ts';
 import { errorText } from '../error-text.ts';
-import { ARTIFACT_LIMITS } from '@ruimte/contracts';
-import { bearerCaller, CANVAS_PATH } from './canvas-route.ts';
+import { bearerCaller, CANVAS_PATH, refusal } from './canvas-route.ts';
 
 export const ARTIFACT_UPLOAD_PATH = `${CANVAS_PATH}/artifact-upload`;
 
@@ -17,11 +16,8 @@ interface UploadRouteDeps {
     artifacts: Pick<Artifacts, 'uploadState' | 'uploadAppend'>;
 }
 
-function refusal(code: string, message: string): Response {
-    return new Response(`${refusalBody(code, message, ['detail\truimte-context help artifact publish'])}\n`, {
-        status: 422,
-        headers: { 'content-type': 'text/plain; charset=utf-8' }
-    });
+function uploadRefusal(code: string, message: string): Response {
+    return refusal(code, message, ['detail\truimte-context help artifact publish']);
 }
 
 function wholeNumber(value: string | null): number | null {
@@ -41,7 +37,7 @@ export async function handleArtifactUpload(request: Request, url: URL, deps: Upl
     }
     const upload = url.pathname.slice(ARTIFACT_UPLOAD_PATH.length + 1);
     if (!UPLOAD_ID.test(upload)) {
-        return refusal('bad-arguments', 'An upload id is 1 to 64 letters, digits, dashes and underscores');
+        return uploadRefusal('bad-arguments', 'An upload id is 1 to 64 letters, digits, dashes and underscores');
     }
     try {
         if (request.method === 'GET') {
@@ -53,17 +49,17 @@ export async function handleArtifactUpload(request: Request, url: URL, deps: Upl
         const file = wholeNumber(url.searchParams.get('file'));
         const offset = wholeNumber(url.searchParams.get('offset'));
         if (file === null || offset === null) {
-            return refusal('bad-arguments', 'A piece names its file and offset as whole numbers');
+            return uploadRefusal('bad-arguments', 'A piece names its file and offset as whole numbers');
         }
         const bytes = new Uint8Array(await request.arrayBuffer());
         // A body sent without a length stops only at the server's ceiling.
         if (bytes.byteLength > ARTIFACT_UPLOAD_BODY_BYTES) {
-            return refusal('too-large', `A piece is at most ${ARTIFACT_UPLOAD_BODY_BYTES} bytes`);
+            return uploadRefusal('too-large', `A piece is at most ${ARTIFACT_UPLOAD_BODY_BYTES} bytes`);
         }
         return Response.json({ size: await deps.artifacts.uploadAppend(caller, upload, file, offset, bytes) });
     } catch (e) {
         if (e instanceof CodedError) {
-            return refusal(e.code, e.message);
+            return uploadRefusal(e.code, e.message);
         }
         console.error('An artifact upload failed:', errorText(e));
         return new Response('The upload failed', { status: 500 });

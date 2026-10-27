@@ -2,7 +2,7 @@ import { mkdir, readFile, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import type { AgentKind } from '@ruimte/contracts';
-import { isNotFound, writeAtomic, KeyedSerializer } from '@adecore/agents';
+import { fileExists, isNotFound, writeAtomic, KeyedSerializer } from '@adecore/agents';
 import {
     codexRulesPathIn as codexRulesPathInFolder,
     codexRulesText,
@@ -171,8 +171,9 @@ function mergeEntries(entries: unknown[], wanted: HookEntry, isWanted: boolean):
             next.push(entry);
         } else if (isWanted && !placed) {
             placed = true;
-            next.push(sameEntry(entry, wanted) ? entry : { ...wanted });
-            changed ||= !sameEntry(entry, wanted);
+            const same = sameEntry(entry, wanted);
+            next.push(same ? entry : { ...wanted });
+            changed ||= !same;
         } else {
             changed = true;
         }
@@ -248,6 +249,21 @@ export function editingHookFile<T>(path: string, work: () => Promise<T>): Promis
     return hookFiles.run(path, work);
 }
 
+/* Where a symlink points, since a rename over the link itself would cut a dotfiles checkout loose. */
+export async function realOrSelf(path: string): Promise<string> {
+    return await realpath(path).catch(() => path);
+}
+
+/* Writes a settings file in the mode it had, so a person's 0600 stays 0600. */
+export async function writeSettings(path: string, config: Record<string, unknown>): Promise<void> {
+    const mode = await stat(path).then(
+        (stats) => stats.mode & 0o777,
+        () => 0o644
+    );
+    await mkdir(dirname(path), { recursive: true });
+    await writeAtomic(path, `${JSON.stringify(config, null, 2)}\n`, mode);
+}
+
 export async function textOrNull(path: string): Promise<string | null> {
     try {
         return await readFile(path, 'utf8');
@@ -267,8 +283,7 @@ export function installHooks(link: string, kind: AgentKind): Promise<HooksInstal
 
 /* Merges into a JSON settings file of a CLI, written only when the merge changed something; `key` is the one top-level key Ruimte writes under. */
 async function mergeIntoSettings(link: string, key: string, merge: (config: unknown) => SettingsMerge, refusal: string): Promise<HooksInstall> {
-    // Written where a symlink points, since a rename over the link itself would cut a dotfiles checkout loose.
-    const path = await realpath(link).catch(() => link);
+    const path = await realOrSelf(link);
     return await editingHookFile(path, async () => {
         for (let attempt = 0; attempt < HOOK_FILE_RETRIES; attempt++) {
             const text = await textOrNull(path);
@@ -288,16 +303,11 @@ async function mergeIntoSettings(link: string, key: string, merge: (config: unkn
             if (!changed) {
                 return { result: 'unchanged', ...created };
             }
-            const mode = await stat(path).then(
-                (stats) => stats.mode & 0o777,
-                () => 0o644
-            );
-            await mkdir(dirname(path), { recursive: true });
             // A CLI or an editor that wrote since the read would lose its change to ours.
             if ((await textOrNull(path)) !== text) {
                 continue;
             }
-            await writeAtomic(path, `${JSON.stringify(config, null, 2)}\n`, mode);
+            await writeSettings(path, config);
             return { result: 'written', ...created };
         }
         throw new Error(`${path} kept changing; try again`);
@@ -450,10 +460,7 @@ export async function installInFolder(kind: AgentKind, folder: string): Promise<
     installs.push({ path: hookPath, kind: 'hooks', ...(await installHooks(hookPath, kind)) });
     if (kind === 'codex') {
         const rulesPath = codexRulesPathIn(folder);
-        const existed = await stat(rulesPath).then(
-            () => true,
-            () => false
-        );
+        const existed = await fileExists(rulesPath);
         installs.push({ path: rulesPath, kind: 'rules', result: await installCodexRules(rulesPath), createdFile: !existed, createdHooksKey: false });
     }
     return installs;

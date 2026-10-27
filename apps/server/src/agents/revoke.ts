@@ -1,7 +1,6 @@
-import { mkdir, readFile, realpath, rm, stat } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { readFile, rm } from 'node:fs/promises';
 import type { AgentIntegrationReport, AgentKind } from '@ruimte/contracts';
-import { isNotFound, writeAtomic } from '@adecore/agents';
+import { isNotFound } from '@adecore/agents';
 import { errorText } from '../error-text.ts';
 import { isRecord } from '../is-record.ts';
 import {
@@ -13,10 +12,12 @@ import {
     isOurs,
     isOursNamed,
     mergeHooks,
+    realOrSelf,
     removeAntigravityRules,
     sameEntry,
     shapeOf,
     textOrNull,
+    writeSettings,
     type SettingsMerge
 } from './install.ts';
 
@@ -144,7 +145,7 @@ async function removeFromSettings(
     entry: LedgerEntry,
     remove: (config: unknown) => SettingsMerge & { keptEdited: number }
 ): Promise<AgentIntegrationReport> {
-    const path = await realpath(link).catch(() => link);
+    const path = await realOrSelf(link);
     const report = (outcome: AgentIntegrationReport['outcome'], message?: string): AgentIntegrationReport => ({
         path: link,
         kind,
@@ -178,12 +179,7 @@ async function removeFromSettings(
                     await rm(path, { force: true });
                     return report('deleted');
                 }
-                const mode = await stat(path).then(
-                    (stats) => stats.mode & 0o777,
-                    () => 0o644
-                );
-                await mkdir(dirname(path), { recursive: true });
-                await writeAtomic(path, `${JSON.stringify(removal.config, null, 2)}\n`, mode);
+                await writeSettings(path, removal.config);
                 return report('removed', removal.keptEdited > 0 ? 'An entry you edited was left in place' : undefined);
             }
             throw new Error(`${path} kept changing; try again`);

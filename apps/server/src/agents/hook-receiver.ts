@@ -1,4 +1,6 @@
 import { AgentKindSchema, type AgentKind } from '@ruimte/contracts';
+import { bearerToken } from '../canvas/canvas-route.ts';
+import { isRecord } from '../is-record.ts';
 import type { HookResult } from '../sessions/manager.ts';
 import { hasHooks, takesHookContext } from './hooks.ts';
 
@@ -16,13 +18,8 @@ const MAX_BODY_BYTES = 4 * 1024 * 1024;
 // The events whose hook stdout becomes context for the model (`hookSpecificOutput.additionalContext`), in Claude Code and Codex alike.
 const CONTEXT_EVENTS = new Set(['SessionStart', 'UserPromptSubmit']);
 
-function bearer(request: Request): string | null {
-    const header = request.headers.get('authorization') ?? '';
-    return header.startsWith('Bearer ') ? header.slice(7).trim() || null : null;
-}
-
 function eventOf(body: unknown): string | null {
-    const event = typeof body === 'object' && body !== null ? (body as Record<string, unknown>).hook_event_name : undefined;
+    const event = isRecord(body) ? body.hook_event_name : undefined;
     return typeof event === 'string' ? event : null;
 }
 
@@ -46,7 +43,7 @@ export async function handleHookRequest(
     if (!kind.success || !hasHooks(kind.data)) {
         return new Response('Unknown agent', { status: 404 });
     }
-    const token = bearer(request);
+    const token = bearerToken(request);
     if (!token) {
         return new Response('Missing bearer token', { status: 401 });
     }
