@@ -59,14 +59,7 @@ export function parseArgs(text: string): string[] {
 }
 
 export function parseLanguages(text: string): string[] {
-    return text
-        .split(/[\s,]+/)
-        .map((language) => language.trim())
-        .filter((language) => language !== '');
-}
-
-function parsePatterns(text: string): string[] {
-    return lines(text);
+    return text.split(/[\s,]+/).filter((language) => language !== '');
 }
 
 /* Null for a line that is not `NAME=value`. */
@@ -102,10 +95,11 @@ export function problemOf(draft: CustomDraft): DraftProblem | null {
     if (draft.command.trim() === '') {
         return 'command';
     }
-    if (parseLanguages(draft.languages).length + parsePatterns(draft.patterns).length === 0) {
+    const patterns = lines(draft.patterns);
+    if (parseLanguages(draft.languages).length + patterns.length === 0) {
         return 'serves';
     }
-    if (!parsePatterns(draft.patterns).every(isValidFilePattern)) {
+    if (!patterns.every(isValidFilePattern)) {
         return 'pattern';
     }
     if (parseEnv(draft.env) === null) {
@@ -130,7 +124,7 @@ export function inputOf(draft: CustomDraft): CustomLanguageServerInput {
         args: parseArgs(draft.args),
         env: parseEnv(draft.env) ?? {},
         languages: parseLanguages(draft.languages),
-        patterns: parsePatterns(draft.patterns),
+        patterns: lines(draft.patterns),
         ...(options === undefined ? {} : { initializationOptions: options }),
         ...(draft.scope === 'some' ? { projects: draft.projects } : {})
     };

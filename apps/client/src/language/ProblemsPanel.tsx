@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CircleCheck, CircleX, Info, Search, TriangleAlert } from 'lucide-react';
 import { resolveStoredPath } from '@ruimte/contracts';
@@ -28,7 +28,7 @@ function useProjectLanguage(): ProjectLanguage | null {
     const endpointId = useEndpointId();
     const projectId = useProject((state) => state.current?.projectId ?? null);
     const folder = useProject((state) => state.current?.folder ?? null);
-    const holder = useMemo(() => createHolder<ProjectLanguage>(), []);
+    const [holder] = useState(createHolder<ProjectLanguage>);
 
     useEffect(() => {
         if (projectId === null || folder === null) {
@@ -49,7 +49,7 @@ const NONE: readonly ProblemFile[] = [];
 
 /*
  * The problems every language server reports for the files of the project that are open, a file at a time,
- * worst first. A servers reports only for a document it was given, so a file nobody has open is not here.
+ * worst first. A server reports only for a document it was given, so a file nobody has open is not here.
  * A press on a problem opens its file at the line.
  */
 export function ProblemsPanel() {

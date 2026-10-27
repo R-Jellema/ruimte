@@ -1,6 +1,5 @@
 import i18next from 'i18next';
 import { createStore, type StoreApi } from 'zustand';
-import { fileUriToPath } from '@adecore/lsp';
 import type { EditorRange } from '@adecore/editor';
 import { shikiLanguageOf, type HoverView } from '@adecore/editor-react';
 import { isEmptyRange } from '@adecore/editor-react/models';
@@ -10,8 +9,7 @@ import { useToasts } from '@/state/toasts';
 import { functionSourceAt, isFunctionSignature } from '@/ondevice/explain-model';
 import { onDeviceClientFor, type OnDeviceClient } from '@/ondevice/ondevice-client';
 import { explainPrompt } from '@/ondevice/prompts';
-import type { HostLanguage as EditorLanguage } from './host-language';
-import { isPathBelow, relativeTo } from '@/shell/panels/files-tree';
+import { promptFileName, type HostLanguage as EditorLanguage } from './host-language';
 
 const TOAST_ID = 'language-explain';
 
@@ -148,9 +146,7 @@ export class ExplainFeature {
     }
 
     private fileOf(uri: string): string {
-        const path = fileUriToPath(uri) ?? uri;
-        const folder = this.language.project.folder;
-        return isPathBelow(folder, path) ? relativeTo(folder, path) : path;
+        return promptFileName(this.language.project.folder, uri);
     }
 
     private async run(subject: HoverView['subject'], input: Parameters<typeof explainPrompt>[0]): Promise<void> {

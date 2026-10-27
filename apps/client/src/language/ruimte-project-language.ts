@@ -90,14 +90,17 @@ export class ProjectLanguage extends SharedProjectLanguage {
         const editors = this.openEditors.get(uri) ?? [];
         editors.push(editor);
         this.openEditors.set(uri, editors);
-        let held: LanguageDocumentHandle;
-        try {
-            held = super.acquire(uri, languageId, editor);
-        } catch (error) {
+        const forget = (): void => {
             editors.splice(editors.indexOf(editor), 1);
             if (editors.length === 0) {
                 this.openEditors.delete(uri);
             }
+        };
+        let held: LanguageDocumentHandle;
+        try {
+            held = super.acquire(uri, languageId, editor);
+        } catch (error) {
+            forget();
             throw error;
         }
         let released = false;
@@ -112,10 +115,7 @@ export class ProjectLanguage extends SharedProjectLanguage {
                     return;
                 }
                 released = true;
-                editors.splice(editors.indexOf(editor), 1);
-                if (editors.length === 0) {
-                    this.openEditors.delete(uri);
-                }
+                forget();
                 held.release();
             }
         };

@@ -10,12 +10,10 @@ import { onDeviceClientFor, type OnDeviceClient } from '@/ondevice/ondevice-clie
 import { ghostPrompt } from '@/ondevice/prompts';
 import { useSettings } from '@/state/settings';
 import { useToasts } from '@/state/toasts';
-import type { HostLanguage as EditorLanguage } from './host-language';
+import { promptFileName, type HostLanguage as EditorLanguage } from './host-language';
 import { GhostHint } from './GhostHint';
 import { shikiLanguageOf } from '@adecore/editor-react';
 import { isShortcut } from './shortcut-keys';
-import { fileUriToPath } from '@adecore/lsp';
-import { isPathBelow, relativeTo } from '@/shell/panels/files-tree';
 
 const TOAST_ID = 'language-ghost';
 const PROGRESS_OWNER = 'ghost-progress';
@@ -142,7 +140,12 @@ export class GhostTextFeature {
             const result = await this.client.generate(
                 {
                     purpose: 'ghost',
-                    prompt: ghostPrompt({ language: shikiLanguageOf(this.language.languageId), file: this.fileName(), before, after })
+                    prompt: ghostPrompt({
+                        language: shikiLanguageOf(this.language.languageId),
+                        file: promptFileName(this.language.project.folder, this.language.uri),
+                        before,
+                        after
+                    })
                 },
                 controller.signal
             );
@@ -234,12 +237,6 @@ export class GhostTextFeature {
         const before = editor.textInRange({ start: { line: Math.max(0, position.line - CONTEXT_LINES), character: 0 }, end: position });
         const after = editor.textInRange({ start: position, end: { line: position.line + CONTEXT_LINES, character: last } });
         return { before, after, restOfLine: after.split('\n')[0] ?? '' };
-    }
-
-    private fileName(): string {
-        const path = fileUriToPath(this.language.uri) ?? this.language.uri;
-        const folder = this.language.project.folder;
-        return isPathBelow(folder, path) ? relativeTo(folder, path) : path;
     }
 
     private showProgress(position: EditorPosition): void {

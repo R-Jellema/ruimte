@@ -100,16 +100,7 @@ function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
             return;
         }
         signal.addEventListener('abort', abort, { once: true });
-        promise.then(
-            (value) => {
-                signal.removeEventListener('abort', abort);
-                resolve(value);
-            },
-            (error: unknown) => {
-                signal.removeEventListener('abort', abort);
-                reject(error);
-            }
-        );
+        promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', abort));
     });
 }
 
@@ -176,18 +167,7 @@ export class WireLanguageService implements LanguageService {
     }
 
     async openDocument(document: LanguageDocument): Promise<void> {
-        const existing = this.documents.get(document.uri);
-        const open: OpenDocument = existing ?? {
-            uri: document.uri,
-            path: this.pathOfUri(document.uri),
-            languageId: document.languageId,
-            version: 0,
-            providers: {},
-            servers: [],
-            resyncing: null,
-            byEditor: true,
-            draft: null
-        };
+        const open = this.documents.get(document.uri) ?? this.newDocument(document.uri, document.languageId, null);
         // A file whose unsaved text the daemon already has is now the editor's to keep in step.
         open.byEditor = true;
         this.documents.set(document.uri, open);
@@ -249,7 +229,7 @@ export class WireLanguageService implements LanguageService {
             return;
         }
         if (!document) {
-            document = { uri, path: this.pathOfUri(uri), languageId, version: 0, providers: {}, servers: [], resyncing: null, byEditor: false, draft: text };
+            document = this.newDocument(uri, languageId, text);
             this.documents.set(uri, document);
         }
         document.draft = text;
@@ -653,6 +633,10 @@ export class WireLanguageService implements LanguageService {
             }
         }
         return undefined;
+    }
+
+    private newDocument(uri: string, languageId: string, draft: string | null): OpenDocument {
+        return { uri, path: this.pathOfUri(uri), languageId, version: 0, providers: {}, servers: [], resyncing: null, byEditor: false, draft };
     }
 
     private pathOfUri(uri: string): string {
