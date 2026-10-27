@@ -12,30 +12,10 @@ import {
 import type { LinkEvents } from './link-transport';
 import type { SignalingEvents } from './signaling';
 import { inflateFrame, webRtcLink, type WebRtcLinkOptions } from './webrtc-link';
+import { FakeSocket } from '../../testing/fake-socket';
 
 const OFFER = 'v=0\r\na=fingerprint:sha-256 AA:AA\r\n';
 const ANSWER = 'v=0\r\na=fingerprint:sha-256 BB:BB\r\n';
-
-class FakeSocket {
-    readonly sent: string[] = [];
-    closed = false;
-    onopen: (() => void) | null = null;
-    onmessage: ((message: { data: string }) => void) | null = null;
-    onclose: (() => void) | null = null;
-    onerror: (() => void) | null = null;
-
-    send(data: string): void {
-        this.sent.push(data);
-    }
-
-    close(): void {
-        this.closed = true;
-    }
-
-    event(event: string, payload: unknown): void {
-        this.onmessage?.({ data: JSON.stringify({ type: 'event', event, payload }) });
-    }
-}
 
 class FakeChannel {
     readonly sent: string[] = [];

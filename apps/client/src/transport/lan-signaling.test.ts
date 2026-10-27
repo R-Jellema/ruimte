@@ -1,49 +1,13 @@
 import { describe, expect, test } from 'bun:test';
-import { createPublicKey, generateKeyPairSync, sign, verify } from 'node:crypto';
 import { LanDoorClientFrameSchema, lanDoorMessage, signalMessage, type LanDoorClientFrame, type SignalAccess, type SignalEnvelope } from '@ruimte/pulsar';
 import i18next from 'i18next';
 import type { ClientKey } from '@/endpoint/client-key';
 import { lanSignaling } from './lan-signaling';
 import type { Signal, SignalingEvents } from './signaling';
+import { FakeSocket, newKey, verifies } from '../../testing/fake-socket';
 
 const NONCE = 'n'.repeat(32);
 const MACHINE_ID = 'studio';
-
-function newKey() {
-    const pair = generateKeyPairSync('ed25519');
-    const publicKey = (pair.publicKey.export({ format: 'jwk' }) as { x: string }).x;
-    return { publicKey, sign: (message: string) => sign(null, Buffer.from(message), pair.privateKey).toString('base64url') };
-}
-
-async function verifies(publicKey: string, message: string, signature: string): Promise<boolean> {
-    return verify(
-        null,
-        Buffer.from(message),
-        createPublicKey({ key: { kty: 'OKP', crv: 'Ed25519', x: publicKey }, format: 'jwk' }),
-        Buffer.from(signature, 'base64url')
-    );
-}
-
-class FakeSocket {
-    readonly sent: LanDoorClientFrame[] = [];
-    closed = false;
-    onopen: (() => void) | null = null;
-    onmessage: ((message: { data: string }) => void) | null = null;
-    onclose: (() => void) | null = null;
-    onerror: (() => void) | null = null;
-
-    send(frame: string): void {
-        this.sent.push(LanDoorClientFrameSchema.parse(JSON.parse(frame)));
-    }
-
-    close(): void {
-        this.closed = true;
-    }
-
-    deliver(frame: unknown): void {
-        this.onmessage?.({ data: JSON.stringify(frame) });
-    }
-}
 
 function settle(): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, 0));
@@ -52,7 +16,7 @@ function settle(): Promise<void> {
 function setup(options: { machineId?: string | null; access?: (key: ClientKey) => Promise<SignalAccess> } = {}) {
     const client = newKey();
     const machine = newKey();
-    const sockets: FakeSocket[] = [];
+    const sockets: FakeSocket<LanDoorClientFrame>[] = [];
     const key: ClientKey = { publicKey: client.publicKey, sign: async (message) => client.sign(message) };
     const log = { ready: [] as unknown[][], signals: [] as Signal[], failures: [] as string[] };
     const events: SignalingEvents = {
@@ -68,7 +32,7 @@ function setup(options: { machineId?: string | null; access?: (key: ClientKey) =
         verify: verifies,
         nonce: () => NONCE,
         createSocket: () => {
-            const socket = new FakeSocket();
+            const socket = new FakeSocket((frame) => LanDoorClientFrameSchema.parse(JSON.parse(frame)));
             sockets.push(socket);
             return socket as unknown as WebSocket;
         },

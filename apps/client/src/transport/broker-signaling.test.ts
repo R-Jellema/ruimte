@@ -1,49 +1,13 @@
 import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
-import { createPublicKey, generateKeyPairSync, sign, verify } from 'node:crypto';
 import { BrokerPeerFrameSchema, brokerHelloMessage, signalMessage, type BrokerPeerFrame, type SignalAccess, type SignalEnvelope } from '@ruimte/pulsar';
 import type { ClientKey } from '@/endpoint/client-key';
 import { BrokerSockets, brokerSignaling } from './broker-signaling';
 import type { Signal, SignalingEvents } from './signaling';
+import { FakeSocket, newKey, verifies } from '../../testing/fake-socket';
 
 const BROKER_URL = 'wss://broker.example.com';
 const NONCE = 'n'.repeat(32);
 const NOW = Date.UTC(2026, 9, 1);
-
-function newKey() {
-    const pair = generateKeyPairSync('ed25519');
-    const publicKey = (pair.publicKey.export({ format: 'jwk' }) as { x: string }).x;
-    return { publicKey, sign: (message: string) => sign(null, Buffer.from(message), pair.privateKey).toString('base64url') };
-}
-
-async function verifies(publicKey: string, message: string, signature: string): Promise<boolean> {
-    return verify(
-        null,
-        Buffer.from(message),
-        createPublicKey({ key: { kty: 'OKP', crv: 'Ed25519', x: publicKey }, format: 'jwk' }),
-        Buffer.from(signature, 'base64url')
-    );
-}
-
-class FakeSocket {
-    readonly sent: BrokerPeerFrame[] = [];
-    closed = false;
-    onopen: (() => void) | null = null;
-    onmessage: ((message: { data: string }) => void) | null = null;
-    onclose: (() => void) | null = null;
-    onerror: (() => void) | null = null;
-
-    send(frame: string): void {
-        this.sent.push(BrokerPeerFrameSchema.parse(JSON.parse(frame)));
-    }
-
-    close(): void {
-        this.closed = true;
-    }
-
-    deliver(frame: unknown): void {
-        this.onmessage?.({ data: JSON.stringify(frame) });
-    }
-}
 
 function settle(): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, 0));
@@ -52,9 +16,9 @@ function settle(): Promise<void> {
 function setup(access?: (key: ClientKey) => Promise<SignalAccess>) {
     const client = newKey();
     const machine = newKey();
-    const sockets: FakeSocket[] = [];
+    const sockets: FakeSocket<BrokerPeerFrame>[] = [];
     const brokers = new BrokerSockets(() => {
-        const socket = new FakeSocket();
+        const socket = new FakeSocket((frame) => BrokerPeerFrameSchema.parse(JSON.parse(frame)));
         sockets.push(socket);
         return socket as unknown as WebSocket;
     });
@@ -80,7 +44,7 @@ function setup(access?: (key: ClientKey) => Promise<SignalAccess>) {
         return { signaling: open(connectionId, events), log };
     };
     /* Opens the broker socket and walks it through the announcement and the question for ICE servers, answered with `servers`. */
-    const announce = async (servers: unknown[] = []): Promise<FakeSocket> => {
+    const announce = async (servers: unknown[] = []): Promise<FakeSocket<BrokerPeerFrame>> => {
         await settle();
         const socket = sockets.at(-1)!;
         socket.onopen?.();
