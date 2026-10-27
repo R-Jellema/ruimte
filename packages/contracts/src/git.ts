@@ -518,6 +518,22 @@ export const GitLogResultSchema = z.object({
 });
 export type GitLogResult = z.infer<typeof GitLogResultSchema>;
 
+/* `git.authors`: the GitHub accounts behind the addresses that wrote the repository's recent commits, as GitHub itself linked them. */
+export const GitAuthorsResultSchema = z.object({
+    // Empty when the repository is not on GitHub or gh cannot reach it.
+    authors: z
+        .array(
+            z.object({
+                // Lowercase, so a row matches it whatever case git wrote.
+                email: z.string(),
+                // The account's numeric id, which names its picture.
+                id: z.number().int().positive()
+            })
+        )
+        .max(100)
+});
+export type GitAuthorsResult = z.infer<typeof GitAuthorsResultSchema>;
+
 // One request because they share a shape: progress lines while git runs, a summary line, failure output as the error.
 export const GitActionKindSchema = z.enum([
     'fetch',

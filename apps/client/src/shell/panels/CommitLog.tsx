@@ -5,7 +5,9 @@ import { GIT_GROUP } from '@/shell/panels/classes';
 import { perform } from '@/actions/client-actions';
 import { githubPicture, groupCommits, mergeLogs, shownRefs, type LoadedLog, type LogRow } from '@/shell/panels/commit-log';
 import { useGit } from '@/state/git';
+import { useEndpointId } from '@/state/keys';
 import { useTransport } from '@/transport/context';
+import { useMachineAnswers } from '@/transport/features';
 import { Button, copyText, Icon, ListRow, Menu, Pill, PanelEmpty, SectionLabel, Tooltip, ContextMenu, useNow } from '@adecore/ui';
 import { formatAge, formatClock, isSameDay } from '@adecore/ui/format';
 
@@ -57,6 +59,7 @@ export function CommitLog({ sources, filterKey, reading, onOpen }: CommitLogProp
     // The same path on another machine is another log, so a switch reads it again.
     const transport = useTransport();
     const shown = held !== null && held.asked === asked ? held : null;
+    const accounts = useAuthorAccounts(read);
 
     useEffect(() => {
         let alive = true;
@@ -146,7 +149,14 @@ export function CommitLog({ sources, filterKey, reading, onOpen }: CommitLogProp
                         {index === 0 && filter}
                     </header>
                     {section.commits.map((commit) => (
-                        <CommitRow key={`${commit.cwd}\u0000${commit.hash}`} commit={commit} selected={commit.hash === reading} now={now} onOpen={open} />
+                        <CommitRow
+                            key={`${commit.cwd}\u0000${commit.hash}`}
+                            commit={commit}
+                            picture={githubPicture(commit.authorEmail, accounts)}
+                            selected={commit.hash === reading}
+                            now={now}
+                            onOpen={open}
+                        />
                     ))}
                 </section>
             ))}
@@ -194,6 +204,8 @@ function RepoFilter({ sources, narrowed, onPick }: RepoFilterProps) {
 
 interface CommitRowProps {
     commit: LogRow;
+    /* The author's GitHub picture, null where the address names no account GitHub told of. */
+    picture: string | null;
     selected: boolean;
     now: number;
     onOpen(cwd: string, commit: LogRow): void;
@@ -207,13 +219,14 @@ function sameRow(before: CommitRowProps, after: CommitRowProps): boolean {
         before.commit.repo === after.commit.repo &&
         before.commit.refs.join('\u0000') === after.commit.refs.join('\u0000') &&
         (before.commit.remoteRefs ?? []).join('\u0000') === (after.commit.remoteRefs ?? []).join('\u0000') &&
+        before.picture === after.picture &&
         before.selected === after.selected &&
         before.now === after.now &&
         before.onOpen === after.onOpen
     );
 }
 
-const CommitRow = memo(function CommitRow({ commit, selected, now, onOpen }: CommitRowProps) {
+const CommitRow = memo(function CommitRow({ commit, picture, selected, now, onOpen }: CommitRowProps) {
     const { t } = useTranslation('panels');
     const refs = shownRefs(commit);
     return (
@@ -225,7 +238,7 @@ const CommitRow = memo(function CommitRow({ commit, selected, now, onOpen }: Com
                 data-selected={selected || undefined}
                 onClick={() => onOpen(commit.cwd, commit)}
             >
-                <AuthorAvatar name={commit.author} email={commit.authorEmail} />
+                <AuthorAvatar name={commit.author} email={commit.authorEmail} picture={picture} />
                 {/* One width for every repository, so the subjects start in one column. */}
                 {commit.repo !== '' && <span className="w-16 shrink-0 truncate text-text-faint">{commit.repo}</span>}
                 <span className="truncate text-text">{commit.subject}</span>
@@ -270,9 +283,46 @@ const CommitRow = memo(function CommitRow({ commit, selected, now, onOpen }: Com
     );
 }, sameRow);
 
+/*
+ * The GitHub accounts behind the addresses in these repositories' logs, merged into one map, since an
+ * address is the same person in every repository. Read once per set of folders, not on every status.
+ */
+function useAuthorAccounts(sources: readonly LogSource[]): ReadonlyMap<string, number> | undefined {
+    const transport = useTransport();
+    const answers = useMachineAnswers(useEndpointId(), 'git.authors');
+    const cwds = sources.map((source) => source.cwd).join('\u0000');
+    const [held, setHeld] = useState<{ cwds: string; accounts: ReadonlyMap<string, number> } | null>(null);
+
+    useEffect(() => {
+        if (!answers || cwds === '') {
+            return;
+        }
+
+        let alive = true;
+
+        Promise.all(
+            cwds.split('\u0000').map((cwd) =>
+                transport
+                    .request('git.authors', { cwd })
+                    .then((answer) => answer.authors)
+                    .catch(() => [])
+            )
+        ).then((lists) => {
+            if (alive) {
+                setHeld({ cwds, accounts: new Map(lists.flat().map((author) => [author.email, author.id])) });
+            }
+        });
+
+        return () => {
+            alive = false;
+        };
+    }, [transport, answers, cwds]);
+
+    return held?.cwds === cwds ? held.accounts : undefined;
+}
+
 /* The author as a mark at the start of the row: GitHub's picture where the address names an account, else the first letter. */
-function AuthorAvatar({ name, email }: { readonly name: string; readonly email: string | undefined }) {
-    const picture = githubPicture(email);
+function AuthorAvatar({ name, email, picture }: { readonly name: string; readonly email: string | undefined; readonly picture: string | null }) {
     // Offline, or an account GitHub no longer knows: the letter stands in rather than a broken image.
     const [failed, setFailed] = useState<string | null>(null);
     return (

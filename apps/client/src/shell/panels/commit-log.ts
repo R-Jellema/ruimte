@@ -114,13 +114,15 @@ export function shownRefs(commit: Pick<GitCommit, 'refs' | 'remoteRefs'>): Shown
 
 /*
  * GitHub's picture for a commit written from its private address, `<id>+<login>@` or, before 2017,
- * `<login>@users.noreply.github.com`. Any other address has none: asking a picture service about it
+ * `<login>@users.noreply.github.com`, or from an address GitHub linked to an account in the commits it
+ * holds (`accounts`, from `git.authors`). Any other address has none: asking a picture service about it
  * would hand that service every author of the repository.
  */
-export function githubPicture(email: string | undefined): string | null {
+export function githubPicture(email: string | undefined, accounts?: ReadonlyMap<string, number>): string | null {
     const match = /^(?:(\d+)\+)?([a-z\d](?:[a-z\d-]*[a-z\d])?)@users\.noreply\.github\.com$/i.exec(email ?? '');
     if (match === null) {
-        return null;
+        const account = email === undefined ? undefined : accounts?.get(email.toLowerCase());
+        return account === undefined ? null : `https://avatars.githubusercontent.com/u/${account}?s=32`;
     }
     const [, id, login = ''] = match;
     return id === undefined ? `https://github.com/${login}.png?size=32` : `https://avatars.githubusercontent.com/u/${id}?s=32`;

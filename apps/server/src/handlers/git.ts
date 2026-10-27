@@ -1,6 +1,7 @@
 import { dirname } from 'node:path';
 import type { AgentKind, GitActionPhase } from '@ruimte/contracts';
 import { RequestError, sendEvent, type ClientConnection, type Dispatcher } from '../dispatcher.ts';
+import { authorPictures } from '../git/author-pictures.ts';
 import { fetchBundle, makeBundle, type BundleStore } from '../git/bundles.ts';
 import type { CheckpointService } from '../git/checkpoints.ts';
 import { GitActions } from '../git/actions.ts';
@@ -221,6 +222,8 @@ export function registerGitHandlers(
     dispatcher.register('git.repos', (payload) => cachedRepos(payload.folder, payload.fresh === true));
 
     dispatcher.register('git.log', (payload) => readLog(payload.cwd, payload.limit, payload.cursor));
+
+    dispatcher.register('git.authors', async (payload) => ({ authors: await authorPictures.authorsOf(payload.cwd) }));
 
     dispatcher.register('git.capabilities', () => readCapabilities(providers));
 

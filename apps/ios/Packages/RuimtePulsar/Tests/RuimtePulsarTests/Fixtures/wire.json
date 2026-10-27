@@ -318,6 +318,7 @@
     "git.refs",
     "git.repos",
     "git.log",
+    "git.authors",
     "git.action",
     "git.cancel",
     "git.clone",

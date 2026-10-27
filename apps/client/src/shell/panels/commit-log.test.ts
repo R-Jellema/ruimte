@@ -126,8 +126,13 @@ describe('githubPicture', () => {
         expect(githubPicture('bas@users.noreply.github.com')).toBe('https://github.com/bas.png?size=32');
     });
 
+    test('an address GitHub linked to an account points at that account, whatever its case', () => {
+        expect(githubPicture('Bas@Example.com', new Map([['bas@example.com', 978257]]))).toBe('https://avatars.githubusercontent.com/u/978257?s=32');
+    });
+
     test('any other address has no picture', () => {
         expect(githubPicture('bas@example.com')).toBeNull();
+        expect(githubPicture('ada@example.com', new Map([['bas@example.com', 978257]]))).toBeNull();
         expect(githubPicture(undefined)).toBeNull();
     });
 });
