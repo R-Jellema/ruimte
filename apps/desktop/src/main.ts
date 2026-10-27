@@ -8,7 +8,16 @@ import { LAUNCHER_PIPE_VARIABLE } from './launcher-pipe';
 import { moveLegacyStorage } from './legacy-storage';
 import { MACHINE_ARGUMENT } from './machine-argument';
 import { decideMachineMode, hasInstallTraces, machineModeFile, parseModeOverride } from './machine-mode';
-import { createPageKeys, createTheme, createUpdater, createWindows, type WindowOrigin, createWindowState, fileStorage } from '@adecore/shell';
+import {
+    createGestureGate,
+    createPageKeys,
+    createTheme,
+    createUpdater,
+    createWindows,
+    type WindowOrigin,
+    createWindowState,
+    fileStorage
+} from '@adecore/shell';
 import type { ThemeState } from '@adecore/shell/bridge';
 import { type AgentActivity, type KeepAwakeRequest } from '@ruimte/desktop-bridge';
 import { isWindowKey, isWindowState, isWindowView, tabStripOf, totalActivity, windowPointOf, windowUrl } from './app-windows';
@@ -33,7 +42,7 @@ import { createReleaseNotes } from './release-notes';
 import { runSmoke } from './smoke';
 import { installSocketTypeOfServiceGuard } from './socket-tos-guard';
 import { startApp } from './startup';
-import { appSubframeNavigation, BROWSER_PARTITION, createGestureGate, isExternalLink, PREVIEW_PARTITION } from './web-guards';
+import { appSubframeNavigation, BROWSER_PARTITION, isExternalLink, PREVIEW_PARTITION } from './web-guards';
 
 const { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, powerMonitor, powerSaveBlocker, protocol, screen, session, shell, webContents } = electron;
 
@@ -141,7 +150,7 @@ function sealPreviewSession(): void {
 
 /* Network links a person clicks leave the sealed preview instead of failing silently inside it. */
 function routePreviewLinks(contents: Electron.WebContents): void {
-    const gesture = createGestureGate(() => Date.now());
+    const gesture = createGestureGate();
     contents.on('input-event', (_event, input) => gesture.saw(input.type));
     contents.on('will-navigate', (event) => {
         if (isExternalLink(event.url)) {

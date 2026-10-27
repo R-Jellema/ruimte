@@ -1,13 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { createDesktopAppScheme } from './app-scheme';
-import {
-    allowGuestPermission,
-    appSubframeNavigation,
-    createGestureGate,
-    hardenGuestPreferences,
-    isSystemSettingsPane,
-    type GuestWebPreferences
-} from './web-guards';
+import { allowGuestPermission, appSubframeNavigation, hardenGuestPreferences, isSystemSettingsPane, type GuestWebPreferences } from './web-guards';
 
 const APP = createDesktopAppScheme('/client', 'http://127.0.0.1:4210').isAppUrl;
 const PACKAGED = createDesktopAppScheme('/client').isAppUrl;
@@ -133,41 +126,5 @@ describe('hardenGuestPreferences', () => {
         expect(hardenGuestPreferences({ partition: '' })).toBe(false);
         expect(hardenGuestPreferences({ partition: 'persist:other' })).toBe(false);
         expect(hardenGuestPreferences({ partition: 'ruimte' })).toBe(false);
-    });
-});
-
-describe('createGestureGate', () => {
-    const gate = () => {
-        const clock = { now: 0 };
-        return { clock, gesture: createGestureGate(() => clock.now) };
-    };
-
-    test('a script that leaves the preview without a click opens nothing', () => {
-        const { gesture } = gate();
-        expect(gesture.consume()).toBe(false);
-    });
-
-    test('a click lets one link out, and only one', () => {
-        const { clock, gesture } = gate();
-        gesture.saw('mouseDown');
-        clock.now += 200;
-        expect(gesture.consume()).toBe(true);
-        expect(gesture.consume()).toBe(false);
-    });
-
-    test('a key counts as a click, a move or a wheel does not', () => {
-        const { gesture } = gate();
-        gesture.saw('mouseMove');
-        gesture.saw('mouseWheel');
-        expect(gesture.consume()).toBe(false);
-        gesture.saw('keyDown');
-        expect(gesture.consume()).toBe(true);
-    });
-
-    test('a click long ago lets nothing out', () => {
-        const { clock, gesture } = gate();
-        gesture.saw('mouseUp');
-        clock.now += 5000;
-        expect(gesture.consume()).toBe(false);
     });
 });

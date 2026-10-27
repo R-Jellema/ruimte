@@ -1,3 +1,4 @@
+import { ipcSubscriber } from '@adecore/shell/bridge';
 import type {
     BackgroundServiceState,
     BrowserContextAction,
@@ -35,15 +36,7 @@ function argument(prefix: string): string | undefined {
     return process.argv.find((arg) => arg.startsWith(prefix))?.slice(prefix.length) || undefined;
 }
 
-/* A listener on a channel the main process sends to, with what removes it again. */
-function subscribe<Args extends unknown[]>(channel: string): (listener: (...args: Args) => void) => () => void {
-    return (listener) => {
-        const handler = (_event: unknown, ...args: unknown[]): void => listener(...(args as Args));
-        ipcRenderer.on(channel, handler);
-        return () => ipcRenderer.removeListener(channel, handler);
-    };
-}
-
+const subscribe = ipcSubscriber(ipcRenderer);
 const machineMode = modeFromArgv(process.argv);
 
 /* The local secret and the service switch belong to a machine this app runs; without one they are not even offered. */
