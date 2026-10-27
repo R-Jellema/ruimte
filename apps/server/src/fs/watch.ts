@@ -1,7 +1,7 @@
 import { dirname, join, resolve } from 'node:path';
-import type { SessionSink } from '../sessions/manager.ts';
 import { PerClientWatches, settled, supportsRecursive, SYSTEM_WATCH, type DirectoryWatcher, type Settled, type WatchSeams } from '@adecore/agents';
 import { ClientSinks } from '../client-sinks.ts';
+import type { SessionSink } from '../sessions/manager.ts';
 import { isUnder } from './path-segment.ts';
 
 // A save, a formatter and a build all touch the same folder in a burst; one event per burst is enough.

@@ -40,13 +40,17 @@ export function contextOf(lineOf: (line: number) => string | undefined, line: nu
     return { before, after };
 }
 
+/* The lines of a file by their number from 1, without a line ending. */
+export function lineReader(content: string): (line: number) => string | undefined {
+    const lines = content.split('\n');
+    return (line) => lines[line - 1]?.replace(/\r$/, '');
+}
+
 /* The first hit on each line of one file, at most `limit` of them. */
 export function matchLines(path: string, content: string, pattern: RegExp, limit: number): FsGrepMatch[] {
-    const lines = content.split('\n');
-    const lineOf = (line: number): string | undefined => lines[line - 1]?.replace(/\r$/, '');
+    const lineOf = lineReader(content);
     const matches: FsGrepMatch[] = [];
-    for (let index = 0; index < lines.length && matches.length < limit; index += 1) {
-        const text = lineOf(index + 1)!;
+    for (let line = 1, text = lineOf(line); text !== undefined && matches.length < limit; line += 1, text = lineOf(line)) {
         const found = pattern.exec(text);
         if (!found) {
             continue;
@@ -54,11 +58,11 @@ export function matchLines(path: string, content: string, pattern: RegExp, limit
         const column = Math.min(found.index, MAX_LINE_LENGTH);
         matches.push({
             path,
-            line: index + 1,
+            line,
             column,
             length: Math.min(found[0].length, MAX_LINE_LENGTH - column),
             text: clipText(text, MAX_LINE_LENGTH),
-            ...contextOf(lineOf, index + 1)
+            ...contextOf(lineOf, line)
         });
     }
     return matches;

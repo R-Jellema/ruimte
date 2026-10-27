@@ -55,19 +55,13 @@ export async function locateFile(payload: FsLocatePayload, deps: LocateDeps = RE
     if (await open(own)) {
         return { matches: [own] };
     }
-    const bases = [...(await reposOf(deps, payload.cwd))];
+    const bases = await reposOf(deps, payload.cwd);
     if (payload.folder !== undefined && resolve(payload.folder) !== resolve(payload.cwd)) {
         bases.push(resolve(payload.folder), ...(await reposOf(deps, payload.folder)));
     }
-    const matches: string[] = [];
-    for (const path of new Set(bases.map((base) => resolve(base, payload.path)))) {
-        if (path !== own && (await open(path))) {
-            matches.push(path);
-            if (matches.length >= FS_LOCATE_MAX_MATCHES) {
-                break;
-            }
-        }
-    }
+    const others = new Set(bases.map((base) => resolve(base, payload.path)));
+    others.delete(own);
+    const matches = await firstOpen(others, open);
     if (matches.length > 0 || directory || deps.list === undefined) {
         return { matches };
     }
@@ -98,8 +92,16 @@ async function filesEndingIn(payload: FsLocatePayload, list: NonNullable<LocateD
             }
         }
     }
+    return firstOpen(
+        [...found].sort((a, b) => a.length - b.length || a.localeCompare(b)),
+        open
+    );
+}
+
+/* The paths that are open, in their order, up to the most an answer carries. */
+async function firstOpen(paths: Iterable<string>, open: (path: string) => Promise<boolean>): Promise<string[]> {
     const matches: string[] = [];
-    for (const path of [...found].sort((a, b) => a.length - b.length || a.localeCompare(b))) {
+    for (const path of paths) {
         if (await open(path)) {
             matches.push(path);
             if (matches.length >= FS_LOCATE_MAX_MATCHES) {

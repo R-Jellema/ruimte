@@ -1,7 +1,7 @@
 import { clipText, FS_GREP_MAX_RESULTS, type FsGrepMatch, type FsGrepResult } from '@ruimte/contracts';
 import { CodedError } from '@adecore/agents';
 import { COMPILED } from '../version.ts';
-import { contextOf, MAX_FILE_BYTES, MAX_LINE_LENGTH, type GrepWorkerMessage, type GrepWorkerRequest } from './grep-lines.ts';
+import { contextOf, lineReader, MAX_FILE_BYTES, MAX_LINE_LENGTH, type GrepWorkerMessage, type GrepWorkerRequest } from './grep-lines.ts';
 import { holdsMachineHome, NO_MACHINE_HOME, type MachineHomePolicy } from './machine-home.ts';
 import { listSearchableFiles } from './search.ts';
 import { isOpenName, readSearchable, searchRoot, type SearchRoot } from './searchable.ts';
@@ -223,8 +223,7 @@ async function confirmed(root: SearchRoot, files: CollectedFile[]): Promise<FsGr
         if (content === null) {
             continue;
         }
-        const lines = content.split('\n');
-        const lineOf = (line: number): string | undefined => lines[line - 1]?.replace(/\r$/, '');
+        const lineOf = lineReader(content);
         const hits = file.hits.filter((hit) => lineOf(hit.line) === hit.text);
         matches.push(...matchesOfFile(file.path, hits, lineOf));
     }
@@ -259,7 +258,7 @@ async function searchInJs(root: SearchRoot, query: string, options: GrepOptions,
             outcome();
         };
         const answer = (truncated: boolean): void => {
-            const result = { matches: matches.slice(0, limit), files: new Set(matches.map((match) => match.path)).size, truncated: truncated || walkTruncated };
+            const result = grepResult(matches.slice(0, limit), truncated || walkTruncated);
             settle(() => resolve(result));
         };
         worker.onmessage = (event: MessageEvent<GrepWorkerMessage>) => {
@@ -287,7 +286,7 @@ async function searchInJs(root: SearchRoot, query: string, options: GrepOptions,
 export async function grepFiles(cwd: string, query: string, options: GrepOptions = {}): Promise<FsGrepResult> {
     const trimmed = query.trim();
     if (trimmed === '') {
-        return { matches: [], files: 0, truncated: false };
+        return grepResult([], false);
     }
     const limit = Math.min(options.limit ?? FS_GREP_MAX_RESULTS, FS_GREP_MAX_RESULTS);
     // The pattern is checked here as well, so a broken regex fails the same way on both paths.
@@ -308,6 +307,9 @@ export async function grepFiles(cwd: string, query: string, options: GrepOptions
         }
         return searchInJs(root, trimmed, options, limit);
     }
-    const matches = await confirmed(root, found.files);
-    return { matches, files: new Set(matches.map((match) => match.path)).size, truncated: found.truncated };
+    return grepResult(await confirmed(root, found.files), found.truncated);
+}
+
+function grepResult(matches: FsGrepMatch[], truncated: boolean): FsGrepResult {
+    return { matches, files: new Set(matches.map((match) => match.path)).size, truncated };
 }

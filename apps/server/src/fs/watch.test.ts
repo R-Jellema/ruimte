@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { join, resolve } from 'node:path';
 import type { FsChangedEvent } from '@ruimte/contracts';
+import { FakeWatch } from '@adecore/agents/testing';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { FolderWatcher } from './watch.ts';
-import { FakeWatch } from '@adecore/agents/testing';
 
 // Nothing touches the disk: the fake watch reports whatever a test emits.
 const root = resolve('/work/repo');

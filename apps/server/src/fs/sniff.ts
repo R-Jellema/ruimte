@@ -40,8 +40,10 @@ const HEIF_BRANDS = new Set(['mif1', 'msf1']);
 // The sizes of the DIB headers a BMP can carry, from the OS/2 one to BITMAPV5HEADER.
 const BMP_HEADER_SIZES = new Set([12, 40, 52, 56, 64, 108, 124]);
 
+const latin1Decoder = new TextDecoder('latin1');
+
 function latin1(bytes: Uint8Array): string {
-    return new TextDecoder('latin1').decode(bytes);
+    return latin1Decoder.decode(bytes);
 }
 
 function uint32(bytes: Uint8Array, offset: number, littleEndian: boolean): number {

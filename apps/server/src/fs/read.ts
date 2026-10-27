@@ -1,5 +1,5 @@
 import { lstat, stat } from 'node:fs/promises';
-import { isAbsolute, resolve } from 'node:path';
+import { basename, isAbsolute, resolve } from 'node:path';
 import { FS_READ_MAX_TEXT_BYTES, isAudioMime, isImageMime, isModelMime, isPdfMime, isVideoMime, type FsReadResult } from '@ruimte/contracts';
 import { CodedError } from '@adecore/agents';
 import { looksLikeSvg, sniffMime } from './sniff.ts';
@@ -128,10 +128,6 @@ export function languageOf(name: string): string | undefined {
     return LANGUAGES[dot > 0 ? lower.slice(dot + 1) : ''] ?? BY_NAME[lower];
 }
 
-function baseName(path: string): string {
-    return path.split(/[/\\]/).pop() ?? path;
-}
-
 // The device and inode say which file was looked at, so a write can tell that file from one swapped in under its name.
 interface FileStat {
     path: string;
@@ -219,7 +215,7 @@ export async function readFile(path: string): Promise<FsReadResult> {
         encoding: 'utf-8',
         size: file.size,
         mtime: file.mtime,
-        language: languageOf(baseName(file.path))
+        language: languageOf(basename(file.path))
     };
 }
 
@@ -229,11 +225,8 @@ export const SERVED_TEXT_MIME = 'text/plain; charset=utf-8';
 /* The same file as bytes, for the file route and `bytes.read`: an image, video, sound, a PDF, a model or text. Null for any other binary. */
 export async function readServedFile(path: string): Promise<{ mime: string; size: number; bytes: Blob } | null> {
     const { file, mime } = await inspect(path);
-    if (mime === null) {
-        return { mime: SERVED_TEXT_MIME, size: file.size, bytes: Bun.file(file.path) };
-    }
-    if (!(isImageMime(mime) || isVideoMime(mime) || isAudioMime(mime) || isPdfMime(mime) || isModelMime(mime))) {
+    if (mime !== null && !(isImageMime(mime) || isVideoMime(mime) || isAudioMime(mime) || isPdfMime(mime) || isModelMime(mime))) {
         return null;
     }
-    return { mime, size: file.size, bytes: Bun.file(file.path) };
+    return { mime: mime ?? SERVED_TEXT_MIME, size: file.size, bytes: Bun.file(file.path) };
 }
