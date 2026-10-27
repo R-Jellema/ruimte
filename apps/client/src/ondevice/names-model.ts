@@ -12,6 +12,9 @@ const RESERVED = new Set(
 /* Languages whose names may hold a hyphen, which are mostly the ones that name classes and properties in a style sheet or markup. */
 const HYPHENATED = new Set(['css', 'scss', 'less', 'sass', 'html', 'vue', 'svelte', 'astro', 'xml', 'yaml', 'json', 'jsonc', 'toml', 'tailwindcss']);
 
+/* Languages whose names may hold a dollar sign. */
+const DOLLAR_NAMED = new Set(['typescript', 'javascript', 'typescriptreact', 'javascriptreact']);
+
 const PLAIN_NAME = /^[\p{L}_][\p{L}\p{N}_]*$/u;
 const DOLLAR_NAME = /^[\p{L}_$][\p{L}\p{N}_$]*$/u;
 const HYPHEN_NAME = /^[\p{L}_][\p{L}\p{N}_-]*$/u;
@@ -24,13 +27,7 @@ export function isValidName(name: string, languageId: string): boolean {
     if (HYPHENATED.has(languageId)) {
         return HYPHEN_NAME.test(name);
     }
-    return languageId === 'typescript' ||
-        languageId === 'javascript' ||
-        languageId === 'typescriptreact' ||
-        languageId === 'javascriptreact' ||
-        languageId === 'vue'
-        ? DOLLAR_NAME.test(name)
-        : PLAIN_NAME.test(name);
+    return (DOLLAR_NAMED.has(languageId) ? DOLLAR_NAME : PLAIN_NAME).test(name);
 }
 
 /* A leading list marker, quote or backtick the model puts in front of a name, and what follows the name on the line. */

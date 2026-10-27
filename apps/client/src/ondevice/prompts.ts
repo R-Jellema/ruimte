@@ -35,22 +35,21 @@ export function boundLines(text: string, max: number): string {
 
 /* The last lines that fit, the way `boundLines` keeps the first. */
 function boundTail(text: string, maxLines: number, maxChars: number): string {
-    const lines = text.split('\n').slice(-maxLines);
-    let result = lines.join('\n');
-    if (result.length > maxChars) {
-        result = result.slice(result.length - maxChars);
-        result = result.slice(result.indexOf('\n') + 1);
+    const result = text.split('\n').slice(-maxLines).join('\n');
+    if (result.length <= maxChars) {
+        return result;
     }
-    return result;
+    const cut = result.slice(result.length - maxChars);
+    return cut.slice(cut.indexOf('\n') + 1);
 }
 
 function boundHead(text: string, maxLines: number, maxChars: number): string {
-    const lines = text.split('\n').slice(0, maxLines);
-    let result = lines.join('\n');
-    if (result.length > maxChars) {
-        result = result.slice(0, result.lastIndexOf('\n', maxChars) < 0 ? maxChars : result.lastIndexOf('\n', maxChars));
+    const result = text.split('\n').slice(0, maxLines).join('\n');
+    if (result.length <= maxChars) {
+        return result;
     }
-    return result;
+    const lineEnd = result.lastIndexOf('\n', maxChars);
+    return result.slice(0, lineEnd < 0 ? maxChars : lineEnd);
 }
 
 interface ExplainInput {

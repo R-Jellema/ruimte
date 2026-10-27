@@ -30,8 +30,11 @@ export function functionSourceAt(text: string, startLine: number): string {
     if (start === undefined) {
         return '';
     }
-    const head = lines.slice(startLine, startLine + 3).join('\n');
-    if (!head.includes('{') && start.trimEnd().endsWith(':')) {
+    const braced = lines
+        .slice(startLine, startLine + 3)
+        .join('\n')
+        .includes('{');
+    if (!braced && start.trimEnd().endsWith(':')) {
         const base = indentOf(start);
         const body: string[] = [start];
         for (let index = startLine + 1; index < lines.length && body.length < MAX_LINES; index++) {
@@ -43,7 +46,7 @@ export function functionSourceAt(text: string, startLine: number): string {
         }
         return body.join('\n').trimEnd();
     }
-    if (!head.includes('{')) {
+    if (!braced) {
         const statement: string[] = [];
         for (let index = startLine; index < lines.length && statement.length < MAX_STATEMENT_LINES; index++) {
             const line = lines[index]!;

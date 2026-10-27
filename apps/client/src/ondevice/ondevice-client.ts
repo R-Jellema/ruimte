@@ -11,6 +11,10 @@ export interface OnDeviceRequest {
 /* How long an answer about the model is believed: Apple Intelligence can be switched on while a window is open, and a hover should not ask the machine each time. */
 const STATUS_TTL_MS = 30_000;
 
+function aborted(): OnDeviceGenerateResult {
+    return { state: 'aborted', text: '' };
+}
+
 /*
  * The model on a machine, as the editor reaches it: whether it is there, and one-shot generations that
  * stream and can be stopped. The prompt goes to the machine's own helper and never anywhere else.
@@ -58,7 +62,7 @@ export class OnDeviceClient {
     /* Resolves `aborted` when the signal fires first; rejects with a `TransportError` carrying the machine's code and reason. */
     async generate(request: OnDeviceRequest, signal?: AbortSignal): Promise<OnDeviceGenerateResult> {
         if (signal?.aborted) {
-            return { state: 'aborted', text: '' };
+            return aborted();
         }
         const id = `od-${++this.sequence}`;
         const off = request.onText === undefined ? null : this.transport.on('ondevice.text', (event) => event.id === id && request.onText?.(event.text));
@@ -71,10 +75,10 @@ export class OnDeviceClient {
                 prompt: request.prompt,
                 stream: request.onText !== undefined
             });
-            return signal?.aborted ? { state: 'aborted', text: '' } : result;
+            return signal?.aborted ? aborted() : result;
         } catch (error) {
             if (signal?.aborted) {
-                return { state: 'aborted', text: '' };
+                return aborted();
             }
             throw error;
         } finally {

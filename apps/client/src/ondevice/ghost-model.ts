@@ -17,7 +17,9 @@ function depthOf(text: string): number {
     return depth;
 }
 
-const trimmed = (lines: readonly string[]): string[] => lines.map((line) => line.trim());
+function trimmed(lines: readonly string[]): string[] {
+    return lines.map((line) => line.trim());
+}
 
 /*
  * A small model often writes the line it was asked to continue again, and the lines that close the block
