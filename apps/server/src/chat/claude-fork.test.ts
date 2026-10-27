@@ -1,10 +1,10 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { cutTranscript, forkClaudeTranscript } from './claude-fork.ts';
 import { claudeProjectSlug } from '@adecore/agents/chat';
 import { ChatError } from './errors.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const SESSION = 'ef133c61-7c0d-4182-9b8f-40f5214adbdf';
 const FORK = '04d373e9-dd60-4612-9381-7bb0827ac6a5';
@@ -111,12 +111,10 @@ describe('cutTranscript', () => {
 describe('forkClaudeTranscript', () => {
     let projects: string;
 
-    beforeEach(async () => {
-        projects = await mkdtemp(join(tmpdir(), 'ruimte-claude-fork-'));
-    });
+    const newHome = tempHomes('ruimte-claude-fork-');
 
-    afterEach(async () => {
-        await rm(projects, { recursive: true, force: true });
+    beforeEach(async () => {
+        projects = await newHome();
     });
 
     test('the copy lands in the folder of the directory the fork works in, found by session id elsewhere, and undo removes it', async () => {

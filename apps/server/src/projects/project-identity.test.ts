@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { deriveIdentity, faviconHref, readIdeaName, sniffIconMime, IdentityCache, ICON_MAX_BYTES } from './project-identity.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let root: string;
 let folder: string;
@@ -19,16 +19,14 @@ async function put(relative: string, bytes: Uint8Array | string): Promise<string
     return path;
 }
 
+const newHome = tempHomes('ruimte-identity-');
+
 beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-identity-'));
+    root = await newHome();
     folder = join(root, 'repo');
     outside = join(root, 'private');
     await mkdir(folder);
     await mkdir(outside);
-});
-
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
 });
 
 describe('sniffIconMime', () => {

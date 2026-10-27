@@ -1,13 +1,11 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { clientAuthMessage, clientChannelMessage, daemonChallengeMessage, daemonChannelMessage, type AuthTicketPayload } from '@ruimte/contracts';
 import { verifySignature } from '@ruimte/pulsar/verify-node';
 import { AuthStore } from './auth-store.ts';
 import { CHALLENGE_TTL_MS, Handshake, TICKET_TTL_MS } from './handshake.ts';
 import { generateKeyPair, signMessage } from './keys.ts';
 import { admitClient } from './test-admit.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let home: string;
 let clock: number;
@@ -53,15 +51,13 @@ async function sessionOf(ticket: string) {
     return (await handshake.ticketAccess(ticket, 'bytes'))?.sessionId;
 }
 
+const newHome = tempHomes('ruimte-handshake-');
+
 beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-handshake-'));
+    home = await newHome();
     clock = 5_000_000;
     store = new AuthStore(home, () => clock);
     handshake = new Handshake(store, identity, () => clock);
-});
-
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
 });
 
 describe('Handshake', () => {

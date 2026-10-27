@@ -1,6 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, it } from 'bun:test';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { LanguageServerKind } from '@ruimte/contracts';
 import { LanguageInstaller } from './installer.ts';
@@ -8,15 +7,14 @@ import { NativePolicy, nativeProgramFile, nativeStubsOf, type Download, type Nat
 import { KIND_PROFILES } from './profiles.ts';
 import type { LanguageProcessSpec, RunCommand } from './runtime.ts';
 import { sha256, tarGz } from './test-archives.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let root = '';
 
-beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-installer-'));
-});
+const newHome = tempHomes('ruimte-installer-');
 
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
+beforeEach(async () => {
+    root = await newHome();
 });
 
 const runtime = { command: '/ruimte', args: [], env: { BUN_BE_BUN: '1' } };

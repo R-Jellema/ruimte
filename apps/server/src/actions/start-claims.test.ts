@@ -1,11 +1,11 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ActionRefusal } from '@ruimte/actions';
 import { VerbRefusal } from '../canvas/verb.ts';
 import { codeOf } from '../fs/test-boundary.ts';
 import { StartClaims, startInputHash, type StartClaim } from './start-claims.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let home: string;
 let clock: number;
@@ -26,13 +26,11 @@ async function loaded(): Promise<StartClaims> {
     return fresh;
 }
 
-beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-start-claims-'));
-    clock = 1_000_000;
-});
+const newHome = tempHomes('ruimte-start-claims-');
 
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
+beforeEach(async () => {
+    home = await newHome();
+    clock = 1_000_000;
 });
 
 describe('startInputHash', () => {

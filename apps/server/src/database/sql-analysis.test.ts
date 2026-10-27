@@ -1,6 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { describe, expect, test } from 'bun:test';
 import { join, relative, resolve, sep } from 'node:path';
 import type { DatabaseConnection, ProjectContent } from '@ruimte/contracts';
 import type { SessionEvent } from '../sessions/manager.ts';
@@ -139,16 +137,6 @@ class FakeSnapshots {
         return taken;
     }
 }
-
-let root = '';
-
-beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-sql-analysis-'));
-});
-
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
-});
 
 function analysisRig(connections: DatabaseConnection[] = [SHOP, LOCAL]) {
     let content: ProjectContent = { name: 'Shop', color: '#000', views: [] };

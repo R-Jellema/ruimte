@@ -1,17 +1,15 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, expect, test } from 'bun:test';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { OutboxStore } from './outbox.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let home: string;
 
-beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-outbox-'));
-});
+const newHome = tempHomes('ruimte-outbox-');
 
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
+beforeEach(async () => {
+    home = await newHome();
 });
 
 // Files exactly as a daemon before the outbox moved into @adecore/agents wrote them, so one updated in place reads them.

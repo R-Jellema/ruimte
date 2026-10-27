@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { readGrokBilling, readGrokPlan } from './grok-plan.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const NOW = Date.parse('2026-10-23T08:00:00Z');
 const ISSUER = 'https://auth.x.ai::b1a00492-073a-47ea-816f-4c329264a828';
@@ -18,12 +18,10 @@ const WEEKLY = {
 
 let home: string;
 
-beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-grok-plan-'));
-});
+const newHome = tempHomes('ruimte-grok-plan-');
 
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
+beforeEach(async () => {
+    home = await newHome();
 });
 
 async function signIn(entry: Record<string, unknown>): Promise<void> {

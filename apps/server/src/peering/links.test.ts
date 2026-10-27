@@ -2,7 +2,7 @@ import { beforeEach, expect, test } from 'bun:test';
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { PeerLinks } from './links.ts';
-import { tempHomes } from '../providers/test-helpers.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const newHome = tempHomes('ruimte-links-');
 let home: string;

@@ -1,20 +1,18 @@
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, it } from 'bun:test';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { LanguageChoices } from './choices.ts';
 import { alternativesOf } from './profiles.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let path = '';
 let folder = '';
 
-beforeEach(async () => {
-    folder = await mkdtemp(join(tmpdir(), 'ruimte-choices-'));
-    path = join(folder, 'nested', 'choices.json');
-});
+const newHome = tempHomes('ruimte-choices-');
 
-afterEach(async () => {
-    await rm(folder, { recursive: true, force: true });
+beforeEach(async () => {
+    folder = await newHome();
+    path = join(folder, 'nested', 'choices.json');
 });
 
 describe('language choices', () => {

@@ -1,13 +1,12 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { writeFile } from 'node:fs/promises';
 import type { ServerFrame } from '@ruimte/contracts';
 import { Dispatcher, type ClientAccess } from '../dispatcher.ts';
 import { askOnce } from './test-helpers.ts';
 import { sha256, zip } from '../language/test-archives.ts';
 import { AcpServerInstall, parseAcpServerRelease } from '../providers/acp-server.ts';
 import { registerAgentServerHandlers } from './agent-servers.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const ARCHIVE = zip([{ path: 'agy_acp_server.par', text: 'server' }]);
 
@@ -16,8 +15,10 @@ let dispatcher: Dispatcher;
 let downloads: number;
 let invalidated: string[];
 
+const newHome = tempHomes('ruimte-agent-servers-');
+
 beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-agent-servers-'));
+    home = await newHome();
     downloads = 0;
     invalidated = [];
     const server = new AcpServerInstall({
@@ -36,10 +37,6 @@ beforeEach(async () => {
     });
     dispatcher = new Dispatcher();
     registerAgentServerHandlers(dispatcher, { of: (kind) => (kind === 'antigravity' ? server : undefined), installed: (kind) => invalidated.push(kind) });
-});
-
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
 });
 
 const OWNER: ClientAccess = { reachability: 'loopback', sessionId: null };

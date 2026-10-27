@@ -7,7 +7,7 @@ import type { ChatProvider } from '@adecore/agents/providers';
 import { isMachineStatePath } from '../fs/machine-home.ts';
 import { sha256, tarGz, zip } from '../language/test-archives.ts';
 import { AcpRegistry } from './acp-registry.ts';
-import { tempHomes } from './test-helpers.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 import { RegistryAgents, npmBin, packageName, relativeCommand, type InstallRun } from './registry-agents.ts';
 
 const ZIP = zip([{ path: 'bin/agent', text: '#!/bin/sh\n', mode: 0o644 }]);

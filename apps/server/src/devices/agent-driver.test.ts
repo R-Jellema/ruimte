@@ -1,12 +1,12 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ManualTimers } from '../computer/computer-test-helpers.ts';
 import { AGENT_HOLD_IDLE_MS, DeviceDriver, type AgentStep, type DeviceGate } from './agent-driver.ts';
 import { DeviceControl } from './control.ts';
 import { ReadingBackend, RecordingBackend, SAMPLE_TREE, SIMULATOR, pngOf } from './device-test-helpers.ts';
 import { DeviceManager, type DeviceKeyboard } from './manager.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let home: string;
 let backend: RecordingBackend;
@@ -28,8 +28,10 @@ function notingGate() {
     };
 }
 
+const newHome = tempHomes('ruimte-device-driver-');
+
 beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-device-driver-'));
+    home = await newHome();
     backend = new RecordingBackend();
     manager = new DeviceManager([backend]);
     timers = new ManualTimers();
@@ -45,10 +47,6 @@ beforeEach(async () => {
         },
         gate: notingGate()
     });
-});
-
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
 });
 
 const EMULATOR = { ...SIMULATOR, deviceId: 'Pixel_10_Pro', backendId: 'android', platform: 'android' as const, name: 'Pixel 10 Pro' };

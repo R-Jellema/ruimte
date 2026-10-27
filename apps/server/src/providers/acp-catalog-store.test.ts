@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { readFile, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { acpCatalogPath, acpCatalogStore } from './acp-catalog-store.ts';
-import { tempHomes } from './test-helpers.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const home = tempHomes('ruimte-acp-catalog-');
 

@@ -1,6 +1,5 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { chmod, lstat, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { chmod, lstat, mkdir, readFile, stat, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { HOOK_EVENTS } from './hooks.ts';
 import {
@@ -16,17 +15,16 @@ import {
     installInFolder,
     mergeHooks
 } from './install.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const other = { type: 'command', command: 'echo other' };
 
 let dir: string;
 
-beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), 'ruimte-install-'));
-});
+const newHome = tempHomes('ruimte-install-');
 
-afterEach(async () => {
-    await rm(dir, { recursive: true, force: true });
+beforeEach(async () => {
+    dir = await newHome();
 });
 
 describe('hookCommand', () => {

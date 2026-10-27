@@ -6,7 +6,7 @@ import release from './antigravity-acp-release.json' with { type: 'json' };
 import { isMachineStatePath } from '../fs/machine-home.ts';
 import { sha256, zip } from '../language/test-archives.ts';
 import { AcpServerInstall, parseAcpServerRelease, type AcpServerRelease } from './acp-server.ts';
-import { tempHomes } from './test-helpers.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const ARCHIVE = zip([
     { path: 'agy_acp_server.par', text: '#!/bin/sh\n', mode: 0o644 },

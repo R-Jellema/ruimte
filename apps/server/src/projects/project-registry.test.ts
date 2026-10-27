@@ -1,17 +1,15 @@
-import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, spyOn, test } from 'bun:test';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ProjectRegistry, type RegistryEntry } from './project-registry.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let home: string;
 
-beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-registry-'));
-});
+const newHome = tempHomes('ruimte-registry-');
 
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
+beforeEach(async () => {
+    home = await newHome();
 });
 
 function entry(projectId: string): RegistryEntry {

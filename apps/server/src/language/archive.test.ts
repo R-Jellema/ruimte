@@ -1,18 +1,16 @@
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, it } from 'bun:test';
+import { readFile, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { extractEntries, extractZipFile, readArchive } from './archive.ts';
 import { tarGz, zip, type FixtureFile } from './test-archives.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let folder = '';
 
-beforeEach(async () => {
-    folder = await mkdtemp(join(tmpdir(), 'ruimte-archive-'));
-});
+const newHome = tempHomes('ruimte-archive-');
 
-afterEach(async () => {
-    await rm(folder, { recursive: true, force: true });
+beforeEach(async () => {
+    folder = await newHome();
 });
 
 const FILES: FixtureFile[] = [

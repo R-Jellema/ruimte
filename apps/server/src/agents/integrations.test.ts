@@ -1,10 +1,10 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, sep } from 'node:path';
 import { fileExists } from '@adecore/agents';
 import { AgentIntegrations, IntegrationsFixed } from './integrations.ts';
 import { ANTIGRAVITY_RULES, CODEX_RULES, hookEntry, installHooks } from './install.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let root: string;
 let home: string;
@@ -36,18 +36,16 @@ function settingsPath(): string {
     return join(env.CLAUDE_CONFIG_DIR!, 'settings.json');
 }
 
+const newHome = tempHomes('ruimte-integrations-');
+
 beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-integrations-'));
+    root = await newHome();
     home = join(root, 'ruimte-home');
     await mkdir(home);
     env = { HOME: join(root, 'user'), CLAUDE_CONFIG_DIR: join(root, 'claude'), CODEX_HOME: join(root, 'codex'), GEMINI_HOME: join(root, 'gemini') };
     accountHomes = [];
     await mkdir(env.CLAUDE_CONFIG_DIR!);
     await mkdir(env.CODEX_HOME!);
-});
-
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
 });
 
 describe('AgentIntegrations', () => {

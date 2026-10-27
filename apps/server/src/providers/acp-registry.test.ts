@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { AcpRegistry, readRegistry, registryKind, registryPlatform, type RegistryFetch } from './acp-registry.ts';
-import { tempHomes } from './test-helpers.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const SHA = 'a'.repeat(64);
 

@@ -1,18 +1,16 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ChatItem } from '@ruimte/contracts';
 import { chatMoveInfo, type MoveInfoDeps } from './move-info.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let root: string;
 
-beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'move-info-'));
-});
+const newHome = tempHomes('move-info-');
 
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
+beforeEach(async () => {
+    root = await newHome();
 });
 
 function user(id: string, chats?: string[]): ChatItem {

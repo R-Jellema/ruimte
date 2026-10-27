@@ -1,17 +1,15 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { DatabaseAccessStore } from './agent-access.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let home: string;
 
-beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-database-access-'));
-});
+const newHome = tempHomes('ruimte-database-access-');
 
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
+beforeEach(async () => {
+    home = await newHome();
 });
 
 async function loaded(): Promise<DatabaseAccessStore> {

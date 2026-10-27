@@ -1,17 +1,15 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { readLocalSecret, readOrCreateLocalSecret, sameSecret } from './local-secret.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let root: string;
 
-beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-local-secret-'));
-});
+const newHome = tempHomes('ruimte-local-secret-');
 
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
+beforeEach(async () => {
+    root = await newHome();
 });
 
 describe('the local secret', () => {

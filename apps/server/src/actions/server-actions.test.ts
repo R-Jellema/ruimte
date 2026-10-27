@@ -1,7 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { MAX_NOTICE_LENGTH, MAX_TITLE_LENGTH, type ActionInput } from '@ruimte/actions';
 import { NODE_SIZE, type ContextSource, type ProjectContent, type ProjectNode, type Task } from '@ruimte/contracts';
 import { ContextRefusal, SubagentUnreadable } from '../context/context-store.ts';
@@ -11,6 +8,7 @@ import { PlanStore } from '../plans/plan-store.ts';
 import { ProjectError } from '../projects/project-error.ts';
 import { serverActionCall } from './context.ts';
 import { serverActions } from './server-actions.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const PLACE = { projectId: 'project-1', folder: '/nowhere', canvasId: 'main' };
 
@@ -169,6 +167,8 @@ function lineOnMain(from: string, to: string): void {
     }
 }
 
+const newHome = tempHomes('ruimte-server-actions-');
+
 beforeEach(async () => {
     made = new Map();
     bound = new Set();
@@ -179,7 +179,7 @@ beforeEach(async () => {
     notices = [];
     tasks = [];
     settled = [];
-    home = await mkdtemp(join(tmpdir(), 'ruimte-server-actions-'));
+    home = await newHome();
     plans = new PlanStore(home);
     content = {
         name: 'repo',
@@ -199,10 +199,6 @@ beforeEach(async () => {
             }
         ]
     };
-});
-
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
 });
 
 describe('the daemon actions', () => {

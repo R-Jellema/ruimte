@@ -1,18 +1,16 @@
-import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, spyOn, test } from 'bun:test';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { SessionEvent } from '../sessions/manager.ts';
 import { VoicePreferencesStore, voicePreferencesFor } from './preferences-store.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let home: string;
 
-beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-voice-preferences-'));
-});
+const newHome = tempHomes('ruimte-voice-preferences-');
 
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
+beforeEach(async () => {
+    home = await newHome();
 });
 
 describe('the preferences of Voice on the machine', () => {

@@ -1,11 +1,11 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { crossOriginHeaders, decideAccess, handleLocalTicketRequest, isOwner, originAllowed, preflightHeaders, reachabilityOf, withHeaders } from './access.ts';
 import { AuthStore } from './auth-store.ts';
 import { generateKeyPair } from './keys.ts';
 import { admitClient } from './test-admit.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let home: string;
 let clock: number;
@@ -14,14 +14,12 @@ let store: AuthStore;
 // Nothing here hands out a ticket unless a test says so.
 const NO_TICKETS = { ticketAccess: async () => null };
 
+const newHome = tempHomes('ruimte-auth-');
+
 beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-auth-'));
+    home = await newHome();
     clock = 1_000_000;
     store = new AuthStore(home, () => clock);
-});
-
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
 });
 
 describe('AuthStore', () => {

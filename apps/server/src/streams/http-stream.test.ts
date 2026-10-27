@@ -1,23 +1,10 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { describe, expect, test } from 'bun:test';
 import { H264_STREAM_CONTENT_TYPE, HEVC_STREAM_CONTENT_TYPE, LiveStreamDecoder } from '@ruimte/contracts';
 import { handleLiveStreamRequest, LIVE_STREAM_PATH } from './http-stream.ts';
 import { LiveStreamHub } from './live-stream.ts';
 
 const LOCAL_SECRET = 'the-local-secret';
 const OPTIONS = { localSecret: LOCAL_SECRET, tickets: { ticketAccess: async () => null } };
-
-let root: string;
-
-beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-live-stream-'));
-});
-
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
-});
 
 describe('the live stream route', () => {
     test('authenticates, frames bytes and releases the source when the reader leaves', async () => {

@@ -1,10 +1,8 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { NoticeStore, type Notice } from '@adecore/agents/coordination';
 import type { AgentInfo } from '@ruimte/contracts';
 import { deliverNotice, messageLabel, messageText, NO_REPLY_NOTICE, noticeNote, renderNotice, type NoticeTargets } from './notices.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let home: string;
 let clock: number;
@@ -31,14 +29,12 @@ function agent(kind: AgentInfo['kind'], live = true): AgentInfo {
     };
 }
 
+const newHome = tempHomes('ruimte-notices-');
+
 beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-notices-'));
+    home = await newHome();
     clock = 1_000_000;
     store = new NoticeStore(home, () => clock);
-});
-
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
 });
 
 describe('the words of a message', () => {

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test';
 import type { ClientConnection } from '../dispatcher.ts';
 import { PeerLinks } from './links.ts';
 import { requirePeerLinks } from './peer-access.ts';
-import { tempHomes } from '../providers/test-helpers.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const newHome = tempHomes('ruimte-peer-access-');
 let home: string;

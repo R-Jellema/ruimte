@@ -1,19 +1,17 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { waitFor, waitForAsync } from '../sessions/test-helpers.ts';
 import { executeAppleCommand } from './apple-command-tool.ts';
 import { killQuietly, processAlive } from './chat-test-helpers.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let cwd: string;
-beforeEach(async () => {
-    cwd = await mkdtemp(join(tmpdir(), 'ruimte-apple-command-'));
-});
-afterEach(async () => {
-    await rm(cwd, { recursive: true, force: true });
-});
+const newHome = tempHomes('ruimte-apple-command-');
 
+beforeEach(async () => {
+    cwd = await newHome();
+});
 describe('Apple local command real process', () => {
     test('runs from the project directory with closed stdin and an explicit environment', async () => {
         const result = await executeAppleCommand(cwd, 'printf "%s|" "$APPLE_TEST"; pwd; if read value; then exit 8; fi', undefined, {

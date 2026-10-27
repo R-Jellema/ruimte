@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createGrokProvider } from './acp-providers.ts';
-import { tempHomes } from './test-helpers.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const newHome = tempHomes('ruimte-grok-account-');
 

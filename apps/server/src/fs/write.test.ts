@@ -1,13 +1,13 @@
-import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
+import { beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import { constants } from 'node:fs';
 import * as filesystem from 'node:fs/promises';
-import { chmod, link, mkdir, mkdtemp, readFile, rm, stat, symlink, utimes, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { chmod, link, mkdir, readFile, stat, symlink, utimes, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { FS_READ_MAX_TEXT_BYTES } from '@ruimte/contracts';
 import { readFile as readForViewer } from './read.ts';
 import { codeOf, projectBoundary } from './test-boundary.ts';
 import { openForSave, writeTextFile, type WriteBoundary } from './write.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let root: string;
 let project: string;
@@ -23,16 +23,14 @@ async function put(path: string, content: string | Buffer): Promise<{ path: stri
     return { path, mtime: Math.round((await stat(path)).mtimeMs) };
 }
 
+const newHome = tempHomes('ruimte-fs-write-');
+
 beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-fs-write-'));
+    root = await newHome();
     project = join(root, 'project');
     outside = join(root, 'outside');
     worktreesRoot = join(root, 'home', 'worktrees');
     await Promise.all([mkdir(join(project, 'src'), { recursive: true }), mkdir(outside), mkdir(worktreesRoot, { recursive: true })]);
-});
-
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
 });
 
 describe('fs.write', () => {

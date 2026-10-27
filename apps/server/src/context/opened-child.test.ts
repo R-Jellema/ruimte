@@ -1,12 +1,10 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import type { ChatItem, ProjectCanvasView } from '@ruimte/contracts';
 import { AgentLineageStore } from '@adecore/agents/coordination';
 import { ProjectIndex } from '../projects/project-index.ts';
 import { ContextRefusal, ContextStore } from './context-store.ts';
 import { openedChildSource } from './opened-child.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 /* Two parents side by side, each with a child, and a grandchild the first child opened; no line anywhere. */
 const canvas: ProjectCanvasView = {
@@ -38,8 +36,10 @@ let home: string;
 let lineage: AgentLineageStore;
 let store: ContextStore;
 
+const newHome = tempHomes('ruimte-opened-child-');
+
 beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-opened-child-'));
+    home = await newHome();
     lineage = new AgentLineageStore(home);
     await lineage.load();
     await lineage.put({ projectId: 'p', nodeId: 'child', openedBy: 'parent', depth: 1, agent: true });
@@ -62,10 +62,6 @@ beforeEach(async () => {
         subagentItems: async (chatId, toolUseId) => thread(`${toolUseId} of ${chatId}`),
         canvasOf: (id) => index.canvasOf(id)
     });
-});
-
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
 });
 
 async function refusalOf(reader: string, source: string): Promise<string> {

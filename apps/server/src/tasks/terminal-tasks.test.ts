@@ -1,10 +1,8 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { beforeEach, expect, test } from 'bun:test';
 import type { Task } from '@ruimte/contracts';
 import { TaskCoordinator, TaskStore } from '@adecore/agents/coordination';
 import { terminalTasks, type TerminalTasks } from './terminal-tasks.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let home: string;
 let tasks: TaskStore;
@@ -13,8 +11,10 @@ let terminals: TerminalTasks;
 let owed: Promise<void>;
 let onOwed: () => void;
 
+const newHome = tempHomes('ruimte-terminal-tasks-');
+
 beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-terminal-tasks-'));
+    home = await newHome();
     tasks = new TaskStore(home);
     owed = new Promise((resolve) => {
         onOwed = resolve;
@@ -32,10 +32,6 @@ beforeEach(async () => {
         limit: { owed: () => false, owe: async () => undefined, lapse: async () => undefined }
     });
     terminals = terminalTasks(coordinator);
-});
-
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
 });
 
 function open(): Promise<Task> {

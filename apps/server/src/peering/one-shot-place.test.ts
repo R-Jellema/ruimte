@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test';
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { OneShotPlace } from './one-shot-place.ts';
-import { tempHomes } from '../providers/test-helpers.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const newHome = tempHomes('ruimte-one-shot-');
 let home: string;

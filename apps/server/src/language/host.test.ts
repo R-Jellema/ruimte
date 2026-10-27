@@ -1,6 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, it } from 'bun:test';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import { pathToFileUri } from '@adecore/lsp';
 import { LANGUAGE_ERROR_CODES, type LanguageServerKind } from '@ruimte/contracts';
@@ -15,6 +14,7 @@ import { KIND_PROFILES, type ProjectSqlSettings } from './profiles.ts';
 import { FULL_CAPABILITIES, fakeSpawner, ManualClock, settle, type FakeProcess, type FakeSpawner } from './test-fakes.ts';
 import { tarGz } from './test-archives.ts';
 import { versionOf } from './versions.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let root = '';
 
@@ -32,12 +32,10 @@ const stubsDownload: Download = async (_url, destination) => {
     await writeFile(destination, tarGz([{ path: `stubs/standard/a.php`, text: '<?php' }]));
 };
 
-beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-language-host-'));
-});
+const newHome = tempHomes('ruimte-language-host-');
 
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
+beforeEach(async () => {
+    root = await newHome();
 });
 
 class Refused extends CodedError<'machine-state'> {}

@@ -1,10 +1,10 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { FS_READ_MAX_TEXT_BYTES } from '@ruimte/contracts';
 import { ReadError, SNIFF_BYTES, languageOf, looksBinary, readFile, readServedFile } from './read.ts';
 import { looksLikeSvg, sniffMime } from './sniff.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
 const WEBP = Buffer.concat([Buffer.from('RIFF'), Buffer.from([0x20, 0x00, 0x00, 0x00]), Buffer.from('WEBPVP8 ')]);
@@ -65,12 +65,10 @@ async function write(name: string, content: string | Buffer): Promise<string> {
     return path;
 }
 
-beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-fs-read-'));
-});
+const newHome = tempHomes('ruimte-fs-read-');
 
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
+beforeEach(async () => {
+    root = await newHome();
 });
 
 describe('the binary sniff', () => {

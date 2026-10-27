@@ -1,6 +1,5 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { zonedTime, type AgentRoutine, type ChatInfo, type Routine } from '@ruimte/contracts';
 import { FakeWatch } from '@adecore/agents/testing';
@@ -9,6 +8,7 @@ import { CommandApprovals } from '../sessions/command-approvals.ts';
 import { RoutineAuthorStore, RoutineRunStore } from './routine-runs.ts';
 import { RoutineStore } from './routine-store.ts';
 import { digestOf, Routines, runMessage, type AgentRunStart, type CommandResult, type RunMessage } from './routines.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const ZONE = 'Europe/Amsterdam';
 const PROJECT = 'p1';
@@ -105,8 +105,10 @@ async function fire(routines: Routines, entry: RoutineRunEntry): Promise<void> {
     await outbox.remove(entry.id);
 }
 
+const newHome = tempHomes('ruimte-routines-');
+
 beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-routines-'));
+    root = await newHome();
     folder = join(root, 'repo');
     home = join(root, 'home');
     await mkdir(folder, { recursive: true });
@@ -117,10 +119,6 @@ beforeEach(async () => {
     chats = new Map();
     commands = [];
     delivered = [];
-});
-
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
 });
 
 describe('the clock', () => {

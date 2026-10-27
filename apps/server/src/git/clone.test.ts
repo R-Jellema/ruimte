@@ -1,20 +1,18 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { cloneRepository, isRemoteUrl } from './clone.ts';
 import type { streamCommand } from './run.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let parent: string;
 let progress: string[];
 
-beforeEach(async () => {
-    parent = await mkdtemp(join(tmpdir(), 'ruimte-clone-'));
-    progress = [];
-});
+const newHome = tempHomes('ruimte-clone-');
 
-afterEach(async () => {
-    await rm(parent, { recursive: true, force: true });
+beforeEach(async () => {
+    parent = await newHome();
+    progress = [];
 });
 
 /* A git that makes the folder it was asked for, writes a line, and ends with `code`. */

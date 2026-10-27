@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import { createAnthropicClaudeApiProvider } from './anthropic-claude-api-provider.ts';
 import { AnthropicClaudeApiService } from './anthropic-claude-api-service.ts';
 import { ProviderRegistry } from './registry.ts';
-import { tempHomes } from './test-helpers.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const newHome = tempHomes('ruimte-claude-provider-');
 

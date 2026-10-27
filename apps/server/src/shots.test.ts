@@ -1,10 +1,8 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { existsSync } from 'node:fs';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { pngOf } from './devices/device-test-helpers.ts';
 import { keepCapture, pngSize, writeCapture } from './shots.ts';
+import { tempHomes } from './temp-home-test-helpers.ts';
 
 describe('pngSize', () => {
     test('reads the size from the header chunk of a png', () => {
@@ -22,12 +20,10 @@ describe('captures', () => {
     const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
     let home: string;
 
-    beforeEach(async () => {
-        home = await mkdtemp(join(tmpdir(), 'ruimte-shots-'));
-    });
+    const newHome = tempHomes('ruimte-shots-');
 
-    afterEach(async () => {
-        await rm(home, { recursive: true, force: true });
+    beforeEach(async () => {
+        home = await newHome();
     });
 
     test('a capture goes after a week, one placed on a canvas stays', async () => {

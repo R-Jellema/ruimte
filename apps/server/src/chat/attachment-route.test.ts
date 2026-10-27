@@ -1,10 +1,8 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import type { ChatAttachment } from '@ruimte/contracts';
 import { ATTACHMENTS_PATH, handleAttachmentRequest } from './attachment-route.ts';
 import { AttachmentStore } from '@adecore/agents/chat';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 // What the desktop app on this machine presents; a loopback address alone gets nothing.
 const LOCAL_SECRET = 'the-local-secret';
@@ -34,15 +32,13 @@ function asLocal(init?: RequestInit): RequestInit {
     };
 }
 
+const newHome = tempHomes('ruimte-attach-route-');
+
 beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-attach-route-'));
+    root = await newHome();
     store = new AttachmentStore(root);
     png = await store.save('node-1', { name: 'shot.png', mime: 'image/png', data: Buffer.from('png bytes').toString('base64') });
     zip = await store.save('node-1', { name: 'bundle.zip', mime: 'application/zip', data: Buffer.from('zip bytes').toString('base64') });
-});
-
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
 });
 
 describe('the attachment route', () => {

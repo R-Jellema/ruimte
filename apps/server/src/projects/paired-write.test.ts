@@ -1,10 +1,10 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileExists } from '@adecore/agents';
 import { PairedWriteRaced, PairedWriteStuck, recoverPaired, writePaired } from './paired-write.ts';
 import { PROJECT_WRITE_IO, type ProjectWriteIO } from './project-write.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let root: string;
 let intent: string;
@@ -25,18 +25,16 @@ function failingOn(call: number): ProjectWriteIO {
     };
 }
 
+const newHome = tempHomes('ruimte-paired-write-');
+
 beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-paired-write-'));
+    root = await newHome();
     await mkdir(join(root, 'private'));
     intent = join(root, 'private', 'pending.json');
     first = join(root, 'shared.json');
     second = join(root, 'private', 'own.json');
     await writeFile(first, 'shared-0');
     await writeFile(second, 'own-0');
-});
-
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
 });
 
 describe('paired write', () => {

@@ -1,14 +1,16 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { chmod, mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { chmod, mkdir, readdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { browseDirectories, resolveBrowsePath } from './browse.ts';
 import { revealCommand } from './reveal.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let root: string;
 
+const newHome = tempHomes('ruimte-browse-');
+
 beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-browse-'));
+    root = await newHome();
     await mkdir(join(root, 'apps'));
     await mkdir(join(root, 'assets'));
     await mkdir(join(root, '.git'));
@@ -17,10 +19,6 @@ beforeEach(async () => {
     await mkdir(join(root, 'apps', 'server', '.ruimte'), { recursive: true });
     await writeFile(join(root, 'apps', 'server', '.ruimte', 'project.json'), '{}');
     await writeFile(join(root, 'README.md'), '');
-});
-
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
 });
 
 describe('resolveBrowsePath', () => {

@@ -3,7 +3,7 @@ import { stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { verifySignature } from '@ruimte/pulsar/verify-node';
 import { PEER_KEY_FILE, PeerKey } from './peer-key.ts';
-import { tempHomes } from '../providers/test-helpers.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const newHome = tempHomes('ruimte-peer-key-');
 let home: string;

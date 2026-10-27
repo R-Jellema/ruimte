@@ -5,7 +5,7 @@ import { UsageService } from '@adecore/agents/usage';
 import { UsageSummaryResultSchema } from '@ruimte/contracts';
 import { ANTHROPIC_URL, ANTHROPIC_VERSION, AnthropicClaudeApiService, anthropicHttpError, defaultModelOf } from './anthropic-claude-api-service.ts';
 import type { ApiFetch } from './keyed-api-service.ts';
-import { tempHomes } from './test-helpers.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const home = tempHomes('ruimte-claude-api-');
 beforeEach(() => setSystemTime(new Date('2026-10-24T12:00:00Z')));

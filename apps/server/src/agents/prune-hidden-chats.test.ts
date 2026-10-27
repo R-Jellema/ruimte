@@ -1,11 +1,9 @@
-import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { beforeEach, describe, expect, jest, test } from 'bun:test';
 import { AgentLineageStore } from '@adecore/agents/coordination';
 import type { Task } from '@ruimte/contracts';
 import { HiddenAgentStore } from './hidden-agents.ts';
 import { HIDDEN_CHAT_KEEP_MS, pruneHiddenChats, type HiddenChatPruning } from './prune-hidden-chats.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = 100 * DAY_MS;
@@ -13,12 +11,10 @@ const LONG_AGO = NOW - HIDDEN_CHAT_KEEP_MS - DAY_MS;
 
 let home: string;
 
-beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-prune-hidden-'));
-});
+const newHome = tempHomes('ruimte-prune-hidden-');
 
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
+beforeEach(async () => {
+    home = await newHome();
 });
 
 function task(childId: string, overrides: Partial<Task> = {}): Task {

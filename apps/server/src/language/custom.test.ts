@@ -1,20 +1,18 @@
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, it } from 'bun:test';
+import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { CustomLanguageServerInput } from '@ruimte/contracts';
 import { CustomLanguageServers, customProfile, resolveCommandOnPath } from './custom.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let root = '';
 let path = '';
 
-beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-custom-servers-'));
-    path = join(root, 'language-servers', 'custom.json');
-});
+const newHome = tempHomes('ruimte-custom-servers-');
 
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
+beforeEach(async () => {
+    root = await newHome();
+    path = join(root, 'language-servers', 'custom.json');
 });
 
 const known = new Set(['zls', '/usr/local/bin/taplo']);

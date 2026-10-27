@@ -1,16 +1,18 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { renameNoReplace } from '../fs/no-replace-rename.ts';
 import { copyWithoutReplacing, moveOwnFiles, ownFolderOf, type OwnFilesIO } from './own-files.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let root: string;
 let from: string;
 let to: string;
 
+const newHome = tempHomes('ruimte-own-files-');
+
 beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-own-files-'));
+    root = await newHome();
     from = join(root, 'scratch', 'chat-1');
     to = join(root, 'vinyl');
     await mkdir(join(from, 'sketches'), { recursive: true });
@@ -18,10 +20,6 @@ beforeEach(async () => {
     await writeFile(join(from, 'notes.md'), 'notes');
     await writeFile(join(from, '.env'), 'secret');
     await writeFile(join(from, 'sketches', 'a.txt'), 'sketch');
-});
-
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
 });
 
 function error(code: string): Error {

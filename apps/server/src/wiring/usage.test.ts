@@ -1,20 +1,18 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ProviderAccountsService, ProviderRegistry } from '@adecore/agents/providers';
 import { UsageService, usageRootsOf, type LimitAccounts } from '@adecore/agents/usage';
 import { grokProvider } from '../providers/acp-providers.ts';
 import { withoutNanoGptUntilKeyed } from './usage.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let root: string;
 
-beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-usage-'));
-});
+const newHome = tempHomes('ruimte-usage-');
 
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
+beforeEach(async () => {
+    root = await newHome();
 });
 
 describe('usage of Grok', () => {

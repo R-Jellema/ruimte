@@ -22,7 +22,7 @@ import {
 } from './acp-providers.ts';
 import type { AcpServerLaunch } from './acp-server.ts';
 import { ProviderRegistry as RuimteProviderRegistry } from './registry.ts';
-import { tempHomes } from './test-helpers.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const newHome = tempHomes('ruimte-acp-providers-');
 

@@ -5,7 +5,7 @@ import type { ModelCatalogData } from '@ruimte/contracts';
 import { ModelCatalog } from '@adecore/agents/providers';
 import type { ModelCatalogsResult } from '@ruimte/pulsar';
 import { ModelCatalogFeed } from './model-catalogs.ts';
-import { tempHomes } from './test-helpers.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const HOUR = 60 * 60 * 1000;
 

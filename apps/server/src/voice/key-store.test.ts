@@ -1,10 +1,10 @@
-import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
-import { mkdir, mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, spyOn, test } from 'bun:test';
+import { mkdir, readdir, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { runVoice, type VoiceCliOptions } from '../cli/voice.ts';
 import { MachineHome } from '../fs/machine-home.ts';
 import { VoiceKeyStore } from './key-store.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 // Recognizable, so a test can prove it never lands in a line it should not.
 const KEY = 'sk-test-voice-0123456789abcdef';
@@ -13,14 +13,12 @@ let root: string;
 let home: string;
 let store: VoiceKeyStore;
 
+const newHome = tempHomes('ruimte-voice-key-');
+
 beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-voice-key-'));
+    root = await newHome();
     home = join(root, 'home');
     store = new VoiceKeyStore(home);
-});
-
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
 });
 
 describe('VoiceKeyStore', () => {

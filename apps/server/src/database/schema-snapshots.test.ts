@@ -1,20 +1,18 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { DatabaseConnection } from '@ruimte/contracts';
 import type { DatabaseResponse, TableStructure } from '@adecore/database/protocol';
 import { startDatabaseOf } from './agent-databases.ts';
 import { generationOf, SchemaSnapshots, viewQueryOf } from './schema-snapshots.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let root = '';
 
-beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-snapshots-'));
-});
+const newHome = tempHomes('ruimte-snapshots-');
 
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
+beforeEach(async () => {
+    root = await newHome();
 });
 
 const USERS: TableStructure = {

@@ -1,11 +1,10 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { join, resolve } from 'node:path';
 import type { ChatItem, LaunchStatus } from '@ruimte/contracts';
 import type { OutboxEntry, OutboxWork, RunAfterSettleEntry } from '../outbox/outbox.ts';
 import { AfterSettleLaunches, AfterSettleStore, type AfterSettleDeps } from './after-settle.ts';
 import type { ResolvedLaunch } from './store.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const WORKTREE = resolve('/worktrees/repo-fix');
 
@@ -98,8 +97,10 @@ async function choose(launchId: string | null, at = 1_500): Promise<void> {
     await store.choose('p1', launchId);
 }
 
+const newHome = tempHomes('ruimte-after-settle-');
+
 beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-after-settle-'));
+    home = await newHome();
     now = 0;
     store = new AfterSettleStore({ path: join(home, 'launch-after-settle.json'), now: () => now });
     chats = new Map();
@@ -112,10 +113,6 @@ beforeEach(async () => {
     peerChats = new Set();
     finish = () => undefined;
     settle = new AfterSettleLaunches(deps());
-});
-
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
 });
 
 describe('owing a run when a worktree chat settles', () => {

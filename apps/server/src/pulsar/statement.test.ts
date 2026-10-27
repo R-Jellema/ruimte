@@ -1,6 +1,5 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { PushSubscribePayloadSchema, clientChannelMessage } from '@ruimte/contracts';
 import { z } from 'zod';
@@ -22,6 +21,7 @@ import { generateKeyPair, signMessage } from '../auth/keys.ts';
 import { SignalGate } from './signal-gate.ts';
 import { signedSignal } from './test-helpers.ts';
 import { STATEMENT_CLOCK_SKEW_MS, StatementGate, TEST_STATEMENT_KEY_VARIABLE, checkPeerStatement, checkStatement, trustedStatementKeys } from './statement.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const MACHINE_ID = 'machine-under-test';
 const NOW = 1_800_000_000_000;
@@ -239,15 +239,13 @@ describe('StatementGate', () => {
 
     const access = (statement: AccessStatement, label = 'Laptop'): SignalAccess => ({ statement, label });
 
+    const newHome = tempHomes('ruimte-statement-');
+
     beforeEach(async () => {
-        home = await mkdtemp(join(tmpdir(), 'ruimte-statement-'));
+        home = await newHome();
         store = new AuthStore(home, () => now);
         now = NOW + 1_000;
         warnings = [];
-    });
-
-    afterEach(async () => {
-        await rm(home, { recursive: true, force: true });
     });
 
     test('a good statement pairs the key with the origin statement, under the label the offer gave', async () => {

@@ -1,6 +1,4 @@
-import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import { join } from 'node:path';
 import type { ServerFrame } from '@ruimte/contracts';
 import type { CanvasHost } from '../canvas/verb.ts';
@@ -10,6 +8,7 @@ import { VoiceKeyStore } from '../voice/key-store.ts';
 import { VoicePreferencesStore } from '../voice/preferences-store.ts';
 import { wireVoice } from '../wiring/voice.ts';
 import { registerVoiceHandlers, type VoiceHandlerDeps } from './voice.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const KEY = 'sk-test-voice-0123456789abcdef';
 const OWNER: ClientAccess = { reachability: 'loopback', sessionId: null };
@@ -67,15 +66,13 @@ function heard(frames: ServerFrame[], event: string): unknown[] {
 
 const START = { startId: 'start-1', sceneId: 'scene-1', projectId: 'project-1', sdp: 'v=0', language: 'en', voice: 'marin', timeZone: 'UTC' };
 
+const newHome = tempHomes('ruimte-voice-handlers-');
+
 beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-voice-handlers-'));
+    root = await newHome();
     keys = new VoiceKeyStore(root);
     preferences = new VoicePreferencesStore(root);
     started = [];
-});
-
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
 });
 
 describe('the voice requests', () => {

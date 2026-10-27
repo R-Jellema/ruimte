@@ -1,9 +1,9 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { FS_FILE_PATH, handleFsFileRequest } from './file-route.ts';
 import { MachineHome } from './machine-home.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
 const SVG = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
@@ -30,14 +30,12 @@ function asLocal(init?: RequestInit): RequestInit {
     };
 }
 
+const newHome = tempHomes('ruimte-fs-file-route-');
+
 beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-fs-file-route-'));
+    root = await newHome();
     await writeFile(join(root, 'icon.png'), PNG);
     machineHome = new MachineHome(join(root, 'home'));
-});
-
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
 });
 
 describe('the file route', () => {

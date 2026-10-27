@@ -1,17 +1,15 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, expect, test } from 'bun:test';
+import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { PendingPromptStore } from './pending-prompts.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 let home: string;
 
-beforeEach(async () => {
-    home = await mkdtemp(join(tmpdir(), 'ruimte-prompts-'));
-});
+const newHome = tempHomes('ruimte-prompts-');
 
-afterEach(async () => {
-    await rm(home, { recursive: true, force: true });
+beforeEach(async () => {
+    home = await newHome();
 });
 
 test('a prompt is delivered once and never again', async () => {

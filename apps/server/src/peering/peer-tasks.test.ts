@@ -9,7 +9,7 @@ import type { OutboxEntry, OutboxWork } from '../outbox/outbox.ts';
 import { BundleStore } from '../git/bundles.ts';
 import type { FirstPrompt } from '../agents/pending-prompts.ts';
 import { taskFirstPrompt } from '../canvas/tasks.ts';
-import { tempHomes } from '../providers/test-helpers.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 import { PeerLinks, peerCanvasId } from './links.ts';
 import { PEER_MAX_BRANCH_LENGTH, PEER_MAX_WORKTREES, PeerTasks, peerCaller, type PeerTasksDeps } from './peer-tasks.ts';
 

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { AgentLineageStore } from '@adecore/agents/coordination';
 import { PeerLinks } from './links.ts';
 import { UntrustedFolders, untrustedStartProblem } from './untrusted.ts';
-import { tempHomes } from '../providers/test-helpers.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const newHome = tempHomes('ruimte-untrusted-');
 let home: string;

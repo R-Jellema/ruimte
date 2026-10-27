@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { appendFile, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { appendFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { CodexTitleReader } from './codex-title.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 function line(id: string, name: unknown): string {
     return `${JSON.stringify({ id, thread_name: name, updated_at: '2026-09-14T12:00:00.000000Z' })}\n`;
@@ -11,14 +11,12 @@ function line(id: string, name: unknown): string {
 let root: string;
 let index: string;
 
+const newHome = tempHomes('ruimte-codex-title-');
+
 beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-codex-title-'));
+    root = await newHome();
     index = join(root, 'session_index.jsonl');
     await writeFile(index, [line('t-1', 'First name'), line('t-2', 'Other thread'), line('t-1', '  Fix the\nbuild  ')].join(''));
-});
-
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
 });
 
 describe('CodexTitleReader', () => {

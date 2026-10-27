@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { detectLaunches } from './detect.ts';
+import { tempHomes } from '../temp-home-test-helpers.ts';
 
 const runServer = `<component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Run server" type="PhpBuiltInWebServerConfigurationType" factoryName="PHP Built-in Web Server" activateToolWindowBeforeRun="false" document_root="$PROJECT_DIR$/public" host="0.0.0.0" port="8000" router_script="$PROJECT_DIR$/dev/server.php" use_router_script="true">
@@ -80,8 +80,10 @@ async function write(path: string, text: string): Promise<void> {
     await writeFile(join(folder, path), text);
 }
 
+const newHome = tempHomes('ruimte-detect-');
+
 beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ruimte-detect-'));
+    root = await newHome();
     folder = join(root, 'projects', 'passly');
     await mkdir(join(folder, 'backend', '.idea'), { recursive: true });
     await write('backend/dev/run/Run server.run.xml', runServer);
@@ -94,10 +96,6 @@ beforeEach(async () => {
         JSON.stringify({ scripts: { dev: 'vite', build: 'vue-tsc -b && vite build', preview: 'vite preview', postinstall: 'touch vite.config.ts' } })
     );
     await write('frontend/bun.lock', '');
-});
-
-afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
 });
 
 describe('run configurations', () => {
