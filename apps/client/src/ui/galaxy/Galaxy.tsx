@@ -625,7 +625,7 @@ const Galaxy = ({
                 return;
             }
             locate(event);
-            if (!pointer.inside || !s.clickWarp || reduce) {
+            if (!pointer.inside) {
                 return;
             }
             state.boost = Math.min(1.6, state.boost + 1);

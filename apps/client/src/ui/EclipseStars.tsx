@@ -51,24 +51,7 @@ export function EclipseStars({ center, density, seed }: { center: number; densit
                 <Galaxy
                     focal={[0.5, 1 - center / height]}
                     density={density}
-                    glowIntensity={0.3}
-                    flareIntensity={1}
-                    starSpeed={0.5}
-                    mouseRepulsion
-                    clickWarp
                     starColors={theme === 'light' ? ['#ffffff', '#ffd9a3', '#a8c8ff'] : ['#ffffff', '#bfe3ff', '#8fb8ff']}
-                    hueShift={140}
-                    saturation={0}
-                    starSize={1}
-                    twinkleIntensity={0.3}
-                    speed={1}
-                    rotationSpeed={0.1}
-                    layers={4}
-                    direction="forward"
-                    repulsionStrength={2}
-                    mouseInteraction
-                    intro
-                    lightMode={false}
                     onUnavailable={unavailable}
                 />
             ) : (
