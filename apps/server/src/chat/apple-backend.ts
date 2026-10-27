@@ -14,7 +14,7 @@ import {
     type AppleToolResult
 } from './apple-tools.ts';
 import type { ApprovalDecision, BackendHost, BackendLaunch, ChatBackend, TurnInput } from '@adecore/agents/chat';
-import { ChatChild } from '@adecore/agents/chat';
+import { ChatChild, LineSplitter } from '@adecore/agents/chat';
 import { cancellableTimeout } from '../timers.ts';
 
 export interface AppleBackendOptions {
@@ -306,19 +306,17 @@ export class AppleBackend implements ChatBackend {
 
     private async read(stream: ReadableStream<Uint8Array>): Promise<void> {
         const decoder = new TextDecoder();
-        let buffer = '';
+        const lines = new LineSplitter(
+            (line) => this.receive(AppleFoundationEventSchema.parse(JSON.parse(line))),
+            () => {
+                throw new Error('Apple helper frame exceeded 128 KB.');
+            },
+            128_000
+        );
+
         try {
             for await (const chunk of stream) {
-                buffer += decoder.decode(chunk, { stream: true });
-                if (buffer.length > 128_000) {
-                    throw new Error('Apple helper frame exceeded 128 KB.');
-                }
-                let end: number;
-                while ((end = buffer.indexOf('\n')) >= 0) {
-                    const line = buffer.slice(0, end);
-                    buffer = buffer.slice(end + 1);
-                    this.receive(AppleFoundationEventSchema.parse(JSON.parse(line)));
-                }
+                lines.push(decoder.decode(chunk, { stream: true }));
             }
         } catch (error) {
             this.fail(`Apple helper protocol error: ${String(error)}`);

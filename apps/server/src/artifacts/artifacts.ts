@@ -25,7 +25,7 @@ import {
 } from '@ruimte/contracts';
 import { KeyedSerializer } from '@adecore/agents';
 import { isInside } from '../canvas/project-paths.ts';
-import { ClientSinks } from '../client-sinks.ts';
+import { WatchedSinks } from '../client-sinks.ts';
 import type { MachineHome } from '../fs/machine-home.ts';
 import { sniffMime } from '../fs/sniff.ts';
 import { DEVICE_CAPTURES_FOLDER } from '../shots.ts';
@@ -131,8 +131,7 @@ export class Artifacts {
     private readonly store: ArtifactStore;
     private readonly deps: ArtifactsDeps;
     private readonly pinned: PinnedVersions;
-    private readonly sinks = new ClientSinks();
-    private readonly watching = new Set<string>();
+    private readonly sinks = new WatchedSinks();
     private readonly uploads = new Map<string, OpenUpload>();
     private readonly uploadWrites = new KeyedSerializer();
 
@@ -144,19 +143,15 @@ export class Artifacts {
     }
 
     subscribe(clientId: string, sink: SessionSink): () => void {
-        const unsubscribe = this.sinks.subscribe(clientId, sink);
-        return () => {
-            this.watching.delete(clientId);
-            unsubscribe();
-        };
+        return this.sinks.subscribe(clientId, sink);
     }
 
     watch(clientId: string): void {
-        this.watching.add(clientId);
+        this.sinks.watch(clientId);
     }
 
     unwatch(clientId: string): void {
-        this.watching.delete(clientId);
+        this.sinks.unwatch(clientId);
     }
 
     async list(filter: { projectId?: string; chatId?: string }): Promise<ArtifactSummary[]> {
@@ -518,8 +513,6 @@ export class Artifacts {
     }
 
     private changed(event: ArtifactChangedEvent): void {
-        for (const clientId of this.watching) {
-            this.sinks.to(clientId, { event: 'artifact.changed', payload: event });
-        }
+        this.sinks.emit({ event: 'artifact.changed', payload: event });
     }
 }

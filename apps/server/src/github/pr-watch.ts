@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { systemClock, type OutboxClock } from '@adecore/agents/coordination';
+import type { OutboxClock } from '@adecore/agents/coordination';
 import { GitPrWatchSchema, type ChangeSplit, type GitPrWatch, type GitPrWatchEndReason, type GitPullRequest } from '@ruimte/contracts';
 import { z } from 'zod';
 import { ClientSinks } from '../client-sinks.ts';
@@ -9,10 +9,9 @@ import { isTerminal } from '../git/pr-checks.ts';
 import { PrSplits } from '../git/pr-split.ts';
 import { GitError } from '../git/run.ts';
 import type { OutboxEntry, OutboxWork } from '../outbox/outbox.ts';
+import { wakefulClock } from '../outbox/wakeful-clock.ts';
 import type { SessionSink } from '../sessions/manager.ts';
 
-/* A timer asleep with the machine runs late by as long as it slept, so the wall clock is read again at least this often. */
-export const MAX_WAIT_MS = 60_000;
 const START_INTERVAL_MS = 60_000;
 export const MAX_INTERVAL_MS = 600_000;
 export const MAX_ERROR_INTERVAL_MS = 1_800_000;
@@ -160,7 +159,7 @@ export class PrWatchStore {
 
     constructor(options: PrWatchOptions) {
         this.options = options;
-        this.clock = options.clock ?? systemClock;
+        this.clock = wakefulClock(options.clock);
         this.random = options.random ?? Math.random;
         this.splits = options.splits ?? new PrSplits(options.gh);
         this.file = new JsonFileStore(options.path, FileSchema, 'pull request watches start empty');
@@ -288,19 +287,16 @@ export class PrWatchStore {
         const wait = Math.max(0, (this.due.get(id) ?? 0) - this.clock.now());
         this.timers.set(
             id,
-            this.clock.setTimeout(
-                () => {
-                    this.timers.delete(id);
-                    if ((this.due.get(id) ?? 0) > this.clock.now()) {
-                        this.schedule(id);
-                        return;
-                    }
-                    this.due.delete(id);
-                    this.queue.push(id);
-                    this.pump();
-                },
-                Math.min(wait, MAX_WAIT_MS)
-            )
+            this.clock.setTimeout(() => {
+                this.timers.delete(id);
+                if ((this.due.get(id) ?? 0) > this.clock.now()) {
+                    this.schedule(id);
+                    return;
+                }
+                this.due.delete(id);
+                this.queue.push(id);
+                this.pump();
+            }, wait)
         );
     }
 
