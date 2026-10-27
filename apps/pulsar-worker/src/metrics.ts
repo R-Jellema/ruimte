@@ -25,9 +25,9 @@ export function routeOf(path: string, known: ReadonlySet<string>): string {
     return ROUTE_TEMPLATES.find(([pattern]) => pattern.test(path))?.[1] ?? 'other';
 }
 
+/* One item per request: the duration's count is the number of requests, per route and status class. */
 export function countRequest(route: string, status: number, durationMs: number): void {
-    metrics.count('pulsar.request', 1, { attributes: { route, status: `${Math.floor(status / 100)}xx` } });
-    metrics.distribution('pulsar.request.duration', durationMs, { unit: 'millisecond', attributes: { route } });
+    metrics.distribution('pulsar.request.duration', durationMs, { unit: 'millisecond', attributes: { route, status: `${Math.floor(status / 100)}xx` } });
 }
 
 export type LoginOutcome = 'signed-in' | 'linked' | 'expired' | 'denied' | 'refused' | 'failed';

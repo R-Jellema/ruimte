@@ -239,11 +239,19 @@ function startMeters(active: Sentry): void {
         last = now;
     }, LAG_TICK_MS);
 
+    // A kind of client nobody is connected as goes out once as zero, after its last connection, and then not again.
+    const recordedClients: Record<ClientKind, number> = { local: 0, account: 0, machine: 0 };
+
     const gauges = setInterval(() => {
         window.record({ kind: 'gauge', name: 'daemon.memory', value: Math.round(process.memoryUsage().rss / 1_048_576), unit: 'megabyte' });
 
         for (const kind of Object.keys(liveClients) as ClientKind[]) {
+            if (liveClients[kind] === 0 && recordedClients[kind] === 0) {
+                continue;
+            }
+
             window.record({ kind: 'gauge', name: 'daemon.clients', value: liveClients[kind], attributes: { kind } });
+            recordedClients[kind] = liveClients[kind];
         }
     }, GAUGE_MS);
 
