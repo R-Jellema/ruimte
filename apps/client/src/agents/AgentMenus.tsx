@@ -87,7 +87,10 @@ function ProviderChain({ target, provider, rest, hint, onPick, drawn, previous, 
                 </Menu.GroupLabel>
                 {choice.offered.map((entry) => (
                     <Menu.Item key={entry.id} onClick={() => onPick(target, provider, entry.id)}>
-                        <AccountDot color={entry.account.color} />
+                        {/* As wide as an agent's icon, so the names line up with the rows that have one. */}
+                        <span className="grid w-3.5 shrink-0 place-items-center">
+                            <AccountDot color={entry.account.color} />
+                        </span>
                         <span className="truncate">{choice.nameOf(entry)}</span>
                         <Menu.Hint>{hint}</Menu.Hint>
                     </Menu.Item>
