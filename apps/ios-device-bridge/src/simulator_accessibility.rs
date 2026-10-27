@@ -3,26 +3,20 @@
 //! AccessibilityPlatformTranslation turns the answers into elements. The daemon keeps one process per
 //! simulator and asks it over stdin and stdout, one JSON object per line.
 
-use std::{
-    cell::Cell,
-    ffi::{CStr, CString, c_char, c_int, c_void},
-    io::{self, BufRead, Write},
-    panic::AssertUnwindSafe,
-    process::Command,
-    rc::Rc,
-    sync::mpsc,
-    time::{Duration, Instant},
-};
+use std::cell::Cell;
+use std::ffi::{CStr, CString, c_char, c_int, c_void};
+use std::io::{self, BufRead, Write};
+use std::panic::AssertUnwindSafe;
+use std::process::Command;
+use std::rc::Rc;
+use std::sync::mpsc;
+use std::time::{Duration, Instant};
 
 use block2::{Block, RcBlock};
-use objc2::{
-    AllocAnyThread, DefinedClass, define_class,
-    encode::{Encode, Encoding},
-    msg_send,
-    rc::{Retained, autoreleasepool},
-    runtime::{AnyClass, AnyObject, Bool, NSObject, Sel},
-    sel,
-};
+use objc2::encode::{Encode, Encoding};
+use objc2::rc::{Retained, autoreleasepool};
+use objc2::runtime::{AnyClass, AnyObject, Bool, NSObject, Sel};
+use objc2::{AllocAnyThread, DefinedClass, define_class, msg_send, sel};
 use serde::{Deserialize, Serialize};
 
 const CORE_SIMULATOR: &CStr =
@@ -79,9 +73,9 @@ unsafe impl Encode for CGRect {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct TreeError {
-    pub code: &'static str,
-    pub message: String,
+struct TreeError {
+    code: &'static str,
+    message: String,
 }
 
 impl TreeError {
@@ -100,34 +94,34 @@ impl TreeError {
 type TreeResult<T> = Result<T, TreeError>;
 
 #[derive(Debug, Deserialize, PartialEq)]
-#[serde(tag = "type", rename_all = "camelCase")]
-pub enum Request {
-    Tree {
-        id: u64,
-        #[serde(rename = "timeoutMs")]
-        timeout_ms: Option<u64>,
-    },
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+enum Request {
+    Tree { id: u64, timeout_ms: Option<u64> },
 }
 
 #[derive(Debug, Serialize, PartialEq)]
-pub struct Frame {
-    pub x: f64,
-    pub y: f64,
-    pub width: f64,
-    pub height: f64,
+struct Frame {
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
 }
 
 /// One element in device points, origin top left; text the element does not have is null.
 #[derive(Debug, Serialize, PartialEq)]
-pub struct Node {
-    pub role: Option<String>,
-    pub subrole: Option<String>,
-    pub label: Option<String>,
-    pub value: Option<String>,
-    pub identifier: Option<String>,
-    pub frame: Frame,
-    pub enabled: bool,
-    pub children: Vec<Node>,
+struct Node {
+    role: Option<String>,
+    subrole: Option<String>,
+    label: Option<String>,
+    value: Option<String>,
+    identifier: Option<String>,
+    frame: Frame,
+    enabled: bool,
+    children: Vec<Node>,
 }
 
 #[derive(Debug, Serialize, PartialEq)]
@@ -136,7 +130,7 @@ pub struct Node {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub enum Reply {
+enum Reply {
     /// `scale` is the screen's pixels per point, null when the device type does not say.
     Ready { scale: Option<f64> },
     Tree {
@@ -165,7 +159,7 @@ impl Reply {
 
 /// How long a tree may take: the daemon's wish within bounds, since the first read after a boot
 /// waits seconds for the device's accessibility runtime.
-pub fn timeout_of(timeout_ms: Option<u64>) -> Duration {
+fn timeout_of(timeout_ms: Option<u64>) -> Duration {
     timeout_ms
         .map(Duration::from_millis)
         .unwrap_or(DEFAULT_TIMEOUT)
@@ -354,8 +348,7 @@ impl Session {
     }
 
     fn empty(&self) -> *mut AnyObject {
-        let response: *mut AnyObject = unsafe { msg_send![self.empty_response, emptyResponse] };
-        response
+        unsafe { msg_send![self.empty_response, emptyResponse] }
     }
 }
 
@@ -601,21 +594,15 @@ impl Reader {
     fn node(&self, element: &AnyObject, depth: usize, count: &mut usize) -> Node {
         *count += 1;
         self.stamp(element);
-        let role: Option<Retained<AnyObject>> = unsafe { msg_send![element, accessibilityRole] };
-        let subrole: Option<Retained<AnyObject>> =
-            unsafe { msg_send![element, accessibilitySubrole] };
-        let label: Option<Retained<AnyObject>> = unsafe { msg_send![element, accessibilityLabel] };
-        let value: Option<Retained<AnyObject>> = unsafe { msg_send![element, accessibilityValue] };
-        let identifier: Option<Retained<AnyObject>> =
-            unsafe { msg_send![element, accessibilityIdentifier] };
+
         let frame: CGRect = unsafe { msg_send![element, accessibilityFrame] };
         let enabled: Bool = unsafe { msg_send![element, isAccessibilityEnabled] };
         let mut node = Node {
-            role: self.text(role),
-            subrole: self.text(subrole),
-            label: self.text(label),
-            value: self.text(value),
-            identifier: self.text(identifier),
+            role: self.text(unsafe { msg_send![element, accessibilityRole] }),
+            subrole: self.text(unsafe { msg_send![element, accessibilitySubrole] }),
+            label: self.text(unsafe { msg_send![element, accessibilityLabel] }),
+            value: self.text(unsafe { msg_send![element, accessibilityValue] }),
+            identifier: self.text(unsafe { msg_send![element, accessibilityIdentifier] }),
             frame: Frame {
                 x: frame.origin.x,
                 y: frame.origin.y,
@@ -774,8 +761,7 @@ fn screen_scale(device: &AnyObject) -> Option<f64> {
 
 #[cfg(test)]
 mod tests {
-    use super::{DEFAULT_TIMEOUT, Frame, MAX_TIMEOUT, Node, Reply, Request, TreeError, timeout_of};
-    use std::time::Duration;
+    use super::*;
 
     #[test]
     fn a_tree_request_reads_with_and_without_a_timeout() {

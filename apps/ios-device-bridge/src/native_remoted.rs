@@ -1,20 +1,18 @@
-use std::{
-    collections::HashMap,
-    ffi::{CStr, CString, c_char, c_void},
-    net::{IpAddr, Ipv6Addr, SocketAddr},
-    ptr,
-    sync::mpsc,
-    time::Duration,
-};
+use std::collections::HashMap;
+use std::ffi::{CStr, CString, c_char, c_void};
+use std::net::{IpAddr, Ipv6Addr, SocketAddr};
+use std::ptr;
+use std::sync::mpsc;
+use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 use block2::{Block, RcBlock};
-use idevice::{
-    IdeviceError, ReadWrite, RemoteXpcClient,
-    rsd::{RsdHandshake, RsdService},
-    xpc::{Dictionary, XPCObject as RemoteXpcObject},
-};
-use tokio::{net::TcpStream, process::Command, time::sleep};
+use idevice::rsd::{RsdHandshake, RsdService};
+use idevice::xpc::{Dictionary, XPCObject as RemoteXpcObject};
+use idevice::{IdeviceError, ReadWrite, RemoteXpcClient};
+use tokio::net::TcpStream;
+use tokio::process::Command;
+use tokio::time::sleep;
 use uuid::Uuid;
 
 type XpcObject = *mut c_void;
@@ -312,11 +310,12 @@ fn ensure_paired(connection: XpcObject, queue: DispatchQueue) -> Result<()> {
         return Ok(());
     };
     let code = unsafe { xpc_dictionary_get_int64(error, c"code".as_ptr()) };
-    if code == ALREADY_PAIRED {
-        Ok(())
-    } else {
-        bail!("remotepairingd could not pair the device (error {code})")
+
+    if code != ALREADY_PAIRED {
+        bail!("remotepairingd could not pair the device (error {code})");
     }
+
+    Ok(())
 }
 
 fn create_assertion(connection: XpcObject, queue: DispatchQueue) -> Result<(OwnedXpc, IpAddr)> {
@@ -357,8 +356,8 @@ fn send_request(
     let reply_handler = RcBlock::new(move |reply: XpcObject| {
         // Anything but a dictionary is an XPC error, such as the connection going away.
         let reply = is_dictionary(reply)
-            .then(|| unsafe { OwnedXpc::retain(reply) }.ok())
-            .flatten();
+            .then(|| unsafe { OwnedXpc::retain(reply) })
+            .and_then(Result::ok);
         let _ = sender.try_send(reply);
     });
     unsafe {
@@ -449,19 +448,20 @@ fn parse_nettop_ports(output: &str, tunnel_ip: IpAddr) -> Vec<u16> {
     let mut is_remoted = false;
     let mut ports = Vec::new();
     for line in output.lines() {
-        let fields = line.split(',').collect::<Vec<_>>();
-        let Some(first) = fields.first().copied() else {
-            continue;
-        };
+        let mut fields = line.split(',');
+        let first = fields.next().unwrap_or_default();
+
         if !first.starts_with("tcp4 ") && !first.starts_with("tcp6 ") {
             is_remoted = first
                 .rsplit_once('.')
                 .is_some_and(|(name, pid)| name == "remoted" && pid.parse::<u32>().is_ok());
             continue;
         }
-        if !is_remoted || fields.get(2).copied() != Some("Established") {
+
+        if !is_remoted || fields.nth(1) != Some("Established") {
             continue;
         }
+
         let Some((_, foreign)) = first.split_once("<->") else {
             continue;
         };
@@ -492,35 +492,39 @@ async fn rsd_handshake_with_uuid(
 ) -> Result<RsdHandshake, IdeviceError> {
     let mut client = RemoteXpcClient::new(socket).await?;
     client.do_handshake().await?;
-    let mut properties = Dictionary::new();
-    properties.insert(
-        "RemoteXPCVersionFlags".into(),
-        RemoteXpcObject::UInt64(0x0100_0000_0000_0006),
-    );
-    properties.insert(
-        "SensitivePropertiesVisible".into(),
-        RemoteXpcObject::Bool(true),
-    );
-    let mut message = Dictionary::new();
-    message.insert(
-        "MessageType".into(),
-        RemoteXpcObject::String("Handshake".into()),
-    );
-    message.insert(
-        "MessagingProtocolVersion".into(),
-        RemoteXpcObject::UInt64(7),
-    );
-    message.insert("UUID".into(), RemoteXpcObject::Uuid(handshake_uuid));
-    message.insert("Properties".into(), RemoteXpcObject::Dictionary(properties));
-    message.insert(
-        "Services".into(),
-        RemoteXpcObject::Dictionary(Dictionary::new()),
-    );
+
+    let properties = Dictionary::from_iter([
+        (
+            "RemoteXPCVersionFlags".into(),
+            RemoteXpcObject::UInt64(0x0100_0000_0000_0006),
+        ),
+        (
+            "SensitivePropertiesVisible".into(),
+            RemoteXpcObject::Bool(true),
+        ),
+    ]);
+    let message = Dictionary::from_iter([
+        (
+            "MessageType".into(),
+            RemoteXpcObject::String("Handshake".into()),
+        ),
+        (
+            "MessagingProtocolVersion".into(),
+            RemoteXpcObject::UInt64(7),
+        ),
+        ("UUID".into(), RemoteXpcObject::Uuid(handshake_uuid)),
+        ("Properties".into(), RemoteXpcObject::Dictionary(properties)),
+        (
+            "Services".into(),
+            RemoteXpcObject::Dictionary(Dictionary::new()),
+        ),
+    ]);
+
     client
         .send_object(RemoteXpcObject::Dictionary(message), false)
         .await?;
-    let data = client.recv_root().await?;
-    parse_rsd_handshake(data)
+
+    parse_rsd_handshake(client.recv_root().await?)
 }
 
 fn parse_rsd_handshake(data: plist::Value) -> Result<RsdHandshake, IdeviceError> {
@@ -604,16 +608,16 @@ fn parse_rsd_handshake(data: plist::Value) -> Result<RsdHandshake, IdeviceError>
 
 #[cfg(test)]
 mod tests {
-    use super::{OwnedXpc, child_dictionary, is_dictionary, parse_nettop_ports};
-    use std::net::IpAddr;
+    use super::*;
 
     #[test]
     fn reads_only_dictionaries_as_dictionaries() {
         let parent = OwnedXpc::new_dictionary().unwrap();
         let child = OwnedXpc::new_dictionary().unwrap();
+
         unsafe {
-            super::xpc_dictionary_set_value(parent.as_ptr(), c"child".as_ptr(), child.as_ptr());
-            super::xpc_dictionary_set_string(parent.as_ptr(), c"text".as_ptr(), c"value".as_ptr());
+            xpc_dictionary_set_value(parent.as_ptr(), c"child".as_ptr(), child.as_ptr());
+            xpc_dictionary_set_string(parent.as_ptr(), c"text".as_ptr(), c"value".as_ptr());
         }
 
         assert!(is_dictionary(parent.as_ptr()));

@@ -1,35 +1,32 @@
-use std::{
-    fs::File,
-    net::{IpAddr, SocketAddr},
-    os::fd::FromRawFd,
-    time::Duration,
-};
+mod native_remoted;
+mod simulator_accessibility;
+
+use std::fs::File;
+use std::net::{IpAddr, SocketAddr};
+use std::os::fd::FromRawFd;
+use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand, ValueEnum};
-use idevice::{
-    IdeviceService, ReadWrite, RsdService,
-    core_device::{
-        ButtonState, CallInfoBlob, DisplayServiceClient, HevcDepacketizer, IndigoHidClient,
-        OrientationServiceClient, RotationDirection, RtpPacket, TOUCHSCREEN_STATE_CONTACT,
-        TOUCHSCREEN_STATE_RELEASE, TouchscreenContact, UniversalHidServiceClient,
-        build_screen_audio_offer, build_screen_video_offer, build_start_audio_parameters,
-        build_start_video_parameters,
-    },
-    core_device_proxy::CoreDeviceProxy,
-    lockdown::LockdownClient,
-    rsd::RsdHandshake,
-    tcp::handle::UdpSocketHandle,
-    usbmuxd::{UsbmuxdAddr, UsbmuxdConnection},
+use idevice::core_device::{
+    ButtonState, CallInfoBlob, DisplayServiceClient, HevcDepacketizer, IndigoHidClient,
+    OrientationServiceClient, RotationDirection, RtpPacket, TOUCHSCREEN_STATE_CONTACT,
+    TOUCHSCREEN_STATE_RELEASE, TouchscreenContact, UniversalHidServiceClient,
+    build_screen_audio_offer, build_screen_video_offer, build_start_audio_parameters,
+    build_start_video_parameters,
 };
+use idevice::core_device_proxy::CoreDeviceProxy;
+use idevice::lockdown::LockdownClient;
+use idevice::provider::RsdProvider;
+use idevice::rsd::RsdHandshake;
+use idevice::tcp::handle::UdpSocketHandle;
+use idevice::usbmuxd::{UsbmuxdAddr, UsbmuxdConnection};
+use idevice::{IdeviceService, ReadWrite, RsdService};
 use serde::Deserialize;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UdpSocket;
 
-mod native_remoted;
-mod simulator_accessibility;
-
-use native_remoted::{NativeRemotedTunnel, connect_rsd};
+use crate::native_remoted::{NativeRemotedTunnel, connect_rsd};
 
 const MAGIC: [u8; 8] = [0x52, 0x44, 0x45, 0x56, 0x01, 0x00, 0x00, 0x00];
 const CLIENT_SUPPORTED_FEATURES: u64 = 140;
@@ -409,7 +406,7 @@ async fn probe_stream(
     })
     .await
     .context("no complete HEVC frame arrived before the probe timeout")
-    .and_then(|result| result);
+    .flatten();
     let stopped = session
         .client
         .stop_media_stream()
@@ -463,11 +460,8 @@ async fn stream_physical_ios(
                 result?;
                 break;
             },
-            datagram = tokio::time::timeout(Duration::from_secs(5), udp.recv()) => {
-                let datagram = match datagram {
-                    Ok(result) => result.context("the display stream closed")?,
-                    Err(_) => continue,
-                };
+            datagram = udp.recv() => {
+                let datagram = datagram.context("the display stream closed")?;
 
                 for frame in assembler.push(datagram.as_ref()) {
                     protocol.frame(sequence, &frame).await?;
@@ -593,7 +587,7 @@ impl ScreenMediaStream {
     /// Stops the screen session again when the input services cannot be reached.
     async fn with_input(
         mut self,
-        provider: &mut impl idevice::provider::RsdProvider,
+        provider: &mut impl RsdProvider,
         handshake: &mut RsdHandshake,
     ) -> Result<Self> {
         match connect_input_services(provider, handshake).await {
@@ -672,7 +666,7 @@ fn access_unit_delimiters(stream: &[u8]) -> impl Iterator<Item = usize> + '_ {
 }
 
 async fn connect_input_services(
-    provider: &mut impl idevice::provider::RsdProvider,
+    provider: &mut impl RsdProvider,
     handshake: &mut RsdHandshake,
 ) -> Result<DeviceInputClients> {
     let touch = UniversalHidServiceClient::connect_rsd(provider, handshake)
@@ -708,19 +702,26 @@ async fn handle_control_messages(
 
 async fn read_control_message(input: &mut tokio::io::Stdin) -> Result<ControlMessage> {
     let mut header = [0_u8; 5];
+
     if input.read_exact(&mut header).await.is_err() {
         return Ok(ControlMessage::Stop);
     }
-    let length = u32::from_be_bytes(header[1..5].try_into().unwrap()) as usize;
+
+    let [kind, length @ ..] = header;
+    let length = u32::from_be_bytes(length) as usize;
+
     if length > CONTROL_MESSAGE_BYTES_MAXIMUM {
         bail!("device input exceeds the control-message limit");
     }
+
     let mut payload = vec![0_u8; length];
+
     input
         .read_exact(&mut payload)
         .await
         .context("the device input message ended early")?;
-    match header[0] {
+
+    match kind {
         17 => Ok(ControlMessage::Input(
             serde_json::from_slice(&payload).context("the device input message is invalid")?,
         )),
@@ -907,14 +908,9 @@ async fn negotiate_screen_media(
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        ACCESS_UNIT_DELIMITER, AccessUnitAssembler, Arguments, Command, DeviceButton, DeviceInput,
-        MAX_FRAME_BYTES, MediaUdp, PointerPhase, battery_json, frame_header,
-        normalized_touch_coordinate, touch_state,
-    };
-    use clap::Parser;
-    use std::net::{IpAddr, Ipv6Addr};
-    use tokio::net::UdpSocket;
+    use std::net::Ipv6Addr;
+
+    use super::*;
 
     fn battery(entries: &[(&str, plist::Value)]) -> plist::Value {
         plist::Value::Dictionary(
