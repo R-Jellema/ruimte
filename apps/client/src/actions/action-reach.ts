@@ -38,6 +38,16 @@ export function canvasOnScreen(document: StoreApi<DocumentState>, viewId: string
     return { view, canvas };
 }
 
+/* A node of a canvas on screen, with that canvas. */
+export function nodeOnScreen(document: StoreApi<DocumentState>, viewId: string, nodeId: string) {
+    const { view, canvas } = canvasOnScreen(document, viewId);
+    const node = canvas.nodes[nodeId];
+    if (!node) {
+        throw new ActionRefusal('unknown-node', `No node with id “${nodeId}” exists on “${view.name}”.`);
+    }
+    return { view, canvas, node };
+}
+
 /* What a canvas holds after a change, since the state read before it is a snapshot. */
 export function canvasNow(document: StoreApi<DocumentState>, viewId: string): CanvasState {
     return canvasOnScreen(document, viewId).canvas;
@@ -75,6 +85,10 @@ export function historyUndo(viewId: string, expectedDepth: number, stillThere?: 
 
 export function unknownView(viewId: string): ActionRefusal {
     return new ActionRefusal('unknown-view', `No view with id “${viewId}” exists in this project.`);
+}
+
+export function unknownCanvas(viewId: string): ActionRefusal {
+    return new ActionRefusal('unknown-view', `No canvas view with id “${viewId}” exists in this project.`);
 }
 
 export function existingView(state: DocumentState, viewId: string): ProjectView {

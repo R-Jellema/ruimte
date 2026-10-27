@@ -1,7 +1,7 @@
 import { ActionRefusal, type ActionHandlers, type ActionOutput } from '@ruimte/actions';
 import type { StoreApi } from 'zustand';
+import { refuseUnreachableBrowser } from '@/actions/action-reach';
 import { pageStateOf } from '@/browser/page-hold';
-import { browserRouteAvailable } from '@/browser/owner-route';
 import { browserRegistry, normalizeUrl, useBrowser, type BrowserState } from '@/browser/registry';
 import { isDesktop } from '@/desktop/bridge';
 import { readNodeHost, updateHost } from '@/nodes/node-host';
@@ -107,8 +107,8 @@ export function pageActions(document: StoreApi<DocumentState>, overrides: Partia
     /* Nobody here holding the page is an answer, never an error, the way the daemon says it to an agent. */
     const driven = (nodeId: string, drive: PageDrive) => {
         const browser = browserOf(nodeId);
-        if (drive.kind !== 'stop' && !browserRouteAvailable(currentEndpointId(), drive.kind === 'go' ? drive.url : browser.url, browser.browserOwner)) {
-            throw new ActionRefusal('browser-owner-unavailable', 'Open this browser in Ruimte on the machine running the session.');
+        if (drive.kind !== 'stop') {
+            refuseUnreachableBrowser('browser', drive.kind === 'go' ? drive.url : browser.url, browser.browserOwner);
         }
         if (machine.holds(nodeId)) {
             machine.drive(nodeId, drive);
@@ -124,9 +124,7 @@ export function pageActions(document: StoreApi<DocumentState>, overrides: Partia
         'browser.navigate': ({ nodeId, url }, { actor }) => {
             const { title, url: saved, browserOwner } = browserOf(nodeId);
             const address = normalizeUrl(url);
-            if (!browserRouteAvailable(currentEndpointId(), address, browserOwner)) {
-                throw new ActionRefusal('browser-owner-unavailable', 'Open this browser in Ruimte on the machine running the session.');
-            }
+            refuseUnreachableBrowser('browser', address, browserOwner);
             if (actor.kind !== 'person' && !/^https?:\/\//i.test(address)) {
                 throw new ActionRefusal('bad-url', `“${url}” is not an http or https address.`);
             }

@@ -1,11 +1,8 @@
 import { ActionRefusal, type ActionHandlers } from '@ruimte/actions';
-import { asRefusal } from '@/actions/developer-actions';
+import { refusing, type Requester } from '@/actions/refusal';
 import { currentEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
 import { machineFor } from '@/transport/connections';
-import type { Transport } from '@/transport/transport';
-
-type Requester = Pick<Transport, 'request'>;
 
 /* What the chat search reaches outside the document; a test hands in a fake. */
 export interface ChatSearchMachine {
@@ -37,19 +34,11 @@ export function chatSearchActions(overrides: Partial<ChatSearchMachine> = {}): A
     return {
         'chat.search': async ({ query, searchId }) => {
             const { transport, projectId } = reach();
-            try {
-                return { output: await transport.request('chat.search', { projectId, query, searchId }) };
-            } catch (error: unknown) {
-                throw asRefusal(error);
-            }
+            return { output: await refusing(transport.request('chat.search', { projectId, query, searchId })) };
         },
         'chat.external': async () => {
             const { transport, projectId } = reach();
-            try {
-                return { output: await transport.request('chat.external', { projectId }) };
-            } catch (error: unknown) {
-                throw asRefusal(error);
-            }
+            return { output: await refusing(transport.request('chat.external', { projectId })) };
         }
     };
 }

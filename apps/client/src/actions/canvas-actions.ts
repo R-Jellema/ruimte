@@ -36,12 +36,14 @@ import {
     historyUndo,
     isOnScreen,
     kindOfNode,
+    nodeOnScreen,
     quoted,
     refuseResumeWithout,
     refuseUnreachableBrowser,
     sessionOf,
     sessionsEnded,
-    storedFilePath
+    storedFilePath,
+    unknownCanvas
 } from '@/actions/action-reach';
 
 /* What the canvas actions reach outside the document; a test hands in a fake of each. */
@@ -55,7 +57,7 @@ export interface CanvasReach {
 function nodeToName(document: StoreApi<DocumentState>, viewId: string, nodeId: string): ProjectNode | undefined {
     const view = document.getState().views.find((candidate) => candidate.id === viewId);
     if (!view || !isCanvasView(view)) {
-        throw new ActionRefusal('unknown-view', `No canvas view with id “${viewId}” exists in this project.`);
+        throw unknownCanvas(viewId);
     }
     return nodesOfView(view).find((node) => node.id === nodeId);
 }
@@ -110,11 +112,7 @@ export function canvasActions(document: StoreApi<DocumentState>, reach: CanvasRe
     const { providers, viewDeletion } = reach;
     return {
         'node.focus': ({ viewId, nodeId }) => {
-            const { view, canvas } = canvasOnScreen(document, viewId);
-            const node = canvas.nodes[nodeId];
-            if (!node) {
-                throw new ActionRefusal('unknown-node', `No node with id “${nodeId}” exists on “${view.name}”.`);
-            }
+            const { view, canvas, node } = nodeOnScreen(document, viewId, nodeId);
             canvas.goToNode(nodeId);
             return {
                 output: {
@@ -442,11 +440,7 @@ export function canvasActions(document: StoreApi<DocumentState>, reach: CanvasRe
             };
         },
         'node.promoteToView': ({ viewId, nodeId }, { confirmed }) => {
-            const { view, canvas } = canvasOnScreen(document, viewId);
-            const node = canvas.nodes[nodeId];
-            if (!node) {
-                throw new ActionRefusal('unknown-node', `No node with id “${nodeId}” exists on “${view.name}”.`);
-            }
+            const { canvas, node } = nodeOnScreen(document, viewId, nodeId);
             if (node.kind !== 'chat' && node.kind !== 'terminal' && node.kind !== 'browser' && node.kind !== 'device') {
                 throw new ActionRefusal(
                     'node-not-promotable',
@@ -473,17 +467,13 @@ export function canvasActions(document: StoreApi<DocumentState>, reach: CanvasRe
             };
         },
         'node.moveToView': ({ viewId, nodeId, targetViewId }, { confirmed }) => {
-            const { view, canvas } = canvasOnScreen(document, viewId);
-            const node = canvas.nodes[nodeId];
-            if (!node) {
-                throw new ActionRefusal('unknown-node', `No node with id “${nodeId}” exists on “${view.name}”.`);
-            }
+            const { view, canvas, node } = nodeOnScreen(document, viewId, nodeId);
             if (node.kind === 'group') {
                 throw new ActionRefusal('node-not-movable', `The group “${node.title}” stays on its canvas; move the nodes in it one by one.`);
             }
             const target = document.getState().views.find((candidate) => candidate.id === targetViewId);
             if (!target || !isCanvasView(target)) {
-                throw new ActionRefusal('unknown-view', `No canvas view with id “${targetViewId}” exists in this project.`);
+                throw unknownCanvas(targetViewId);
             }
             if (targetViewId === viewId) {
                 throw new ActionRefusal('same-view', `“${node.title}” is already on “${view.name}”.`);

@@ -1,9 +1,6 @@
 import { ActionRefusal, type ActionHandlers } from '@ruimte/actions';
-import { asRefusal } from '@/actions/developer-actions';
+import { refusing, type Requester } from '@/actions/refusal';
 import { windowWorkspace } from '@/state/window';
-import type { Transport } from '@/transport/transport';
-
-type Requester = Pick<Transport, 'request'>;
 
 /* What the database actions reach outside the document; a test hands in a fake. */
 export interface DatabaseMachine {
@@ -23,11 +20,7 @@ export function databaseActions(overrides: Partial<DatabaseMachine> = {}): Actio
             if (transport === null) {
                 throw new ActionRefusal('offline', 'The machine of this project is not connected.');
             }
-            try {
-                return { output: { response: await transport.request('database.request', request) } };
-            } catch (error: unknown) {
-                throw asRefusal(error);
-            }
+            return { output: { response: await refusing(transport.request('database.request', request)) } };
         }
     };
 }

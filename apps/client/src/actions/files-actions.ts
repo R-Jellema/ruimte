@@ -1,8 +1,7 @@
 import type { FileLocation } from '@ruimte/contracts';
 import { ActionRefusal, FILE_READ_MAX_LINES, type ActionActorKind, type ActionHandlers } from '@ruimte/actions';
-import type { Transport } from '@/transport/transport';
 import { copyTextOrRefuse } from '@/actions/clipboard';
-import { asRefusal } from '@/actions/developer-actions';
+import { refusing, type Requester } from '@/actions/refusal';
 import { desktop } from '@/desktop/bridge';
 import { canCopyFilesOn } from '@/shell/panels/file-copy';
 import { absoluteOf, basenameOf, isAbsolutePath, isPathBelow, relativeTo, revealableInFiles } from '@/shell/panels/files-tree';
@@ -12,8 +11,6 @@ import { currentEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
 import { useSettings } from '@/state/settings';
 import { machineFor } from '@/transport/connections';
-
-type Requester = Pick<Transport, 'request'>;
 
 /* What the file actions reach outside the document; a test hands in a fake of each. */
 export interface FilesMachine {
@@ -130,18 +127,10 @@ export function filesActions(overrides: Partial<FilesMachine> = {}): ActionHandl
         return folder;
     };
 
-    const requested = async <Result>(ask: () => Promise<Result>): Promise<Result> => {
-        try {
-            return await ask();
-        } catch (error: unknown) {
-            throw asRefusal(error);
-        }
-    };
-
     return {
         'file.list': async ({ path, hidden }, { actor }) => {
             const folder = path === null ? projectFolder() : resolvedPath(machine, path, actor.kind);
-            const result = await requested(() => connected().request('fs.list', { path: folder, hidden }));
+            const result = await refusing(connected().request('fs.list', { path: folder, hidden }));
             if (actor.kind === 'person' || result.entries.length <= MAX_LISTED) {
                 return { output: result };
             }
@@ -149,17 +138,17 @@ export function filesActions(overrides: Partial<FilesMachine> = {}): ActionHandl
         },
         'file.search': async ({ query, limit, folder }) => {
             const cwd = folder ?? projectFolder();
-            return { output: await requested(() => connected().request('fs.search', { cwd, query, limit: limit ?? DEFAULT_RESULTS })) };
+            return { output: await refusing(connected().request('fs.search', { cwd, query, limit: limit ?? DEFAULT_RESULTS })) };
         },
         'file.grep': async ({ query, regex, caseSensitive, wholeWord, limit }) => {
             const cwd = projectFolder();
             return {
-                output: await requested(() => connected().request('fs.grep', { cwd, query, regex, caseSensitive, wholeWord, limit: limit ?? DEFAULT_RESULTS }))
+                output: await refusing(connected().request('fs.grep', { cwd, query, regex, caseSensitive, wholeWord, limit: limit ?? DEFAULT_RESULTS }))
             };
         },
         'file.read': async ({ path, fromLine, lines }, { actor }) => {
             const absolute = resolvedPath(machine, path, actor.kind);
-            const read = await requested(() => connected().request('fs.read', { path: absolute }));
+            const read = await refusing(connected().request('fs.read', { path: absolute }));
             const from = fromLine ?? 1;
             if (read.kind !== 'text') {
                 return {
@@ -218,13 +207,13 @@ export function filesActions(overrides: Partial<FilesMachine> = {}): ActionHandl
         },
         'file.create': async ({ path, kind, text }, { actor }) => {
             const absolute = resolvedPath(machine, path, actor.kind);
-            await requested(() => connected().request('fs.create', { path: absolute, kind, ...(text === null ? {} : { text }), ...projectScope() }));
+            await refusing(connected().request('fs.create', { path: absolute, kind, ...(text === null ? {} : { text }), ...projectScope() }));
             return { output: { path: absolute, kind } };
         },
         'file.delete': async ({ paths }, { actor }) => {
             const targets = outermostPaths(machine, paths, actor.kind);
             for (const target of targets) {
-                await requested(() => connected().request('fs.delete', { path: target, ...projectScope() }));
+                await refusing(connected().request('fs.delete', { path: target, ...projectScope() }));
                 machine.forget(target);
             }
             return { output: { paths: targets } };
@@ -232,11 +221,7 @@ export function filesActions(overrides: Partial<FilesMachine> = {}): ActionHandl
         'file.rename': async ({ path, to }, { actor }) => {
             const from = resolvedPath(machine, path, actor.kind);
             const target = resolvedPath(machine, to, actor.kind);
-            try {
-                await machine.move(from, target);
-            } catch (error: unknown) {
-                throw asRefusal(error);
-            }
+            await refusing(machine.move(from, target));
             return { output: { path: target, to: target } };
         },
         'file.copyPath': async ({ path, relative }, { actor }) => {

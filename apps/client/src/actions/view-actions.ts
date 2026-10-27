@@ -6,6 +6,7 @@ import {
     isDiagramView,
     isDrawingView,
     isOpenableView,
+    isProjectIconName,
     isSessionView,
     isUnknownView,
     MAIN_VIEW_NAME,
@@ -16,7 +17,6 @@ import {
     type ProjectCanvasView,
     type ProjectView,
     type ProviderInfo,
-    PROJECT_ICON_NAMES,
     viewIconOf
 } from '@ruimte/contracts';
 import type { StoreApi } from 'zustand';
@@ -46,6 +46,7 @@ import {
     sessionOf,
     sessionsEnded,
     storedFilePath,
+    unknownCanvas,
     unknownView,
     type CreatableViewKind
 } from '@/actions/action-reach';
@@ -110,7 +111,7 @@ function derivedViewName(
 function namedCanvas(state: DocumentState, canvasViewId: string): ProjectCanvasView {
     const named = state.views.find((view) => view.id === canvasViewId);
     if (!named) {
-        throw new ActionRefusal('unknown-view', `No canvas view with id “${canvasViewId}” exists in this project.`);
+        throw unknownCanvas(canvasViewId);
     }
     if (!isCanvasView(named)) {
         throw new ActionRefusal('not-a-canvas', `“${named.name ?? canvasViewId}” is a ${named.kind} view, not a canvas.`);
@@ -270,7 +271,7 @@ export function viewActions(document: StoreApi<DocumentState>, reach: ViewReach)
                     .find((candidate) => candidate.id === viewId);
             const view = exported();
             if (!view) {
-                throw new ActionRefusal('unknown-view', `No view with id “${viewId}” exists in this project.`);
+                throw unknownView(viewId);
             }
             if (!confirmed) {
                 const nodes = nodesOfView(view).length;
@@ -471,11 +472,11 @@ export function viewActions(document: StoreApi<DocumentState>, reach: ViewReach)
             if (!isOpenableView(view) || isUnknownView(view)) {
                 throw new ActionRefusal('not-markable', `“${view.name ?? viewId}” divides the sidebar and has no room for a mark.`);
             }
-            if (icon !== null && !(PROJECT_ICON_NAMES as readonly string[]).includes(icon)) {
+            if (icon !== null && !isProjectIconName(icon)) {
                 throw new ActionRefusal('unknown-icon', `“${icon}” is not one of the Lucide names the picker has.`);
             }
             const previous = viewIconOf(view);
-            const next: ProjectIconChoice | null = icon === null ? null : { kind: 'lucide', value: icon as ProjectIconChoice['value'] };
+            const next: ProjectIconChoice | null = icon === null ? null : { kind: 'lucide', value: icon };
             state.setViewIcon(viewId, next);
             const iconOf = (): ProjectIconChoice | null => {
                 const current = document.getState().views.find((candidate) => candidate.id === viewId);

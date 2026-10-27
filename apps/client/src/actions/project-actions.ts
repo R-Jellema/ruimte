@@ -1,15 +1,18 @@
 import { ActionRefusal, type ActionHandlers } from '@ruimte/actions';
 import {
+    isProjectIconName,
     isRecentProject,
-    PROJECT_ICON_NAMES,
     type ChatMovePayload,
     type ChatMoveResult,
     type ProjectClosingResult,
     type ProjectIconChoice,
+    type ProjectIconName,
     type ProjectSummary
 } from '@ruimte/contracts';
 import type { StoreApi } from 'zustand';
-import { asksFirst, asRefusal } from '@/actions/developer-actions';
+import { asksFirst } from '@/actions/developer-actions';
+import { asRefusal, refusing } from '@/actions/refusal';
+import type { ProjectClient } from '@/project/project-client';
 import type { SwitchOutcome } from '@/project/project-switch';
 import { sessionNodesOf } from '@/project/project-sessions';
 import type { DocumentState } from '@/state/document';
@@ -19,6 +22,7 @@ import { useProject } from '@/state/project';
 import { useProjectList } from '@/state/project-list';
 import { windowWorkspace } from '@/state/window';
 import { plural } from '@/actions/words';
+
 export interface ListedProject {
     endpointId: string;
     projectId: string;
@@ -69,8 +73,16 @@ export function listedProjects(): ListedProject[] {
     }));
 }
 
-function isHere(project: ListedProject): boolean {
-    return project.active && windowWorkspace() !== null;
+type Elsewhere = (settings: typeof import('@/project/settings'), endpointId: string, projectId: string) => Promise<unknown>;
+
+/* The project on screen writes its own file; any other is changed on its machine without opening it. */
+async function changeProject(project: ListedProject, here: (projects: ProjectClient) => Promise<void>, elsewhere: Elsewhere): Promise<void> {
+    const workspace = project.active ? windowWorkspace() : null;
+    if (workspace !== null) {
+        await here(workspace.connection.projects);
+        return;
+    }
+    await elsewhere(await import('@/project/settings'), project.endpointId, project.projectId);
 }
 
 const LIVE_MACHINE: ProjectMachine = {
@@ -81,42 +93,36 @@ const LIVE_MACHINE: ProjectMachine = {
     closing: async (endpointId, summary, local) => (await import('@/project/open')).closingProject(endpointId, summary, local),
     close: async (endpointId, summary) => (await import('@/project/open')).closeProjectOn(endpointId, summary),
     remove: async (endpointId, projectId, removeFiles) => (await import('@/project/open')).deleteProject(endpointId, projectId, removeFiles),
-    // The project on screen writes its own file; any other is changed on its machine without opening it.
-    rename: async (project, name) => {
-        if (isHere(project)) {
-            await windowWorkspace()!.connection.projects.rename(name);
-            return;
-        }
-        await (await import('@/project/settings')).setProjectIdentity(project.endpointId, project.projectId, { name });
-    },
-    setColor: async (project, color) => {
-        if (isHere(project)) {
-            await windowWorkspace()!.connection.projects.setColor(color);
-            return;
-        }
-        await (await import('@/project/settings')).setProjectIdentity(project.endpointId, project.projectId, { color });
-    },
-    chooseIcon: async (project, icon) => {
-        if (isHere(project)) {
-            await windowWorkspace()!.connection.projects.setChosenIcon(icon);
-            return;
-        }
-        await (await import('@/project/settings')).setProjectIdentity(project.endpointId, project.projectId, { icon });
-    },
-    uploadIcon: async (project, mime, base64) => {
-        if (isHere(project)) {
-            await windowWorkspace()!.connection.projects.uploadIcon(mime, base64);
-            return;
-        }
-        await (await import('@/project/settings')).uploadProjectIcon(project.endpointId, project.projectId, mime, base64);
-    },
-    useFolderIcon: async (project) => {
-        if (isHere(project)) {
-            await windowWorkspace()!.connection.projects.useFolderIcon();
-            return;
-        }
-        await (await import('@/project/settings')).setProjectFolderIcon(project.endpointId, project.projectId);
-    },
+    rename: (project, name) =>
+        changeProject(
+            project,
+            (here) => here.rename(name),
+            (there, ...ids) => there.setProjectIdentity(...ids, { name })
+        ),
+    setColor: (project, color) =>
+        changeProject(
+            project,
+            (here) => here.setColor(color),
+            (there, ...ids) => there.setProjectIdentity(...ids, { color })
+        ),
+    chooseIcon: (project, icon) =>
+        changeProject(
+            project,
+            (here) => here.setChosenIcon(icon),
+            (there, ...ids) => there.setProjectIdentity(...ids, { icon })
+        ),
+    uploadIcon: (project, mime, base64) =>
+        changeProject(
+            project,
+            (here) => here.uploadIcon(mime, base64),
+            (there, ...ids) => there.uploadProjectIcon(...ids, mime, base64)
+        ),
+    useFolderIcon: (project) =>
+        changeProject(
+            project,
+            (here) => here.useFolderIcon(),
+            (there, ...ids) => there.setProjectFolderIcon(...ids)
+        ),
     moveChat: async (endpointId, payload) => (await import('@/project/move-chat')).moveChatOn(endpointId, payload)
 };
 
@@ -180,7 +186,7 @@ export function projectActions(document: StoreApi<DocumentState>, overrides: Par
                 throw new ActionRefusal('already-closed', `“${project.name}” is already under Recent.`);
             }
             // Only the project on screen has a document here to count; every other one is its machine's to answer.
-            const local = isHere(project) ? sessionNodesOf(document.getState().exportViews()).length : null;
+            const local = project.active && windowWorkspace() !== null ? sessionNodesOf(document.getState().exportViews()).length : null;
             const answer = await machine.closing(endpointId, project.summary, local);
             if (asksFirst(call)) {
                 return { confirmation: { title: `Close “${project.name}”?`, consequences: closeConsequences(answer) } };
@@ -193,12 +199,8 @@ export function projectActions(document: StoreApi<DocumentState>, overrides: Par
             return { output: { project: useProject.getState().current?.name ?? folder, endpointId: currentEndpointId(), folder } };
         },
         'chat.move': async ({ endpointId, chatId, to, ownFiles }) => {
-            try {
-                const result = await machine.moveChat(endpointId, { chatId, to, ownFiles });
-                return { output: { project: result.summary.name, projectId: result.summary.projectId, viewId: result.viewId } };
-            } catch (error: unknown) {
-                throw asRefusal(error);
-            }
+            const result = await refusing(machine.moveChat(endpointId, { chatId, to, ownFiles }));
+            return { output: { project: result.summary.name, projectId: result.summary.projectId, viewId: result.viewId } };
         },
         'project.delete': async ({ endpointId, projectId, removeFiles }, { confirmed }) => {
             const project = listed(endpointId, projectId);
@@ -215,11 +217,7 @@ export function projectActions(document: StoreApi<DocumentState>, overrides: Par
                     }
                 };
             }
-            try {
-                await machine.remove(endpointId, projectId, removeFiles === true);
-            } catch (error: unknown) {
-                throw asRefusal(error);
-            }
+            await refusing(machine.remove(endpointId, projectId, removeFiles === true));
             return { output: projectOutput(project) };
         },
         'project.setAppearance': async ({ endpointId, projectId, name, icon, image, color }) => {
@@ -230,7 +228,7 @@ export function projectActions(document: StoreApi<DocumentState>, overrides: Par
             if (icon != null && image != null) {
                 throw new ActionRefusal('two-icons', 'Give an icon or an image, not both.');
             }
-            if (icon != null && icon !== 'folder' && icon !== 'none' && !(PROJECT_ICON_NAMES as readonly string[]).includes(icon)) {
+            if (icon != null && icon !== 'folder' && icon !== 'none' && !isProjectIconName(icon)) {
                 throw new ActionRefusal('unknown-icon', `“${icon}” is not one of the Lucide names the picker has.`);
             }
             try {
@@ -247,7 +245,7 @@ export function projectActions(document: StoreApi<DocumentState>, overrides: Par
                 } else if (icon === 'none') {
                     await machine.chooseIcon(project, null);
                 } else if (icon != null) {
-                    await machine.chooseIcon(project, { kind: 'lucide', value: icon as (typeof PROJECT_ICON_NAMES)[number] });
+                    await machine.chooseIcon(project, { kind: 'lucide', value: icon as ProjectIconName });
                 }
             } catch (error: unknown) {
                 throw asRefusal(error);

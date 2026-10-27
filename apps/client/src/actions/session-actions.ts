@@ -17,7 +17,8 @@ import {
 } from '@ruimte/contracts';
 import { effectiveChecks, findItem } from '@adecore/plan';
 import type { StoreApi } from 'zustand';
-import { asksFirst, asRefusal } from '@/actions/developer-actions';
+import { asksFirst } from '@/actions/developer-actions';
+import { refusing, type Requester } from '@/actions/refusal';
 import { agentsEndedWith } from '@/agents/end-children';
 import { forkRefusal, lastSettledTurn, summaryRefusal, recentSubagentMessages, stopOf, subagentTitle } from '@adecore/agents-react/chat';
 import { readNodeHost, updateHost, type NodeHost } from '@/nodes/node-host';
@@ -35,10 +36,8 @@ import { usePlans } from '@/state/plans';
 import { useSessions, type SessionState } from '@/state/sessions';
 import { screenOf } from '@/terminal/registry';
 import { chatClient, chatClientFor, machineFor, sessionClient, sessionClientFor } from '@/transport/connections';
-import type { Transport } from '@/transport/transport';
 import { plural } from '@/actions/words';
 
-type Requester = Pick<Transport, 'request'>;
 type Call = ActionCall<void> & { confirmed: boolean };
 
 /* What the chat and terminal actions reach outside the document; a test hands in a fake of each. */
@@ -199,13 +198,8 @@ export function sessionActions(document: StoreApi<DocumentState>, overrides: Par
         return transport;
     };
 
-    const ask = async <Type extends RequestType>(type: Type, payload: RequestMap[Type]['payload']): Promise<RequestMap[Type]['result']> => {
-        try {
-            return await connected(nodeOf(payload)).request(type, payload);
-        } catch (error: unknown) {
-            throw asRefusal(error);
-        }
-    };
+    const ask = async <Type extends RequestType>(type: Type, payload: RequestMap[Type]['payload']): Promise<RequestMap[Type]['result']> =>
+        refusing(connected(nodeOf(payload)).request(type, payload));
 
     /*
      * The processes panel shows every session of the machine, so a person may act on one of another
@@ -244,6 +238,16 @@ export function sessionActions(document: StoreApi<DocumentState>, overrides: Par
             throw new ActionRefusal('chat-not-open', `Open “${chat}” first; its thread is only known while it is open.`);
         }
         return row;
+    };
+
+    /* A person's queue row names a message that is there; anyone else may name one that already went. */
+    const queued = (chatId: string, messageId: string, call: Call) => {
+        const chat = chatNamed(chatId, call);
+        const message = machine.chat(chatId)?.info.queue?.find((entry) => entry.id === messageId);
+        if (!message && call.actor.kind !== 'person') {
+            throw new ActionRefusal('not-queued', `No message ${messageId} waits in the queue of “${chat}”.`);
+        }
+        return { chat, message };
     };
 
     const planOf = (chatId: string, planId: string | null): Plan => {
@@ -370,24 +374,15 @@ export function sessionActions(document: StoreApi<DocumentState>, overrides: Par
         },
         'chat.uiChoice': async (payload, call) => {
             chatNamed(payload.chatId, call);
-            const result = await ask('chat.uiChoice', payload);
-            return { output: result };
+            return { output: await ask('chat.uiChoice', payload) };
         },
         'chat.unqueue': async ({ chatId, messageId }, call) => {
-            const chat = chatNamed(chatId, call);
-            const message = machine.chat(chatId)?.info.queue?.find((entry) => entry.id === messageId);
-            if (!message && call.actor.kind !== 'person') {
-                throw new ActionRefusal('not-queued', `No message ${messageId} waits in the queue of “${chat}”.`);
-            }
+            const { chat, message } = queued(chatId, messageId, call);
             const taken = await ask('chat.unqueue', { chatId, messageId });
             return { output: { chatId, chat, messageId, text: taken.message?.text ?? message?.text ?? '' } };
         },
         'chat.sendNow': async ({ chatId, messageId }, call) => {
-            const chat = chatNamed(chatId, call);
-            const message = machine.chat(chatId)?.info.queue?.find((entry) => entry.id === messageId);
-            if (!message && call.actor.kind !== 'person') {
-                throw new ActionRefusal('not-queued', `No message ${messageId} waits in the queue of “${chat}”.`);
-            }
+            const { chat, message } = queued(chatId, messageId, call);
             await ask('chat.sendNow', { chatId, messageId });
             return { output: { chatId, chat, messageId, text: message?.text ?? '' } };
         },
@@ -496,12 +491,8 @@ export function sessionActions(document: StoreApi<DocumentState>, overrides: Par
                 }
                 chosen = { model: slug, options: {} };
             }
-            try {
-                if (!(await machine.retarget(chatId, provider, chosen))) {
-                    throw new ActionRefusal('chat-not-open', `Open “${chat}” before switching its CLI.`);
-                }
-            } catch (error: unknown) {
-                throw asRefusal(error);
+            if (!(await refusing(machine.retarget(chatId, provider, chosen)))) {
+                throw new ActionRefusal('chat-not-open', `Open “${chat}” before switching its CLI.`);
             }
             return { output: { chatId, chat, provider } };
         },

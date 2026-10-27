@@ -1,9 +1,6 @@
 import { ActionRefusal, type ActionHandlers } from '@ruimte/actions';
-import { asRefusal } from '@/actions/developer-actions';
+import { refusing, type Requester } from '@/actions/refusal';
 import { windowWorkspace } from '@/state/window';
-import type { Transport } from '@/transport/transport';
-
-type Requester = Pick<Transport, 'request'>;
 
 /* What the launch actions reach outside the document; a test hands in a fake. */
 export interface LaunchReach {
@@ -23,11 +20,7 @@ export function launchActions(overrides: Partial<LaunchReach> = {}): ActionHandl
             if (transport === null) {
                 throw new ActionRefusal('no-machine', "This project's machine is not connected.");
             }
-            try {
-                return { output: await transport.request('launches.save', { projectId, baseRev, launches, imported }) };
-            } catch (error: unknown) {
-                throw asRefusal(error);
-            }
+            return { output: await refusing(transport.request('launches.save', { projectId, baseRev, launches, imported })) };
         }
     };
 }

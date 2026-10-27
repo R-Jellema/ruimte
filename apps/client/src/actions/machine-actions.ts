@@ -12,7 +12,7 @@ import {
     type UsageSummaryPayload,
     type UsageSummaryResult
 } from '@ruimte/contracts';
-import { asRefusal } from '@/actions/developer-actions';
+import { refusing, type Requester } from '@/actions/refusal';
 import { localTimeZone } from '@adecore/ui/format';
 import { useDeviceOperated } from '@/devices/operated';
 import { projectNodes } from '@/project/view-nodes';
@@ -22,12 +22,9 @@ import { useProcesses, useProcessWarnings } from '@/state/processes';
 import { serverInfoOf } from '@/state/server';
 import { dayOf, useUsageStore } from '@adecore/agents-react/state';
 import { evenPace } from '@adecore/agents-react/usage';
-import type { Transport } from '@/transport/transport';
 import { transportFor } from '@/transport';
 import { machineFor } from '@/transport/connections';
 import { adoptEndpointInfo } from '@/transport/server-info';
-
-type Requester = Pick<Transport, 'request'>;
 
 /* What the process and usage actions reach outside the document; a test hands in a fake of each. */
 export interface MachineReach {
@@ -144,11 +141,7 @@ export function machineActions(overrides: Partial<MachineReach> = {}): ActionHan
         if (transport === null) {
             throw new ActionRefusal('no-machine', 'The machine is not connected.');
         }
-        try {
-            return await send(transport);
-        } catch (error: unknown) {
-            throw asRefusal(error);
-        }
+        return refusing(send(transport));
     };
     const ask = <Result>(send: (transport: Requester) => Promise<Result>): Promise<Result> => reached(machine.transport(), send);
     const askOn = <Result>(endpointId: string, send: (transport: Requester) => Promise<Result>): Promise<Result> => reached(machine.linkTo(endpointId), send);

@@ -5,7 +5,8 @@ import { useToasts } from '@/state/toasts';
 import { contentActions, type ContentMachine } from '@/actions/content-actions';
 import { chatSearchActions, type ChatSearchMachine } from '@/actions/chat-search-actions';
 import { databaseActions, type DatabaseMachine } from '@/actions/database-actions';
-import { asksFirst, asRefusal, developerActions, GIT_OPERATION, type DeveloperMachine } from '@/actions/developer-actions';
+import { asksFirst, developerActions, GIT_OPERATION, type DeveloperMachine } from '@/actions/developer-actions';
+import { refusing } from '@/actions/refusal';
 import { filesActions, type FilesMachine } from '@/actions/files-actions';
 import { inspectionActions } from '@/actions/inspection-actions';
 import { launchActions, type LaunchReach } from '@/actions/launch-actions';
@@ -122,6 +123,7 @@ export function createClientActionRegistry(document: StoreApi<DocumentState>, ma
         chatSearch,
         pages,
         projects,
+        machine: machineReach,
         launches
     } = {
         ...LIVE_MACHINE,
@@ -138,7 +140,7 @@ export function createClientActionRegistry(document: StoreApi<DocumentState>, ma
         ...chatSearchActions(chatSearch),
         ...pageActions(document, pages),
         ...projectActions(document, projects),
-        ...machineActions(machine.machine),
+        ...machineActions(machineReach),
         ...launchActions(launches),
         ...canvasActions(document, { providers, viewDeletion }),
         ...viewActions(document, { providers, viewDeletion, copyViewContent }),
@@ -169,8 +171,8 @@ export function createClientActionRegistry(document: StoreApi<DocumentState>, ma
             if (text.trim() === '' && (attachments ?? []).length === 0) {
                 throw new ActionRefusal('empty-prompt', 'A message needs text or an attachment.');
             }
-            try {
-                const submitted = await sendChat(chatId, text, {
+            const submitted = await refusing(
+                sendChat(chatId, text, {
                     ...(delivery == null ? {} : { delivery }),
                     ...(mentions == null ? {} : { mentions }),
                     ...(skills == null ? {} : { skills }),
@@ -178,11 +180,9 @@ export function createClientActionRegistry(document: StoreApi<DocumentState>, ma
                     ...(quoteSource == null ? {} : { quoteSource }),
                     ...(attachments == null ? {} : { attachments }),
                     ...(references == null ? {} : { references })
-                });
-                return { output: { chatId, chat, ...submitted } };
-            } catch (error: unknown) {
-                throw asRefusal(error);
-            }
+                })
+            );
+            return { output: { chatId, chat, ...submitted } };
         },
         'chat.clear': async ({ chatId, force }, call) => {
             const chat = sessionTitle(document, chatId, 'chat');
@@ -200,12 +200,8 @@ export function createClientActionRegistry(document: StoreApi<DocumentState>, ma
                     }
                 };
             }
-            try {
-                // Anyone but a person already said yes to stopping a turn in the way; a person's composer asks on chat-busy.
-                await clearChat(chatId, call.actor.kind === 'person' ? force === true : true);
-            } catch (error: unknown) {
-                throw asRefusal(error);
-            }
+            // Anyone but a person already said yes to stopping a turn in the way; a person's composer asks on chat-busy.
+            await refusing(clearChat(chatId, call.actor.kind === 'person' ? force === true : true));
             return { output: { chatId, chat } };
         },
         'chat.read': async ({ chatId, limit }) => {
@@ -218,23 +214,19 @@ export function createClientActionRegistry(document: StoreApi<DocumentState>, ma
                 return { output: { chatId, chat, ...recentChatMessages(state.items, state.order, limit ?? 20) } };
             }
             // Voice says the rest of a long answer is a read away, also of a chat on a view nobody opened.
-            try {
-                const { items } = await inspectChat(chatId);
-                const byId = Object.fromEntries(items.map((item) => [item.id, item]));
-                return {
-                    output: {
-                        chatId,
-                        chat,
-                        ...recentChatMessages(
-                            byId,
-                            items.map((item) => item.id),
-                            limit ?? 20
-                        )
-                    }
-                };
-            } catch (error: unknown) {
-                throw asRefusal(error);
-            }
+            const { items } = await refusing(inspectChat(chatId));
+            const byId = Object.fromEntries(items.map((item) => [item.id, item]));
+            return {
+                output: {
+                    chatId,
+                    chat,
+                    ...recentChatMessages(
+                        byId,
+                        items.map((item) => item.id),
+                        limit ?? 20
+                    )
+                }
+            };
         }
     };
     return new ActionRegistry<void>(handlers, { checkRevision: checkClientRevision });

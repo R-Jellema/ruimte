@@ -5,6 +5,7 @@ import {
     type ActionCall,
     type ActionHandler,
     type ActionHandlers,
+    type ActionInput,
     type ActionName,
     type ActionOutput
 } from '@ruimte/actions';
@@ -30,10 +31,8 @@ import { useGit } from '@/state/git';
 import { visibleRepos } from '@/state/git-repos';
 import { useProject } from '@/state/project';
 import { windowWorkspace } from '@/state/window';
-import { TransportError, type Transport } from '@/transport/transport';
+import { refusing, type Requester } from '@/actions/refusal';
 import { listed, plural } from '@/actions/words';
-
-type Requester = Pick<Transport, 'request'>;
 
 /* What the git actions reach outside the document; a test hands in a fake of each. */
 export interface DeveloperMachine {
@@ -99,11 +98,6 @@ function runOutput(checkout: Checkout, result: GitActionResult): GitRun {
     };
 }
 
-/* The daemon's refusal keeps its code, so a caller can still tell a diverged branch from a failure. */
-export function asRefusal(error: unknown): unknown {
-    return error instanceof TransportError ? new ActionRefusal(error.code, error.message) : error;
-}
-
 /* Where a branch stands in words: which one, and the remote it goes to. */
 function branchOf(status: GitStatus): string {
     return status.branch ?? 'a detached HEAD';
@@ -150,13 +144,8 @@ export function developerActions(document: StoreApi<DocumentState>, overrides: P
         return folder;
     };
 
-    const ask = async <Type extends RequestType>(type: Type, payload: RequestMap[Type]['payload']): Promise<RequestMap[Type]['result']> => {
-        try {
-            return await connected().request(type, payload);
-        } catch (error: unknown) {
-            throw asRefusal(error);
-        }
-    };
+    const ask = async <Type extends RequestType>(type: Type, payload: RequestMap[Type]['payload']): Promise<RequestMap[Type]['result']> =>
+        refusing(connected().request(type, payload));
 
     const allRepos = async (): Promise<GitRepo[]> => (await ask('git.repos', { folder: projectFolder() })).repos;
 
@@ -259,7 +248,19 @@ export function developerActions(document: StoreApi<DocumentState>, overrides: P
         return { runs };
     };
 
-    const pullQuestion = async (checkouts: readonly Checkout[], verb: 'Pull' | 'Sync') => {
+    const stage = async (repository: string, paths: string[], call: Call, staged: boolean) => {
+        const checkout = await checkoutOf(repository, call);
+        await ask('git.stage', { cwd: checkout.path, paths, staged });
+        return { output: { repository: checkout.label, paths } };
+    };
+
+    const pull = async (verb: 'Pull' | 'Sync', { repository, strategy, run }: ActionInput<'git.pull'>, call: Call) => {
+        const checkouts = await checkoutsOf(repository, call);
+        if (!asksFirst(call)) {
+            return {
+                output: await runEach(checkouts, repository != null, verb === 'Pull' ? 'pull' : 'sync', () => (strategy == null ? {} : { strategy }), run)
+            };
+        }
         const statuses = await statusesOf(checkouts);
         return {
             confirmation: {
@@ -324,16 +325,8 @@ export function developerActions(document: StoreApi<DocumentState>, overrides: P
         'git.refs': async ({ repository }, call) => ({ output: await ask('git.refs', { cwd: (await checkoutOf(repository, call)).path }) }),
         'git.conflicts': async ({ repository }, call) => ({ output: await ask('git.conflicts', { cwd: (await checkoutOf(repository, call)).path }) }),
         'git.conflict': async ({ repository, path }, call) => ({ output: await ask('git.conflict', { cwd: (await checkoutOf(repository, call)).path, path }) }),
-        'git.stage': async ({ repository, paths }, call) => {
-            const checkout = await checkoutOf(repository, call);
-            await ask('git.stage', { cwd: checkout.path, paths, staged: true });
-            return { output: { repository: checkout.label, paths } };
-        },
-        'git.unstage': async ({ repository, paths }, call) => {
-            const checkout = await checkoutOf(repository, call);
-            await ask('git.stage', { cwd: checkout.path, paths, staged: false });
-            return { output: { repository: checkout.label, paths } };
-        },
+        'git.stage': ({ repository, paths }, call) => stage(repository, paths, call, true),
+        'git.unstage': ({ repository, paths }, call) => stage(repository, paths, call, false),
         'git.discard': async ({ repository, paths }, call) => {
             const checkout = await checkoutOf(repository, call);
             if (asksFirst(call)) {
@@ -410,20 +403,8 @@ export function developerActions(document: StoreApi<DocumentState>, overrides: P
         'git.fetch': async ({ repository, run }, call) => ({
             output: await runEach(await checkoutsOf(repository, call), repository != null, 'fetch', () => ({}), run)
         }),
-        'git.pull': async ({ repository, strategy, run }, call) => {
-            const checkouts = await checkoutsOf(repository, call);
-            if (asksFirst(call)) {
-                return pullQuestion(checkouts, 'Pull');
-            }
-            return { output: await runEach(checkouts, repository != null, 'pull', () => (strategy == null ? {} : { strategy }), run) };
-        },
-        'git.sync': async ({ repository, strategy, run }, call) => {
-            const checkouts = await checkoutsOf(repository, call);
-            if (asksFirst(call)) {
-                return pullQuestion(checkouts, 'Sync');
-            }
-            return { output: await runEach(checkouts, repository != null, 'sync', () => (strategy == null ? {} : { strategy }), run) };
-        },
+        'git.pull': (input, call) => pull('Pull', input, call),
+        'git.sync': (input, call) => pull('Sync', input, call),
         'git.push': async ({ repository, force, run }, call) => {
             if (force === true) {
                 if (repository == null) {

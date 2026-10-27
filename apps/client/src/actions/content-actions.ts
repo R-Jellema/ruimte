@@ -16,10 +16,10 @@ import type { StoreApi } from 'zustand';
 import { z } from 'zod';
 import { messageOf } from '@adecore/ui';
 import { clipboardOrRefuse, copyTextOrRefuse } from '@/actions/clipboard';
+import { isOnScreen, unknownCanvas } from '@/actions/action-reach';
 import { asksFirst } from '@/actions/developer-actions';
 import { lineElement, noteElement, shapeElement, textElement } from '@/drawing/gestures';
 import { fitTextBox } from '@/drawing/measure';
-import { locateView } from '@/shell/split';
 import { liveCanvas, nextId, type CanvasState } from '@/state/canvas';
 import { defaultDiagrams, type DiagramState } from '@/state/diagram';
 import { nodesOfView } from '@/project/view-nodes';
@@ -65,10 +65,6 @@ const MAX_NOTE_CHARACTERS = 12_000;
 /* A drawing read lists at most this many elements, front ones last, which is what a picture of it shows first. */
 const MAX_READ_ELEMENTS = 300;
 
-function isOnScreen(state: DocumentState, viewId: string): boolean {
-    return state.layout !== null && locateView(state.layout, viewId) !== null;
-}
-
 function withLine(body: string, text: string): string {
     return body === '' ? text : `${body}${body.endsWith('\n') ? '' : '\n'}${text}`;
 }
@@ -82,7 +78,7 @@ function editorOf<State>(
     viewId: string,
     kind: 'drawing' | 'diagram',
     peek: (viewId: string) => StoreApi<State> | null
-): { view: ProjectView; store: StoreApi<State> } {
+): { view: ProjectView; store: StoreApi<State>; name: string } {
     const state = document.getState();
     const view = state.views.find((candidate) => candidate.id === viewId);
     if (!view || !(kind === 'drawing' ? isDrawingView(view) : isDiagramView(view))) {
@@ -92,7 +88,7 @@ function editorOf<State>(
     if (store === null) {
         throw new ActionRefusal('inactive-view', `Open “${view.name}” before changing or reading what it holds.`);
     }
-    return { view, store };
+    return { view, store, name: view.name ?? viewId };
 }
 
 /* A step back through the editor's own history, honest only while nothing came after it. */
@@ -151,6 +147,11 @@ function drawnElement(spec: DrawnSpec, style: DrawingStyle): DrawingElement {
             return spec.color === null ? shape : { ...shape, stroke: spec.color };
         }
     }
+}
+
+/* A copy beside the element, the way the drawing's own duplicate places one. */
+function offsetCopy<Element extends DrawingElement>(element: Element): Element {
+    return { ...element, id: nextId('el'), x: element.x + DUPLICATE_OFFSET, y: element.y + DUPLICATE_OFFSET, seed: newSeed() };
 }
 
 /* The style fields that were given; null keeps what an element has. */
@@ -217,7 +218,7 @@ export function contentActions(document: StoreApi<DocumentState>, overrides: Par
     const noteOf = (viewId: string, nodeId: string) => {
         const view = document.getState().views.find((candidate) => candidate.id === viewId);
         if (!view || !isCanvasView(view)) {
-            throw new ActionRefusal('unknown-view', `No canvas view with id “${viewId}” exists in this project.`);
+            throw unknownCanvas(viewId);
         }
         const node = nodesOfView(view).find((candidate) => candidate.id === nodeId);
         if (!node) {
@@ -294,12 +295,12 @@ export function contentActions(document: StoreApi<DocumentState>, overrides: Par
             };
         },
         'drawing.read': ({ viewId }) => {
-            const { view, store } = drawing(viewId);
+            const { store, name } = drawing(viewId);
             const { elements, selection, rev } = store.getState();
             return {
                 output: {
                     viewId,
-                    view: view.name ?? viewId,
+                    view: name,
                     elements: elements.slice(-MAX_READ_ELEMENTS).map(summaryOf),
                     selected: [...selection],
                     truncated: elements.length > MAX_READ_ELEMENTS,
@@ -308,28 +309,19 @@ export function contentActions(document: StoreApi<DocumentState>, overrides: Par
             };
         },
         'drawing.addElements': ({ viewId, elements, copies }) => {
-            const { view, store } = drawing(viewId);
+            const { store, name } = drawing(viewId);
             const state = store.getState();
-            const added =
-                copies != null
-                    ? copies.map((element) => ({
-                          ...element,
-                          id: nextId('el'),
-                          x: element.x + DUPLICATE_OFFSET,
-                          y: element.y + DUPLICATE_OFFSET,
-                          seed: newSeed()
-                      }))
-                    : (elements ?? []).map((spec) => drawnElement(spec, state.style));
+            const added = copies != null ? copies.map(offsetCopy) : (elements ?? []).map((spec) => drawnElement(spec, state.style));
             if (added.length === 0) {
                 throw new ActionRefusal('nothing-to-draw', 'Name at least one element to draw.');
             }
             const ids = added.map((element) => element.id);
-            const result = edited(store, view.name ?? viewId, [...state.elements, ...added], ids, viewId);
+            const result = edited(store, name, [...state.elements, ...added], ids, viewId);
             store.getState().select(ids);
             return result;
         },
         'drawing.updateElements': ({ viewId, elementIds, style, text, dx, dy }) => {
-            const { view, store } = drawing(viewId);
+            const { store, name } = drawing(viewId);
             const patch = givenStyle(style);
             const moves = (dx ?? 0) !== 0 || (dy ?? 0) !== 0;
             if (Object.keys(patch).length === 0 && text == null && !moves) {
@@ -341,9 +333,9 @@ export function contentActions(document: StoreApi<DocumentState>, overrides: Par
                 store.setState({ style: { ...state.style, ...patch } });
             }
             if (elementIds == null && state.selection.length === 0 && text == null && !moves) {
-                return { output: { viewId, view: view.name ?? viewId, elementIds: [] } };
+                return { output: { viewId, view: name, elementIds: [] } };
             }
-            const targets = new Set(targetsOf(state, elementIds, view.name ?? viewId));
+            const targets = new Set(targetsOf(state, elementIds, name));
             const changedIds: string[] = [];
             const next = state.elements.map((element) => {
                 if (!targets.has(element.id) || element.locked) {
@@ -363,21 +355,21 @@ export function contentActions(document: StoreApi<DocumentState>, overrides: Par
                 return changed;
             });
             if (changedIds.length === 0) {
-                return { output: { viewId, view: view.name ?? viewId, elementIds: [] } };
+                return { output: { viewId, view: name, elementIds: [] } };
             }
-            return edited(store, view.name ?? viewId, next, changedIds, viewId);
+            return edited(store, name, next, changedIds, viewId);
         },
         'drawing.deleteElements': ({ viewId, elementIds }) => {
-            const { view, store } = drawing(viewId);
+            const { store, name } = drawing(viewId);
             const state = store.getState();
-            const targets = new Set(targetsOf(state, elementIds, view.name ?? viewId));
+            const targets = new Set(targetsOf(state, elementIds, name));
             const gone = state.elements.filter((element) => targets.has(element.id) && !element.locked).map((element) => element.id);
             if (gone.length === 0) {
-                return { output: { viewId, view: view.name ?? viewId, elementIds: [] } };
+                return { output: { viewId, view: name, elementIds: [] } };
             }
             const result = edited(
                 store,
-                view.name ?? viewId,
+                name,
                 state.elements.filter((element) => !gone.includes(element.id)),
                 gone,
                 viewId
@@ -386,32 +378,30 @@ export function contentActions(document: StoreApi<DocumentState>, overrides: Par
             return result;
         },
         'drawing.duplicateElements': ({ viewId, elementIds }) => {
-            const { view, store } = drawing(viewId);
+            const { store, name } = drawing(viewId);
             const state = store.getState();
-            const targets = new Set(targetsOf(state, elementIds, view.name ?? viewId));
-            const copies = state.elements
-                .filter((element) => targets.has(element.id))
-                .map((element) => ({ ...element, id: nextId('el'), x: element.x + DUPLICATE_OFFSET, y: element.y + DUPLICATE_OFFSET, seed: newSeed() }));
+            const targets = new Set(targetsOf(state, elementIds, name));
+            const copies = state.elements.filter((element) => targets.has(element.id)).map(offsetCopy);
             const ids = copies.map((element) => element.id);
-            const result = edited(store, view.name ?? viewId, [...state.elements, ...copies], ids, viewId);
+            const result = edited(store, name, [...state.elements, ...copies], ids, viewId);
             store.getState().select(ids);
             return result;
         },
         'drawing.reorderElements': ({ viewId, elementIds, to }) => {
-            const { view, store } = drawing(viewId);
+            const { store, name } = drawing(viewId);
             const state = store.getState();
-            const targets = new Set(targetsOf(state, elementIds, view.name ?? viewId));
+            const targets = new Set(targetsOf(state, elementIds, name));
             const moving = state.elements.filter((element) => targets.has(element.id));
             const staying = state.elements.filter((element) => !targets.has(element.id));
-            return edited(store, view.name ?? viewId, to === 'front' ? [...staying, ...moving] : [...moving, ...staying], [...targets], viewId);
+            return edited(store, name, to === 'front' ? [...staying, ...moving] : [...moving, ...staying], [...targets], viewId);
         },
         'drawing.lockElements': ({ viewId, elementIds, locked }) => {
-            const { view, store } = drawing(viewId);
+            const { store, name } = drawing(viewId);
             const state = store.getState();
-            const targets = new Set(targetsOf(state, elementIds, view.name ?? viewId));
+            const targets = new Set(targetsOf(state, elementIds, name));
             const flipped = state.elements.filter((element) => targets.has(element.id) && (element.locked === true) !== locked).map((element) => element.id);
             if (flipped.length === 0) {
-                return { output: { viewId, view: view.name ?? viewId, elementIds: [] } };
+                return { output: { viewId, view: name, elementIds: [] } };
             }
             const next = state.elements.map((element) => {
                 if (!flipped.includes(element.id)) {
@@ -423,7 +413,7 @@ export function contentActions(document: StoreApi<DocumentState>, overrides: Par
                 const { locked: _locked, ...open } = element;
                 return open as DrawingElement;
             });
-            const result = edited(store, view.name ?? viewId, next, flipped, viewId);
+            const result = edited(store, name, next, flipped, viewId);
             // A locked element cannot be picked up again, so the selection lets go of it.
             if (locked) {
                 store.setState({ selection: store.getState().selection.filter((id) => !flipped.includes(id)) });
@@ -431,13 +421,12 @@ export function contentActions(document: StoreApi<DocumentState>, overrides: Par
             return result;
         },
         'drawing.replaceContent': ({ viewId, document: json }, call: Call) => {
-            const { view, store } = drawing(viewId);
+            const { store, name } = drawing(viewId);
             const content = parsedDocument(json, DrawingContentSchema, 'drawing');
             const repeated = duplicateElementIdIn(content.elements);
             if (repeated !== null) {
                 throw new ActionRefusal('bad-document', `Two elements share the id “${repeated}”.`);
             }
-            const name = view.name ?? viewId;
             if (asksFirst(call)) {
                 return {
                     confirmation: {
@@ -455,7 +444,7 @@ export function contentActions(document: StoreApi<DocumentState>, overrides: Par
             return { output: { viewId, view: name, elements: content.elements.length }, undo: historyUndo(store, depth + 1, name) };
         },
         'drawing.copy': async ({ viewId, format }) => {
-            const { view, store } = drawing(viewId);
+            const { view, store, name } = drawing(viewId);
             const { drawingClipboardText, exportTargets } = await drawingExport();
             const targets = exportTargets(store);
             if (targets.length === 0) {
@@ -467,17 +456,17 @@ export function contentActions(document: StoreApi<DocumentState>, overrides: Par
                     throw new ActionRefusal('nothing-selected', `Nothing is selected in “${view.name}” to copy as elements.`);
                 }
                 await machine.writeText(drawingClipboardText(selected));
-                return { output: { viewId, view: view.name ?? viewId, format, elements: selected.length } };
+                return { output: { viewId, view: name, format, elements: selected.length } };
             }
             await copied(
                 format,
                 () => machine.drawingPng(store),
                 () => machine.drawingSvg(store)
             );
-            return { output: { viewId, view: view.name ?? viewId, format, elements: targets.length } };
+            return { output: { viewId, view: name, format, elements: targets.length } };
         },
         'drawing.export': async ({ viewId, format }) => {
-            const { view, store } = drawing(viewId);
+            const { view, store, name } = drawing(viewId);
             const { exportTargets } = await drawingExport();
             if (exportTargets(store).length === 0) {
                 throw new ActionRefusal('empty', `“${view.name}” has nothing to save.`);
@@ -488,15 +477,15 @@ export function contentActions(document: StoreApi<DocumentState>, overrides: Par
                 () => machine.drawingPng(store),
                 () => machine.drawingSvg(store)
             );
-            return { output: { viewId, view: view.name ?? viewId, format } };
+            return { output: { viewId, view: name, format } };
         },
         'diagram.read': ({ viewId }) => {
-            const { view, store } = diagram(viewId);
+            const { store, name } = diagram(viewId);
             const { content, rev } = store.getState();
             return {
                 output: {
                     viewId,
-                    view: view.name ?? viewId,
+                    view: name,
                     revision: rev,
                     title: content.meta.title,
                     direction: content.meta.direction,
@@ -513,13 +502,12 @@ export function contentActions(document: StoreApi<DocumentState>, overrides: Par
             };
         },
         'diagram.replaceContent': ({ viewId, document: json }, call: Call) => {
-            const { view, store } = diagram(viewId);
+            const { store, name } = diagram(viewId);
             const content = parsedDocument(json, DiagramContentSchema, 'diagram');
             const problem = diagramProblemIn(content);
             if (problem !== null) {
                 throw new ActionRefusal('bad-document', problem);
             }
-            const name = view.name ?? viewId;
             const current = store.getState().content;
             if (asksFirst(call)) {
                 return {
@@ -540,8 +528,7 @@ export function contentActions(document: StoreApi<DocumentState>, overrides: Par
             };
         },
         'diagram.updateNode': ({ viewId, diagramNodeId, label, tone }) => {
-            const { view, store } = diagram(viewId);
-            const name = view.name ?? viewId;
+            const { store, name } = diagram(viewId);
             if (label == null && tone == null) {
                 throw new ActionRefusal('nothing-to-change', 'Name a new label or a new color.');
             }
@@ -556,8 +543,7 @@ export function contentActions(document: StoreApi<DocumentState>, overrides: Par
             return { output: { viewId, view: name, diagramNodeId, label: next.label, changed: true }, undo: historyUndo(store, depth + 1, name) };
         },
         'diagram.resetPosition': ({ viewId, diagramNodeId }) => {
-            const { view, store } = diagram(viewId);
-            const name = view.name ?? viewId;
+            const { store, name } = diagram(viewId);
             const state = store.getState();
             const node = nodeOfDiagram(state, diagramNodeId, name);
             if (node.pos === undefined) {
@@ -568,12 +554,12 @@ export function contentActions(document: StoreApi<DocumentState>, overrides: Par
             return { output: { viewId, view: name, diagramNodeId, label: node.label, changed: true }, undo: historyUndo(store, depth + 1, name) };
         },
         'diagram.copy': async ({ viewId, format }) => {
-            const { view, store } = diagram(viewId);
+            const { view, store, name } = diagram(viewId);
             const { content } = store.getState();
             if (format === 'json') {
                 // The graph without its rev, which is what a person pastes into a chat to talk about it.
                 await machine.writeText(`${JSON.stringify(content, null, 2)}\n`);
-                return { output: { viewId, view: view.name ?? viewId, format } };
+                return { output: { viewId, view: name, format } };
             }
             if (content.nodes.length === 0) {
                 throw new ActionRefusal('empty', `“${view.name}” has nothing to copy.`);
@@ -583,10 +569,10 @@ export function contentActions(document: StoreApi<DocumentState>, overrides: Par
                 () => machine.diagramPng(store),
                 () => machine.diagramSvg(store)
             );
-            return { output: { viewId, view: view.name ?? viewId, format } };
+            return { output: { viewId, view: name, format } };
         },
         'diagram.export': async ({ viewId, format }) => {
-            const { view, store } = diagram(viewId);
+            const { view, store, name } = diagram(viewId);
             if (store.getState().content.nodes.length === 0) {
                 throw new ActionRefusal('empty', `“${view.name}” has nothing to save.`);
             }
@@ -596,7 +582,7 @@ export function contentActions(document: StoreApi<DocumentState>, overrides: Par
                 () => machine.diagramPng(store),
                 () => machine.diagramSvg(store)
             );
-            return { output: { viewId, view: view.name ?? viewId, format } };
+            return { output: { viewId, view: name, format } };
         }
     };
 }
