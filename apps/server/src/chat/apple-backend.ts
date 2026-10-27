@@ -4,7 +4,15 @@ import { join } from 'node:path';
 import { AppleFoundationEventSchema, clipText, type AppleFoundationEvent, type AppleFoundationRequest } from '@ruimte/contracts';
 import { reportHelperExit } from '../telemetry/reporter.ts';
 import { closeAppleNetworkTools } from './apple-network-tools.ts';
-import { APPLE_TOOL_NAMES, appleToolInput, executeAppleTool, type AppleToolCall, type AppleToolContext, type AppleToolResult } from './apple-tools.ts';
+import {
+    APPLE_TOOL_NAMES,
+    appleToolInput,
+    askUserCard,
+    executeAppleTool,
+    type AppleToolCall,
+    type AppleToolContext,
+    type AppleToolResult
+} from './apple-tools.ts';
 import type { ApprovalDecision, BackendHost, BackendLaunch, ChatBackend, TurnInput } from '@adecore/agents/chat';
 import { ChatChild } from '@adecore/agents/chat';
 
@@ -430,19 +438,7 @@ export class AppleBackend implements ChatBackend {
         this.host.onEvent({ type: 'tool.started', ref: event.id, name: toolName, input, parentRef: null });
         if (event.name === 'ask_user') {
             this.questions.add(event.id);
-            this.host.onEvent({
-                type: 'question.requested',
-                requestId: event.id,
-                questions: [
-                    {
-                        id: event.id,
-                        header: 'Question',
-                        question: event.question,
-                        choices: (event.options ?? []).map((label) => ({ label, description: '' })),
-                        multiSelect: false
-                    }
-                ]
-            });
+            this.host.onEvent(askUserCard(event.id, event));
             return;
         }
         this.pending.set(event.id, event);

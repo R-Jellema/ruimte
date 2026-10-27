@@ -1,6 +1,7 @@
 import { open } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Client, StreamableHTTPClientTransport, type CallToolResult, type Tool, type Transport } from '@modelcontextprotocol/client';
+import { isNotFound } from '@adecore/agents';
 import { z } from 'zod';
 import { AppleStdioTransport } from './apple-mcp-stdio.ts';
 
@@ -39,7 +40,7 @@ export async function readAppleMcpConfig(home: string, signal?: AbortSignal): Pr
     try {
         handle = await open(join(home, 'apple-mcp.json'), 'r');
     } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        if (isNotFound(error)) {
             return {};
         }
         throw new Error('The Apple MCP configuration could not be opened.');

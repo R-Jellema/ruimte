@@ -35,6 +35,17 @@ export function appleToolInput(call: AppleToolCall): Record<string, unknown> {
     }
 }
 
+/* The card an `ask_user` call puts in the thread, one question with its options as choices. */
+export function askUserCard(id: string, call: Extract<AppleToolCall, { name: 'ask_user' }>) {
+    return {
+        type: 'question.requested' as const,
+        requestId: id,
+        questions: [
+            { id, header: 'Question', question: call.question, choices: (call.options ?? []).map((label) => ({ label, description: '' })), multiSelect: false }
+        ]
+    };
+}
+
 export interface AppleToolContext {
     env: Record<string, string>;
     home: string;

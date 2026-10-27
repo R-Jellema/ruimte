@@ -4,7 +4,7 @@ import type { z } from 'zod';
 import type { RuntimeMode } from '@ruimte/contracts';
 import type { ApprovalDecision, BackendHost, BackendLaunch } from '@adecore/agents/chat';
 import { isNotFound, writeAtomic } from '@adecore/agents';
-import { APPLE_TOOL_NAMES, appleToolInput, type AppleToolCall } from './apple-tools.ts';
+import { APPLE_TOOL_NAMES, appleToolInput, askUserCard, type AppleToolCall } from './apple-tools.ts';
 import { executeNanoTool, nanoNeedsApproval, nanoToolCall } from './nanogpt-tools.ts';
 
 /*
@@ -213,20 +213,6 @@ export class ApiTools {
 
     /* Null when the person declined the question. */
     private ask(ref: string, call: Extract<AppleToolCall, { name: 'ask_user' }>, signal: AbortSignal): Promise<string | null> {
-        return this.waitFor<string | null>(ref, this.questions, signal, null, () =>
-            this.options.host.onEvent({
-                type: 'question.requested',
-                requestId: ref,
-                questions: [
-                    {
-                        id: ref,
-                        header: 'Question',
-                        question: call.question,
-                        choices: (call.options ?? []).map((label) => ({ label, description: '' })),
-                        multiSelect: false
-                    }
-                ]
-            })
-        );
+        return this.waitFor<string | null>(ref, this.questions, signal, null, () => this.options.host.onEvent(askUserCard(ref, call)));
     }
 }

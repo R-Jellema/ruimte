@@ -1,6 +1,7 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { Tool } from '@modelcontextprotocol/client';
+import { isRecord } from '../is-record.ts';
 import { AppleMcpPool, readAppleMcpConfig, type ConnectAppleMcp } from './apple-mcp.ts';
 import type { AppleToolCall, AppleToolContext, AppleToolResult } from './apple-tools.ts';
 import { extractApplePage, limitAppleText, publicWebUrl, requestPublicWeb, type AppleWebRequest } from './apple-web.ts';
@@ -149,10 +150,10 @@ export async function executeAppleNetworkTool(
         throw new Error('The requested MCP tool is unavailable or excluded by allowedTools.');
     }
     const args: unknown = JSON.parse(call.arguments);
-    if (args === null || typeof args !== 'object' || Array.isArray(args)) {
+    if (!isRecord(args)) {
         throw new Error('MCP arguments must be a JSON object.');
     }
-    const result = await runMcp(() => connection.call(call.tool, args as Record<string, unknown>, active));
+    const result = await runMcp(() => connection.call(call.tool, args, active));
     active.throwIfAborted();
     const content = result.content
         .map((block) => {
