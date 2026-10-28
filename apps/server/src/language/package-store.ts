@@ -121,6 +121,8 @@ export class PackageStore {
      */
     collect(references: () => Promise<Set<string> | null>): Promise<string[]> {
         return this.exclusive(async () => {
+            // Taken before the references are read. An install links its set before it releases the lease, so a lease gone by the time of this look is in the references; one looked at only after them may have been released by an install that linked too late for them.
+            const held = new Set(this.leases.keys());
             const used = await references();
 
             if (used === null) {
@@ -131,7 +133,7 @@ export class PackageStore {
             const present = (await readdir(this.directory).catch(() => [] as string[])).sort();
 
             for (const setId of present) {
-                if (!SET_ID.test(setId) || used.has(setId) || this.leases.has(setId) || this.building.has(setId)) {
+                if (!SET_ID.test(setId) || used.has(setId) || held.has(setId) || this.leases.has(setId) || this.building.has(setId)) {
                     continue;
                 }
 

@@ -151,6 +151,21 @@ describe('package store', () => {
         expect(await store.collect(async () => new Set())).toEqual([used.setId, kept.setId].sort());
     });
 
+    it('keeps a set whose lease was released while the collection read what refers to it', async () => {
+        const store = storeOf(installing());
+        const lease = await store.ensure(dependencies, entries, () => undefined);
+
+        // The install links the set and releases its lease after the references were read, which the collection must not take for an unused set.
+        const removed = await store.collect(async () => {
+            lease.release();
+
+            return new Set();
+        });
+
+        expect(removed).toEqual([]);
+        expect(await readdir(join(root, 'packages'))).toContain(lease.setId);
+    });
+
     it('keeps a set that is moved aside by hand out of the way of the next build', async () => {
         const calls: string[] = [];
         const store = storeOf(installing(calls));
