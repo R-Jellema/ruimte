@@ -616,6 +616,79 @@ describe('several servers on one document', () => {
         expect(tsserver.paramsOf('callHierarchy/outgoingCalls')).toEqual([]);
     });
 
+    it('sends a type hierarchy follow-up to the server that made the item', async () => {
+        const spawner = fakeSpawner({ typescript: caps({ typeHierarchyProvider: true }), eslint: caps({ typeHierarchyProvider: true }) });
+        const { host } = await installed(['typescript', 'eslint'], { files: eslintFiles, spawner });
+        await open(host);
+        await ready(host);
+        await ready(host, 'eslint');
+        const range = { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } };
+        const item = (name: string, data?: unknown) => ({
+            name,
+            kind: 5,
+            uri: uri('src/a.ts'),
+            range,
+            selectionRange: range,
+            ...(data === undefined ? {} : { data })
+        });
+        const [tsserver, eslint] = [spawner.of('typescript')[0]!.server, spawner.of('eslint')[0]!.server];
+        eslint.handle('textDocument/prepareTypeHierarchy', () => [item('Base', { id: 3 })]);
+        eslint.handle('typeHierarchy/supertypes', () => [item('Root')]);
+        eslint.handle('typeHierarchy/subtypes', () => []);
+        tsserver.handle('typeHierarchy/supertypes', () => []);
+        tsserver.handle('typeHierarchy/subtypes', () => []);
+        const base = { projectId: 'p1', path: 'src/a.ts' };
+        const prepared = await host.request({ ...base, method: 'textDocument/prepareTypeHierarchy', params: {}, server: 'eslint' });
+        const [made] = prepared.result as Array<{ data: unknown }>;
+        const supertypes = await host.request({ ...base, method: 'typeHierarchy/supertypes', params: { item: made } });
+        expect(eslint.paramsOf('typeHierarchy/supertypes')).toEqual([{ item: item('Base', { id: 3 }) }]);
+        expect(tsserver.paramsOf('typeHierarchy/supertypes')).toEqual([]);
+        expect(supertypes.server).toBe('eslint');
+        const [root] = supertypes.result as Array<unknown>;
+        await host.request({ ...base, method: 'typeHierarchy/subtypes', params: { item: root } });
+        expect(eslint.paramsOf('typeHierarchy/subtypes')).toEqual([{ item: item('Root') }]);
+        expect(tsserver.paramsOf('typeHierarchy/subtypes')).toEqual([]);
+    });
+
+    it('merges the links and colors of several servers, and resolves a link on the process that made it', async () => {
+        const link = (line: number) => ({ range: { start: { line, character: 0 }, end: { line, character: 3 } }, target: `https://example.test/${line}` });
+        const spawner = fakeSpawner({
+            typescript: caps({ documentLinkProvider: { resolveProvider: true } }),
+            eslint: caps({ documentLinkProvider: { resolveProvider: true }, colorProvider: true })
+        });
+        const { host } = await installed(['typescript', 'eslint'], { files: eslintFiles, spawner });
+        await open(host);
+        await ready(host);
+        await ready(host, 'eslint');
+        const [tsserver, eslint] = [spawner.of('typescript')[0]!.server, spawner.of('eslint')[0]!.server];
+        tsserver.handle('textDocument/documentLink', () => [link(0)]);
+        eslint.handle('textDocument/documentLink', () => [link(1)]);
+        eslint.handle('documentLink/resolve', (params) => ({ ...(params as object), tooltip: 'from eslint' }));
+        const base = { projectId: 'p1', path: 'src/a.ts' };
+        const links = await host.request({ ...base, method: 'textDocument/documentLink', params: {} });
+        expect(links.result).toEqual([link(0), link(1)]);
+        expect(links.itemServers).toEqual(['typescript', 'eslint']);
+        const resolved = await host.request({ ...base, method: 'documentLink/resolve', params: link(1), server: 'eslint' });
+        expect(resolved).toMatchObject({ result: { tooltip: 'from eslint' }, server: 'eslint' });
+    });
+
+    it('asks a Vue project for a type hierarchy and falls through to the TypeScript server when Vue lacks it', async () => {
+        const spawner = fakeSpawner({ typescript: caps({ typeHierarchyProvider: true }), vue: caps() });
+        const { host } = await installed(['typescript', 'vue'], { packageJson: JSON.stringify({ dependencies: { vue: '^3.5.0' } }), spawner });
+        await open(host);
+        await ready(host, 'vue');
+        const tsserver = spawner.of('typescript').at(-1)!.server;
+        tsserver.handle('textDocument/prepareTypeHierarchy', () => []);
+        const answer = await host.request({
+            projectId: 'p1',
+            path: 'src/a.ts',
+            method: 'textDocument/prepareTypeHierarchy',
+            params: { position: { line: 0, character: 0 } }
+        });
+        expect(answer.server).toBe('typescript');
+        expect(tsserver.paramsOf('textDocument/prepareTypeHierarchy')).toHaveLength(1);
+    });
+
     it('routes a call hierarchy follow-up normally, with the item unwrapped, when the server that made it no longer serves the document', async () => {
         const spawner = fakeSpawner({ typescript: caps({ callHierarchyProvider: true }) });
         const { host } = await installed(['typescript'], { spawner });

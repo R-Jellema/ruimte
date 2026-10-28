@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { applyCompletionDefaults, type CompletionItem, type CompletionList } from '@adecore/lsp';
 import { isRecord } from '../is-record.ts';
 
@@ -7,7 +8,13 @@ import { isRecord } from '../is-record.ts';
  * merged here; any other feature is the first server's that offers it.
  */
 
-export const MERGED_METHODS: ReadonlySet<string> = new Set(['textDocument/completion', 'textDocument/codeAction', 'textDocument/hover']);
+export const MERGED_METHODS: ReadonlySet<string> = new Set([
+    'textDocument/completion',
+    'textDocument/codeAction',
+    'textDocument/hover',
+    'textDocument/documentLink',
+    'textDocument/documentColor'
+]);
 
 interface ServerAnswer {
     server: string;
@@ -83,6 +90,10 @@ function mergeHover(answers: readonly ServerAnswer[]): unknown {
     return { contents: hovers.flatMap((hover) => hoverParts(hover.result.contents)), ...(range === undefined ? {} : { range }) };
 }
 
+function sameRange(left: unknown, right: unknown): boolean {
+    return isRecord(left) && isRecord(right) && isDeepStrictEqual(left.range, right.range);
+}
+
 /* Answers to one request, in the order of the servers that gave them. `null` is no answer. */
 export function mergeAnswers(method: string, answers: readonly ServerAnswer[], report?: (server: string, error: Error) => void): MergedAnswer {
     if (method === 'textDocument/hover') {
@@ -96,6 +107,11 @@ export function mergeAnswers(method: string, answers: readonly ServerAnswer[], r
             method === 'textDocument/completion' ? completionItems(answer.result, (error) => report?.(answer.server, error)) : completionPart(answer.result);
         isIncomplete ||= part.isIncomplete;
         part.items.forEach((item, index) => {
+            // The same color from CSS and Tailwind would be drawn twice.
+            if (method === 'textDocument/documentColor' && items.some((taken) => sameRange(taken, item))) {
+                return;
+            }
+
             items.push(item);
             itemServers.push(answer.itemServers?.[part.indices?.[index] ?? index] ?? answer.server);
         });

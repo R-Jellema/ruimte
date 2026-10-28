@@ -1,5 +1,7 @@
 const PREPARE = 'textDocument/prepareCallHierarchy';
-const FOLLOW_UPS = new Set(['callHierarchy/incomingCalls', 'callHierarchy/outgoingCalls']);
+const FOLLOW_UPS = new Set(['callHierarchy/incomingCalls', 'callHierarchy/outgoingCalls', 'typeHierarchy/supertypes', 'typeHierarchy/subtypes']);
+// These answer plain arrays of items.
+const TYPE_ITEMS = new Set(['textDocument/prepareTypeHierarchy', 'typeHierarchy/supertypes', 'typeHierarchy/subtypes']);
 const TAG = '$ruimteServer';
 
 interface Tagged {
@@ -35,13 +37,13 @@ export function pinnedItem(method: string, params: object): { server: string; pa
 
 /*
  * Marks the items an answer hands out with the process that made them, inside their `data` field, which a
- * client sends back whole. Two servers can offer a call hierarchy, and the follow-up has to reach the one that made the item.
+ * client sends back whole. Two servers can offer a call or type hierarchy, and the follow-up has to reach the one that made the item.
  */
-export function tagCallHierarchy(method: string, result: unknown, server: string): unknown {
+export function tagHierarchy(method: string, result: unknown, server: string): unknown {
     if (!Array.isArray(result)) {
         return result;
     }
-    if (method === PREPARE) {
+    if (method === PREPARE || TYPE_ITEMS.has(method)) {
         return result.map((item) => tagItem(item, server));
     }
     const side = method === 'callHierarchy/incomingCalls' ? 'from' : method === 'callHierarchy/outgoingCalls' ? 'to' : null;

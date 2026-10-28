@@ -26,7 +26,9 @@ import {
     type CreatedFile,
     type DeletedFile,
     type RenamedFile,
+    type TextDocumentSaveReason,
     type TextMirror,
+    type TypeHierarchyItem,
     type WorkspaceEdit
 } from '@adecore/lsp';
 import { errorText } from '../error-text.ts';
@@ -169,7 +171,7 @@ const SIDECAR_ACTION_OPTIONS = {
 
 type Phase = 'stopped' | 'starting' | 'ready' | 'crashed';
 
-/* The two call hierarchy requests carry the item of an earlier answer, with no `textDocument` beside it. */
+/* The hierarchy follow-ups carry the item of an earlier answer, with no `textDocument` beside it; willSaveWaitUntil carries a reason. */
 function requestOf(open: LspDocument, method: string, params: object): Promise<unknown> {
     const options = { cancelPrevious: false, timeoutMs: 0 };
     const { item } = params as { item: CallHierarchyItem };
@@ -178,6 +180,15 @@ function requestOf(open: LspDocument, method: string, params: object): Promise<u
     }
     if (method === 'callHierarchy/outgoingCalls') {
         return open.outgoingCalls(item, options);
+    }
+    if (method === 'typeHierarchy/supertypes') {
+        return open.supertypes(item as TypeHierarchyItem, options);
+    }
+    if (method === 'typeHierarchy/subtypes') {
+        return open.subtypes(item as TypeHierarchyItem, options);
+    }
+    if (method === 'textDocument/willSaveWaitUntil') {
+        return open.willSaveWaitUntil((params as { reason?: TextDocumentSaveReason }).reason ?? 1, options);
     }
     return open.request(method, params, options);
 }

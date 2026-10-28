@@ -927,6 +927,72 @@ describe('the settings of a project the SQL servers read', () => {
     });
 });
 
+describe('the features a server answers beyond the first ones', () => {
+    const position = { line: 0, character: 1 };
+    const range = { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } };
+    const item = { name: 'Base', kind: 5, uri: 'file:///work/a.css', range, selectionRange: range };
+
+    async function started(capabilities: ServerCapabilities) {
+        const { server, spawner } = rig('css', fakeSpawner({ css: capabilities }));
+        const main = document('/work/a.css', 'css', 'a {}');
+        server.attach(main);
+        await settle();
+
+        return { server, main, fake: spawner.processes[0]!.server };
+    }
+
+    it.each([
+        ['textDocument/documentLink', { documentLinkProvider: {} }, {}, { textDocument: { uri: 'file:///work/a.css' } }],
+        ['textDocument/documentColor', { colorProvider: true }, {}, { textDocument: { uri: 'file:///work/a.css' } }],
+        [
+            'textDocument/colorPresentation',
+            { colorProvider: true },
+            { color: { red: 1, green: 0, blue: 0, alpha: 1 }, range },
+            { textDocument: { uri: 'file:///work/a.css' }, color: { red: 1, green: 0, blue: 0, alpha: 1 }, range }
+        ],
+        ['textDocument/linkedEditingRange', { linkedEditingRangeProvider: true }, { position }, { textDocument: { uri: 'file:///work/a.css' }, position }],
+        ['textDocument/prepareTypeHierarchy', { typeHierarchyProvider: true }, { position }, { textDocument: { uri: 'file:///work/a.css' }, position }],
+        [
+            'textDocument/rangesFormatting',
+            { documentRangeFormattingProvider: { rangesSupport: true } },
+            { ranges: [range], options: { tabSize: 4, insertSpaces: true } },
+            { textDocument: { uri: 'file:///work/a.css' }, ranges: [range], options: { tabSize: 4, insertSpaces: true } }
+        ]
+    ] as const)('sends %s with the params the server expects', async (method, capabilities, params, expected) => {
+        const { server, main, fake } = await started({ textDocumentSync: 2, ...capabilities } as ServerCapabilities);
+        fake.handle(method, () => null);
+
+        await server.request(main, method, params);
+
+        expect(fake.paramsOf(method)).toEqual([expected]);
+    });
+
+    it('sends a type hierarchy follow-up with the item and no textDocument', async () => {
+        const { server, main, fake } = await started({ textDocumentSync: 2, typeHierarchyProvider: true });
+        fake.handle('typeHierarchy/supertypes', () => []);
+        fake.handle('typeHierarchy/subtypes', () => []);
+
+        await server.request(main, 'typeHierarchy/supertypes', { item });
+        await server.request(main, 'typeHierarchy/subtypes', { item });
+
+        expect(fake.paramsOf('typeHierarchy/supertypes')).toEqual([{ item }]);
+        expect(fake.paramsOf('typeHierarchy/subtypes')).toEqual([{ item }]);
+    });
+
+    it('asks willSaveWaitUntil only of a server that set it, with the reason', async () => {
+        const wanting = await started({ textDocumentSync: { change: 2, willSaveWaitUntil: true } });
+        wanting.fake.handle('textDocument/willSaveWaitUntil', () => []);
+
+        await wanting.server.request(wanting.main, 'textDocument/willSaveWaitUntil', { reason: 2 });
+
+        expect(wanting.fake.paramsOf('textDocument/willSaveWaitUntil')).toEqual([{ textDocument: { uri: 'file:///work/a.css' }, reason: 2 }]);
+
+        const plain = await started({ textDocumentSync: 2 });
+
+        await expect(plain.server.request(plain.main, 'textDocument/willSaveWaitUntil', { reason: 1 })).rejects.toMatchObject({ code: -32601 });
+    });
+});
+
 describe('the storage a server may read', () => {
     it('waits for beforeSpawn before it spawns anything, and is live meanwhile', async () => {
         let release!: () => void;

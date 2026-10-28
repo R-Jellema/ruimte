@@ -111,3 +111,43 @@ it('dropping malformed items preserves the original per-item server ownership', 
     ]);
     expect(merged).toEqual({ result: { isIncomplete: false, items: [{ label: 'valid' }] }, itemServers: ['eslint'] });
 });
+
+describe('merging links and colors', () => {
+    const range = (line: number) => ({ start: { line, character: 0 }, end: { line, character: 4 } });
+
+    it('concatenates links in server order and names the process of each', () => {
+        const merged = mergeAnswers('textDocument/documentLink', [
+            { server: 'html', result: [{ range: range(0) }, { range: range(1) }] },
+            { server: 'tailwind', result: null },
+            { server: 'eslint', result: [{ range: range(2) }] }
+        ]);
+
+        expect(merged.result).toEqual([{ range: range(0) }, { range: range(1) }, { range: range(2) }]);
+        expect(merged.itemServers).toEqual(['html', 'html', 'eslint']);
+    });
+
+    it('drops a color whose range a server before it already took', () => {
+        const red = { red: 1, green: 0, blue: 0, alpha: 1 };
+        const blue = { red: 0, green: 0, blue: 1, alpha: 1 };
+        const merged = mergeAnswers('textDocument/documentColor', [
+            { server: 'css', result: [{ range: range(0), color: red }] },
+            {
+                server: 'tailwind',
+                result: [
+                    { range: range(0), color: blue },
+                    { range: range(1), color: blue }
+                ]
+            }
+        ]);
+
+        expect(merged.result).toEqual([
+            { range: range(0), color: red },
+            { range: range(1), color: blue }
+        ]);
+        expect(merged.itemServers).toEqual(['css', 'tailwind']);
+    });
+
+    it('answers null when no server had any', () => {
+        expect(mergeAnswers('textDocument/documentColor', [{ server: 'css', result: null }]).result).toBeNull();
+    });
+});

@@ -53,7 +53,7 @@ import { ClientSinks } from '../client-sinks.ts';
 import { errorText } from '../error-text.ts';
 import { isDirectory } from '../fs/browse.ts';
 import type { SessionEvent, SessionSink } from '../sessions/manager.ts';
-import { pinnedItem, tagCallHierarchy } from './call-hierarchy.ts';
+import { pinnedItem, tagHierarchy } from './hierarchy.ts';
 import { LanguageChoices } from './choices.ts';
 import { CustomLanguageServers, customProfile } from './custom.ts';
 import { ProjectFileWatcher, type FileChange, type StatPath } from './file-watch.ts';
@@ -521,7 +521,7 @@ export class LanguageHost {
         const routed = pinned === null ? params : pinnedServer === undefined ? withoutItemData(pinned.params) : pinned.params;
         try {
             const answer = await this.route(servers, document, payload.method, routed, payload.server ?? pinnedServer);
-            return { ...answer, result: tagCallHierarchy(payload.method, answer.result, answer.server) };
+            return { ...answer, result: tagHierarchy(payload.method, answer.result, answer.server) };
         } catch (error) {
             throw translated(error);
         }
