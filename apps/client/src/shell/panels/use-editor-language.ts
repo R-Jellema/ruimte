@@ -7,6 +7,8 @@ import { EditorLanguage } from '@/language/ruimte-editor-language';
 import { customLanguageIdOf } from '@/language/language-ids-host';
 import { draftFiles } from '@/language/project-files';
 import { acquireProjectLanguage } from '@/language/ruimte-project-language';
+import { participateInSave } from '@/language/save-participation';
+import { textDrafts } from '@/state/text-drafts';
 import { useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
 import { useTransport } from '@/transport/context';
@@ -65,8 +67,11 @@ export function useEditorLanguage(editor: Editor | null, path: string, language:
         }
         const held = acquireProjectLanguage(transport, projectId, folder, draftFiles(endpointId, transport, projectId));
         const editorLanguage = new EditorLanguage(held.language, editor, pathToFileUri(path), languageId, realTimers, { serve });
+        // The same path FileEditor hands the draft, so the keys match; a document no server serves has nothing to take part with.
+        const offSave = serve ? textDrafts.participate(endpointId, path, (reason) => participateInSave(editorLanguage, reason)) : undefined;
         holder.set(editorLanguage);
         return () => {
+            offSave?.();
             holder.set(null);
             editorLanguage.dispose();
             held.release();

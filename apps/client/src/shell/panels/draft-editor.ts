@@ -12,10 +12,10 @@ export function bindDraftEditor(editor: Editor, drafts: TextDrafts, endpointId: 
     const key = endpointKey(endpointId, path);
     const offChange = editor.onChange(() => drafts.edit(endpointId, path, editor.getText()));
     const offSave = editor.onSave(() => {
-        void drafts.save(endpointId, path);
+        void drafts.save(endpointId, path, 'manual');
     });
     const offBlur = editor.onBlur(() => {
-        void drafts.save(endpointId, path);
+        void drafts.save(endpointId, path, 'focusOut');
     });
     // Its own caret line keeps its indentation, since the autosave runs while a person pauses on it.
     const offPrepare = drafts.beforeSave(endpointId, path, () => {
@@ -73,7 +73,7 @@ export function mountDraftEditor(
         unmount: () => {
             unbind();
             editor.dispose();
-            void drafts.save(endpointId, path);
+            void drafts.save(endpointId, path, 'focusOut');
         }
     };
 }

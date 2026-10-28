@@ -502,3 +502,144 @@ describe('the version that moved under unsaved text', () => {
         expect(draft()?.incoming).toBeUndefined();
     });
 });
+
+describe('save participants', () => {
+    test('awaits a participant before the preparers and the write, and writes what it left in the draft', async () => {
+        const order: string[] = [];
+        const release = deferred<void>();
+        drafts.beforeSave(MACHINE, PATH, () => order.push('prepare'));
+        drafts.participate(MACHINE, PATH, async () => {
+            order.push('participant');
+            await release.promise;
+            drafts.edit(MACHINE, PATH, 'one fixed');
+            order.push('participant done');
+        });
+        drafts.edit(MACHINE, PATH, 'one typed');
+        const saved = drafts.save(MACHINE, PATH);
+        await flush();
+
+        expect(order).toEqual(['participant']);
+        expect(link.writes).toHaveLength(0);
+
+        release.resolve();
+        await flush();
+
+        expect(order).toEqual(['participant', 'participant done', 'prepare']);
+        expect(link.writes.map((write) => write.text)).toEqual(['one fixed']);
+
+        await link.land(2);
+
+        expect(await saved).toBe(true);
+    });
+
+    test('has the draft marked as saving while the participant runs, before any write can settle', async () => {
+        const release = deferred<void>();
+        drafts.participate(MACHINE, PATH, () => release.promise);
+        drafts.edit(MACHINE, PATH, 'one typed');
+        const first = drafts.save(MACHINE, PATH);
+        const second = drafts.save(MACHINE, PATH);
+        release.resolve();
+        await flush();
+
+        expect(link.writes).toHaveLength(1);
+
+        await link.land(2);
+        await Promise.all([first, second]);
+
+        expect(link.writes).toHaveLength(1);
+        expect(draft()).toMatchObject({ saving: false, text: 'one typed', mtime: 2 });
+    });
+
+    test('skips the participant for a save that writes an edit of a server', async () => {
+        let asked = 0;
+        drafts.participate(MACHINE, PATH, async () => {
+            asked += 1;
+        });
+        drafts.edit(MACHINE, PATH, 'one typed');
+        void drafts.save(MACHINE, PATH, 'edit');
+        await flush();
+
+        expect(asked).toBe(0);
+        expect(link.writes).toHaveLength(1);
+    });
+
+    test('runs only the first participant of a file, so two editors do not apply the edits twice', async () => {
+        const asked: string[] = [];
+        const offFirst = drafts.participate(MACHINE, PATH, async () => {
+            asked.push('first');
+        });
+        drafts.participate(MACHINE, PATH, async () => {
+            asked.push('second');
+        });
+        drafts.edit(MACHINE, PATH, 'one typed');
+        void drafts.save(MACHINE, PATH);
+        await flush();
+        await link.land(2);
+        drafts.edit(MACHINE, PATH, 'one typed more');
+        offFirst();
+        void drafts.save(MACHINE, PATH);
+        await flush();
+
+        expect(asked).toEqual(['first', 'second']);
+    });
+
+    test('still saves when a participant rejects', async () => {
+        drafts.participate(MACHINE, PATH, () => Promise.reject(new Error('server went away')));
+        drafts.edit(MACHINE, PATH, 'one typed');
+        const saved = drafts.save(MACHINE, PATH);
+        await flush();
+        await link.land(2);
+
+        expect(await saved).toBe(true);
+        expect(link.writes.map((write) => write.text)).toEqual(['one typed']);
+    });
+
+    test('tells the participant why the save happens', async () => {
+        const reasons: string[] = [];
+        drafts.participate(MACHINE, PATH, async (reason) => {
+            reasons.push(reason);
+        });
+        drafts.edit(MACHINE, PATH, 'one typed');
+        jest.advanceTimersByTime(AUTOSAVE_DELAY_MS);
+        await flush();
+        await link.land(2);
+        drafts.edit(MACHINE, PATH, 'one typed again');
+        void drafts.save(MACHINE, PATH, 'focusOut');
+        await flush();
+        await link.land(3);
+        drafts.edit(MACHINE, PATH, 'one typed once more');
+        void drafts.save(MACHINE, PATH);
+        await flush();
+
+        expect(reasons).toEqual(['afterDelay', 'focusOut', 'manual']);
+    });
+
+    test('asks nothing for the follow-up save of text typed while a write was out', async () => {
+        const reasons: string[] = [];
+        drafts.participate(MACHINE, PATH, async (reason) => {
+            reasons.push(reason);
+        });
+        drafts.edit(MACHINE, PATH, 'one typed');
+        void drafts.save(MACHINE, PATH);
+        await flush();
+        drafts.edit(MACHINE, PATH, 'one typed more');
+        await link.land(2);
+        await flush();
+        await link.land(3);
+
+        expect(reasons).toEqual(['manual', 'afterDelay']);
+    });
+
+    test('lets a participant go with its removal', async () => {
+        let asked = 0;
+        const off = drafts.participate(MACHINE, PATH, async () => {
+            asked += 1;
+        });
+        off();
+        drafts.edit(MACHINE, PATH, 'one typed');
+        void drafts.save(MACHINE, PATH);
+        await flush();
+
+        expect(asked).toBe(0);
+    });
+});

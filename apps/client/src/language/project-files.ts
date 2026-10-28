@@ -82,7 +82,7 @@ export function draftFiles(endpointId: string, transport: Transport, projectId: 
         save: async (files) => {
             for (const file of files) {
                 drafts.stage(endpointId, file.path, diskOf(file), file.text);
-                if (!(await drafts.save(endpointId, file.path))) {
+                if (!(await drafts.save(endpointId, file.path, 'edit'))) {
                     return i18next.t('panels:language.edit.notSaved', { name: basenameOf(file.path) });
                 }
             }
@@ -175,7 +175,7 @@ export function draftFiles(endpointId: string, transport: Transport, projectId: 
                     label: i18next.t('panels:language.edit.saveAll'),
                     run: () => {
                         for (const file of unsaved) {
-                            void drafts.save(endpointId, file.path);
+                            void drafts.save(endpointId, file.path, 'edit');
                         }
                     }
                 }

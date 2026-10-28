@@ -29,6 +29,11 @@ export interface TextDraft {
     incoming?: DiskText;
 }
 
+/* Why a draft is written: a person's save, the pause after typing, the editor losing focus, or a workspace edit of a server. */
+export type DraftSaveReason = 'manual' | 'afterDelay' | 'focusOut' | 'edit';
+
+export type SaveParticipant = (reason: DraftSaveReason) => Promise<void>;
+
 export interface DiskText {
     text: string;
     mtime: number;
@@ -82,6 +87,7 @@ export class TextDrafts {
     private readonly linkFor: (endpointId: string) => DraftLink | null;
     private readonly pending = new Map<string, Pending>();
     private readonly preparers = new Map<string, Set<() => void>>();
+    private readonly participants = new Map<string, Set<SaveParticipant>>();
 
     constructor(linkFor: (endpointId: string) => DraftLink | null) {
         this.linkFor = linkFor;
@@ -147,7 +153,7 @@ export class TextDrafts {
         }
         this.pendingOf(key).timer = setTimeout(() => {
             this.pendingOf(key).timer = null;
-            void this.save(endpointId, path);
+            void this.save(endpointId, path, 'afterDelay');
         }, AUTOSAVE_DELAY_MS);
     }
 
@@ -192,34 +198,77 @@ export class TextDrafts {
         }
     }
 
+    /*
+     * Lets a language server's edits into the text before it is written, which the participant of the first editor
+     * of the file does. It resolves once they are in the editor, from where they reach the draft by `edit`.
+     */
+    participate(endpointId: string, path: string, participant: SaveParticipant): () => void {
+        const key = endpointKey(endpointId, path);
+        const set = this.participants.get(key) ?? new Set<SaveParticipant>();
+        set.add(participant);
+        this.participants.set(key, set);
+        return () => {
+            set.delete(participant);
+            if (set.size === 0) {
+                this.participants.delete(key);
+            }
+        };
+    }
+
     /* Writes the draft now. True once nothing is left unsaved; false while a problem stands in the way. */
-    save(endpointId: string, path: string): Promise<boolean> {
+    save(endpointId: string, path: string, reason: DraftSaveReason = 'manual'): Promise<boolean> {
         const key = endpointKey(endpointId, path);
         const pending = this.pendingOf(key);
         if (pending.saving !== null) {
             this.clearTimer(key);
-            return pending.saving.then(() => this.save(endpointId, path));
+            return pending.saving.then(() => this.save(endpointId, path, reason));
         }
+        const draft = useTextDrafts.getState().rows[key];
+        if (draft === undefined || !isUnsavedDraft(draft) || waitsForPerson(draft)) {
+            return Promise.resolve(this.settleWithoutWrite(key));
+        }
+        // Past a microtask, so `saving` is set before the write can settle and clear it; what was typed while it was out goes right after.
+        const saving = Promise.resolve()
+            .then(() => (reason === 'edit' ? undefined : this.firstParticipant(key)?.(reason).catch(() => undefined)))
+            .then(() => this.writeDraft(endpointId, path))
+            .then((written) => (written && this.isUnsaved(endpointId, path) ? this.save(endpointId, path, 'afterDelay') : written));
+        pending.saving = saving;
+        return saving;
+    }
+
+    /* Only the first participant runs, since two editors on one file would apply a server's edits twice. */
+    private firstParticipant(key: string): SaveParticipant | undefined {
+        return this.participants.get(key)?.values().next().value;
+    }
+
+    /* A draft with nothing to write, or one that waits for a person, still gets its text tidied. */
+    private settleWithoutWrite(key: string): boolean {
+        const before = useTextDrafts.getState().rows[key];
+        if (isUnsavedDraft(before)) {
+            this.prepare(key);
+        }
+        this.clearTimer(key);
+        const draft = useTextDrafts.getState().rows[key];
+        if (draft !== undefined && isUnsavedDraft(draft)) {
+            return false;
+        }
+        if (draft?.problem?.kind === 'error') {
+            this.patch(key, { problem: null });
+        }
+        return true;
+    }
+
+    private writeDraft(endpointId: string, path: string): Promise<boolean> {
+        const key = endpointKey(endpointId, path);
         if (isUnsavedDraft(useTextDrafts.getState().rows[key])) {
             this.prepare(key);
         }
         this.clearTimer(key);
         const draft = useTextDrafts.getState().rows[key];
-        if (draft === undefined || !isUnsavedDraft(draft)) {
-            if (draft?.problem?.kind === 'error') {
-                this.patch(key, { problem: null });
-            }
-            return Promise.resolve(true);
+        if (draft === undefined || !isUnsavedDraft(draft) || waitsForPerson(draft)) {
+            return Promise.resolve(this.settleWithoutWrite(key));
         }
-        if (waitsForPerson(draft)) {
-            return Promise.resolve(false);
-        }
-        // Past a microtask, so `saving` is set before the write can settle and clear it; what was typed while it was out goes right after.
-        const saving = Promise.resolve()
-            .then(() => this.write(endpointId, path, draft.text, draft.mtime))
-            .then((written) => (written && this.isUnsaved(endpointId, path) ? this.save(endpointId, path) : written));
-        pending.saving = saving;
-        return saving;
+        return this.write(endpointId, path, draft.text, draft.mtime);
     }
 
     /*
