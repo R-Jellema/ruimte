@@ -90,6 +90,39 @@ describe('pets along the bottom of the screen', () => {
         expect(crossings).toBeGreaterThan(0);
     });
 
+    test('never come to rest in one another', () => {
+        const roam = new Roam(seeded(13));
+        const ground = groundOf(WIDTH, [DOCK]);
+        const ids = ['a', 'b', 'c', 'd', 'e'];
+        roam.join('waiting', 'waiting');
+        for (const id of ids) {
+            roam.join(id, 'idle');
+        }
+        for (let i = 0; i < 6000; i++) {
+            roam.step(ground, false);
+            const resting = ['waiting', ...ids].map((id) => roam.spot(id)!).filter((spot) => !spot.walking);
+            for (const spot of resting) {
+                const inside = resting.filter((other) => other !== spot && other.y === spot.y && Math.abs(other.x - spot.x) < FIGURE.w);
+                expect(inside).toEqual([]);
+            }
+        }
+    });
+
+    test('one put in another walks off at once', () => {
+        const roam = new Roam(seeded(17));
+        roam.join('a', 'waiting');
+        roam.join('b', 'idle');
+        roam.step(groundOf(WIDTH, []), true);
+        // A wide box over both puts them on the one bit of floor left, in the same place.
+        const narrow = groundOf(WIDTH, [{ left: 200, right: 1150, bottom: 0, top: 200, ledge: false }]);
+        roam.step(narrow, true);
+        expect(roam.spot('b')!.x).toBe(roam.spot('a')!.x);
+        for (let i = 0; i < 40; i++) {
+            roam.step(narrow, false);
+        }
+        expect(Math.abs(roam.spot('b')!.x - roam.spot('a')!.x)).toBeGreaterThanOrEqual(FIGURE.w);
+    });
+
     test('one that waits on you stays where it is', () => {
         const roam = new Roam(seeded(3));
         const ground = groundOf(WIDTH, [DOCK]);

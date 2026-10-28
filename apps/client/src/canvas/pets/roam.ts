@@ -52,6 +52,10 @@ const HOP_ARC = 12;
 const LEAP_REACH = 36;
 const LEAP_TICKS = 6;
 const LEAP_ARC = FIGURE.h + 8;
+/* How far apart two pets come to rest, so neither stands in the other. */
+const ROOM = FIGURE.w;
+/* How many places a pet tries for a walk before it rests a while longer instead. */
+const GOAL_TRIES = 8;
 /* Beats a pet rests between two walks, about three to ten seconds. */
 const REST_TICKS = { min: 20, max: 60 } as const;
 const LEDGE_CHANCE = 0.3;
@@ -126,6 +130,9 @@ interface Roamer {
     x: number;
     facing: 1 | -1;
     route: Step[];
+
+    /* Where its route ends, so another does not pick the same place to rest. */
+    goal: { on: 'floor' | 'ledge'; x: number } | null;
     hop: Hop | null;
     restLeft: number;
     placed: boolean;
@@ -159,7 +166,7 @@ export class Roam {
             }
             return;
         }
-        this.#roamers.set(id, { mood, on: 'floor', x: 0, facing: 1, route: [], hop: null, restLeft: 0, placed: false });
+        this.#roamers.set(id, { mood, on: 'floor', x: 0, facing: 1, route: [], goal: null, hop: null, restLeft: 0, placed: false });
     }
 
     leave(id: string): void {
@@ -311,7 +318,8 @@ export class Roam {
             return;
         }
         if (roamer.route.length === 0) {
-            if (roamer.restLeft > 0) {
+            // One that came to rest in another, after its walk was cut short, walks off at once.
+            if (roamer.restLeft > 0 && !this.#crowded(roamer)) {
                 roamer.restLeft -= 1;
                 return;
             }
@@ -396,8 +404,50 @@ export class Roam {
         if (chosen === undefined) {
             return [];
         }
-        const x = chosen.span.left + this.#random() * (chosen.span.right - chosen.span.left);
-        return this.#route(place, chosen.on === 'ledge' ? { on: 'ledge' } : { on: 'floor', floor: chosen.floor }, x, roamer.x);
+        for (let i = 0; i < GOAL_TRIES; i++) {
+            const x = chosen.span.left + this.#random() * (chosen.span.right - chosen.span.left);
+            if (!this.#free(roamer, chosen.on, x)) {
+                continue;
+            }
+            const route = this.#route(place, chosen.on === 'ledge' ? { on: 'ledge' } : { on: 'floor', floor: chosen.floor }, x, roamer.x);
+            roamer.goal = { on: chosen.on, x };
+            return route;
+        }
+        return [];
+    }
+
+    /* Where another pet will stand once it rests: the end of its walk or jump, or where it stands now. */
+    #restingPlace(roamer: Roamer): { on: 'floor' | 'ledge'; x: number } {
+        if (roamer.route.length > 0 && roamer.goal !== null) {
+            return roamer.goal;
+        }
+        if (roamer.hop !== null) {
+            return { on: roamer.hop.on, x: roamer.hop.to.x };
+        }
+        return { on: roamer.on, x: roamer.x };
+    }
+
+    #free(roamer: Roamer, on: 'floor' | 'ledge', x: number): boolean {
+        return [...this.#roamers.values()].every((other) => {
+            if (other === roamer || !other.placed) {
+                return true;
+            }
+            const place = this.#restingPlace(other);
+            return place.on !== on || Math.abs(place.x - x) >= ROOM;
+        });
+    }
+
+    /* Whether it rests inside another pet that rests too. */
+    #crowded(roamer: Roamer): boolean {
+        return [...this.#roamers.values()].some(
+            (other) =>
+                other !== roamer &&
+                other.placed &&
+                other.hop === null &&
+                other.route.length === 0 &&
+                other.on === roamer.on &&
+                Math.abs(other.x - roamer.x) < ROOM
+        );
     }
 
     #route(from: Place, to: Place, x: number, start: number): Step[] {
