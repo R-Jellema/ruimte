@@ -553,9 +553,9 @@ function apply(settings: Settings): void {
     setFontStack('--font-sans', interfaceFont && interfaceFont.id !== 'system' ? interfaceFont.stack : null);
     const font = MONO_FONTS.find((entry) => entry.id === settings.font);
     setFontStack('--font-mono', font && font.id !== 'system' ? font.stack : null);
-    // Unset, the terminal library falls back to `--font-mono`, so "Same as Editor" needs no stack of its own.
+    // Unset, the terminal library falls back to `--font-mono`, so only "Same as Editor" leaves it unset; System writes its stack, or the terminal would take the editor's face.
     const terminalFont = settings.terminalFont === 'editor' ? undefined : MONO_FONTS.find((entry) => entry.id === settings.terminalFont);
-    setFontStack('--term-font', terminalFont && terminalFont.id !== 'system' ? terminalFont.stack : null);
+    setFontStack('--term-font', terminalFont ? terminalFont.stack : null);
     if (settings.codeLigatures) {
         root.removeProperty('font-variant-ligatures');
     } else {
