@@ -50,6 +50,14 @@ export function registerLanguageHandlers(dispatcher: Dispatcher, host: LanguageH
         return {};
     });
 
+    dispatcher.register('language.messageAnswer', async (payload) => {
+        host.answerMessage(payload);
+        return {};
+    });
+
+    // A debugging switch like a restart, so any client may set it.
+    dispatcher.register('language.trace', async (payload) => ({ status: await host.trace(payload.projectId, payload.server, payload.value) }));
+
     dispatcher.register('language.command', (payload, client) => host.command(client.id, payload));
 
     dispatcher.register('language.edit.answer', async (payload, client) => {

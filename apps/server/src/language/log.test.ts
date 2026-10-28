@@ -32,3 +32,24 @@ describe('language log', () => {
         expect(log.last('install')).toBeNull();
     });
 });
+
+describe('what a log keeps apart', () => {
+    it('leaves trace out of the last line a stream said', () => {
+        const log = new LanguageLog();
+        log.push('server', 'boom', { source: 'stderr' });
+        log.push('server', 'Received notification', { source: 'trace' });
+
+        expect(log.last('server')).toBe('boom');
+    });
+
+    it('reports the server output without trace or messages, which carry source text and what a person was shown', () => {
+        const log = new LanguageLog();
+        log.push('server', 'stderr line', { source: 'stderr' });
+        log.push('server', 'log line', { source: 'log', level: 'info' });
+        log.push('server', 'const secret = 1', { source: 'trace' });
+        log.push('server', 'Update?', { source: 'message', level: 'warning' });
+        log.push('host', 'host line');
+
+        expect(log.serverOutput()).toEqual(['stderr line', 'log line']);
+    });
+});

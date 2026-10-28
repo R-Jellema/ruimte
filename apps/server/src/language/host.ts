@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import {
     LANGUAGE_ERROR_CODES,
     LANGUAGE_METHODS,
@@ -27,7 +27,11 @@ import type {
     LanguageDocumentOpenPayload,
     LanguageDocumentTargetPayload,
     LanguageEditAnswerPayload,
+    LanguageMessageAnswerPayload,
+    LanguageMessageEvent,
     LanguageRequestPayload,
+    LanguageShowEvent,
+    LanguageTraceValue,
     LanguageWillSavePayload
 } from '@ruimte/contracts';
 import { CodedError, fileExists, type WatchSeams } from '@adecore/agents';
@@ -45,7 +49,11 @@ import {
     type Diagnostic,
     type CreatedFile,
     type DeletedFile,
+    type MessageActionItem,
     type RenamedFile,
+    type ShowDocumentParams,
+    type ShowDocumentResult,
+    type ShowMessageRequestParams,
     type WorkspaceEdit,
     type WorkspaceEditPlan,
     type WorkspaceEditSource
@@ -72,12 +80,22 @@ import {
     KIND_PROFILES,
     kindForLanguage,
     usesVue,
+    type ComponentProfile,
     type KindProfile,
     type ProjectFacts,
     type ProjectSqlSettings
 } from './profiles.ts';
 import { bunRuntime, runCommand, spawnLanguageProcess, type LanguageRuntime, type RunCommand, type SpawnLanguageProcess } from './runtime.ts';
-import { LanguageServer, MERGE_DEADLINE_MS, realLanguageClock, type LanguageClock, type LanguageServerHooks, type SharedDocument } from './server.ts';
+import {
+    LanguageServer,
+    levelOf,
+    MERGE_DEADLINE_MS,
+    realLanguageClock,
+    titleOf,
+    type LanguageClock,
+    type LanguageServerHooks,
+    type SharedDocument
+} from './server.ts';
 import { StorageGate } from './storage-gate.ts';
 
 class LanguageError extends CodedError<LanguageErrorCode> {}
@@ -195,6 +213,14 @@ interface PendingEdit {
     settle(result: ApplyWorkspaceEditResult): void;
 }
 
+/* A `window/showMessageRequest` that waits for a person to pick one of its actions. */
+interface PendingMessage {
+    projectId: string;
+    server: LanguageServer;
+    items: readonly MessageActionItem[];
+    settle(item: MessageActionItem | null): void;
+}
+
 /* How long a client has to say whether it made an edit. */
 const EDIT_ANSWER_MS = 30_000;
 
@@ -260,13 +286,23 @@ export class LanguageHost {
     private readonly phpGate = new StorageGate();
     private readonly edits = new Map<string, PendingEdit>();
     private editCounter = 0;
+    private readonly messages = new Map<string, PendingMessage>();
+    private messageCounter = 0;
     /* What an agent's call waits on: a server that comes up or a report that comes in. */
     private readonly waiters = new Set<() => void>();
     private readonly hooks: LanguageServerHooks = {
         status: (server) => {
             this.toHolders(server.projectId, { event: 'language.status', payload: { projectId: server.projectId, status: this.serverStatus(server) } });
+
+            // A prompt of a server that went down has nobody to answer it.
+            if (server.state !== 'ready' && server.state !== 'indexing') {
+                this.settleMessages((pending) => pending.server === server);
+            }
+
             this.wake();
         },
+        message: (server, profile, params, request) => this.receiveMessage(server, profile, params, request),
+        showDocument: (server, profile, params) => this.showDocumentOf(server, profile, params),
         diagnostics: (document, component, params) => {
             document.reported ??= new Map();
             document.reported.set(component, params.diagnostics);
@@ -1022,6 +1058,10 @@ export class LanguageHost {
                 pending.settle({ applied: false, failureReason: 'The client went away' });
             }
         }
+
+        // With the last holder gone nobody is left to answer a prompt.
+        this.settleMessages((pending) => this.options.holders(pending.projectId).every((holder) => holder === clientId));
+
         for (const project of this.projects.values()) {
             for (const document of [...project.documents.values()]) {
                 if (document.clients.has(clientId)) {
@@ -1075,6 +1115,154 @@ export class LanguageHost {
             return Promise.resolve({ applied: false, failureReason: 'No command of a client is running' });
         }
         return this.sendEdit(server.projectId, clientId, params.edit, params.label);
+    }
+
+    /*
+     * A message of a server is always a log line. Only an error or a warning reaches a person, as an
+     * event to every client that holds the project; a request also waits for the action they pick.
+     * No timer runs on it: the server waits like any client's would.
+     */
+    private receiveMessage(
+        server: LanguageServer,
+        profile: ComponentProfile,
+        params: ShowMessageRequestParams,
+        request: boolean
+    ): Promise<MessageActionItem | null> {
+        server.log.push('server', params.message, { source: 'message', level: levelOf(params.type) });
+
+        const holders = this.options.holders(server.projectId);
+
+        if (holders.length === 0 || (!request && params.type > 2)) {
+            return Promise.resolve(null);
+        }
+
+        const messageId = `message-${++this.messageCounter}`;
+        const payload: LanguageMessageEvent = {
+            projectId: server.projectId,
+            messageId,
+            server: profile.name,
+            title: titleOf(profile),
+            type: params.type,
+            message: params.message,
+            ...(request ? { actions: params.actions?.map((action) => action.title) ?? [] } : {})
+        };
+
+        this.toHolders(server.projectId, { event: 'language.message', payload });
+
+        if (!request) {
+            return Promise.resolve(null);
+        }
+
+        return new Promise<MessageActionItem | null>((resolve) => {
+            this.messages.set(messageId, {
+                projectId: server.projectId,
+                server,
+                items: params.actions ?? [],
+                settle: (item) => {
+                    this.messages.delete(messageId);
+                    this.toHolders(server.projectId, { event: 'language.messageClosed', payload: { projectId: server.projectId, messageId } });
+                    resolve(item);
+                }
+            });
+        });
+    }
+
+    /* A client picked an action of a message request, or dismissed it. The first answer wins; later ones and unknown ids do nothing. */
+    answerMessage(payload: LanguageMessageAnswerPayload): void {
+        const pending = this.messages.get(payload.messageId);
+
+        if (pending === undefined || pending.projectId !== payload.projectId) {
+            return;
+        }
+
+        pending.settle(pending.items.find((item) => item.title === payload.action) ?? null);
+    }
+
+    private settleMessages(matches: (pending: PendingMessage) => boolean): void {
+        for (const pending of [...this.messages.values()]) {
+            if (matches(pending)) {
+                pending.settle(null);
+            }
+        }
+    }
+
+    /*
+     * A server is shown something only while a command of a client runs on it, and only to that client.
+     * A file inside the project opens there; an address is offered and never opened, so the answer is no.
+     */
+    private async showDocumentOf(server: LanguageServer, profile: ComponentProfile, params: ShowDocumentParams): Promise<ShowDocumentResult> {
+        const refuse = (reason: string): ShowDocumentResult => {
+            server.log.push('host', `${titleOf(profile)} asked to show ${params.uri}, which Ruimte does not open: ${reason}`);
+
+            return { success: false };
+        };
+        const project = this.projects.get(server.projectId);
+        const clientId = project?.commands.get(server)?.clientId ?? null;
+
+        if (project === undefined || clientId === null) {
+            return refuse('no command of a client is running');
+        }
+
+        let url: URL;
+
+        try {
+            url = new URL(params.uri);
+        } catch {
+            return refuse('it is not an address');
+        }
+
+        const base = { projectId: server.projectId, server: profile.name, title: titleOf(profile) };
+
+        if (url.protocol === 'http:' || url.protocol === 'https:') {
+            const payload: LanguageShowEvent = { ...base, url: params.uri };
+
+            this.sinks.to(clientId, { event: 'language.show', payload });
+
+            // Nothing was shown yet; a person decides.
+            return { success: false };
+        }
+
+        if (url.protocol !== 'file:' || params.external === true) {
+            return refuse(url.protocol === 'file:' ? 'it asks for an application outside Ruimte' : `${url.protocol} is not opened`);
+        }
+
+        const path = fileUriToPath(params.uri);
+
+        if (path === null) {
+            return refuse('it is not a file of this machine');
+        }
+
+        let stored: string;
+
+        try {
+            stored = storedPathOf(project.folder, await this.pathOf(project, path));
+        } catch {
+            return refuse('the file is not one a client may open');
+        }
+
+        if (isAbsolute(stored)) {
+            return refuse('the file is outside the project');
+        }
+
+        const payload: LanguageShowEvent = { ...base, path: stored, ...(params.selection === undefined ? {} : { selection: params.selection }) };
+
+        this.sinks.to(clientId, { event: 'language.show', payload });
+
+        return { success: true };
+    }
+
+    /* Switches the trace of a server of the project; any client may, since it only costs log lines. */
+    async trace(projectId: string, id: LanguageServerId, value: LanguageTraceValue): Promise<LanguageServerStatus> {
+        const project = this.projects.get(projectId) ?? null;
+        const server = project?.servers.get(id);
+
+        if (server === undefined) {
+            throw new LanguageError(LANGUAGE_ERROR_CODES.unavailable, 'The server is not running in this project');
+        }
+
+        await server.setTrace(value);
+
+        return this.statusOf(project, id);
     }
 
     /* Hands an edit to one client, which makes it in its editors and answers with `language.edit.answer`. */
@@ -1335,7 +1523,8 @@ export class LanguageHost {
             documents: server.documentCount,
             ...(server.message ? { message: server.message } : {}),
             ...(capabilities ? { capabilities } : {}),
-            ...(sidecars.length > 0 ? { sidecars } : {})
+            ...(sidecars.length > 0 ? { sidecars } : {}),
+            ...(server.traceValue === 'off' ? {} : { trace: server.traceValue })
         };
     }
 

@@ -21,13 +21,18 @@ import {
     type DocumentDiagnosticReport,
     type FileSystemWatcher,
     type LspDocument,
+    type MessageActionItem,
     type ProgressParams,
     type PublishDiagnosticsParams,
+    type ShowDocumentParams,
+    type ShowDocumentResult,
+    type ShowMessageRequestParams,
     type CreatedFile,
     type DeletedFile,
     type RenamedFile,
     type TextDocumentSaveReason,
     type TextMirror,
+    type TraceValue,
     type TypeHierarchyItem,
     type WorkspaceEdit
 } from '@adecore/lsp';
@@ -110,6 +115,10 @@ export interface LanguageServerHooks {
     watching(server: LanguageServer): void;
     /* The server asks for an edit, which only the client that ran a command can be asked to make. */
     applyEdit(server: LanguageServer, params: ApplyWorkspaceEditParams): Promise<ApplyWorkspaceEditResult>;
+    /* A message of a process for a person. A notification resolves null at once; a request resolves with the action chosen, or null. */
+    message(server: LanguageServer, profile: ComponentProfile, params: ShowMessageRequestParams, request: boolean): Promise<MessageActionItem | null>;
+    /* A process asks to have a document or an address shown; the answer says whether it was. */
+    showDocument(server: LanguageServer, profile: ComponentProfile, params: ShowDocumentParams): Promise<ShowDocumentResult>;
 }
 
 export interface LanguageServerOptions {
@@ -193,8 +202,15 @@ function requestOf(open: LspDocument, method: string, params: object): Promise<u
     return open.request(method, params, options);
 }
 
+const LEVELS = ['error', 'warning', 'info', 'log', 'debug'] as const;
+
+/* The name of an LSP `MessageType`, 1 to 5. */
+export function levelOf(type: number): string {
+    return LEVELS[type - 1] ?? 'log';
+}
+
 /* What a failure or a log line calls a process. */
-function titleOf(profile: ComponentProfile): string {
+export function titleOf(profile: ComponentProfile): string {
     return profile.title ?? profile.name;
 }
 
@@ -238,6 +254,7 @@ export class LanguageServer {
     private readonly documents = new Map<string, SharedDocument>();
     private components: Component[] = [];
     private phase: Phase = 'stopped';
+    private trace: TraceValue = 'off';
     private failure: string | undefined;
     private generation = 0;
     private launching = 0;
@@ -280,6 +297,28 @@ export class LanguageServer {
 
     get message(): string | undefined {
         return this.failure;
+    }
+
+    get traceValue(): TraceValue {
+        return this.trace;
+    }
+
+    /* Kept across a restart of the processes; a start of the daemon begins at `off`. */
+    async setTrace(value: TraceValue): Promise<void> {
+        this.trace = value;
+
+        await Promise.all(
+            this.components
+                .filter((component) => component.session.state === 'ready')
+                .map(async (component) => {
+                    try {
+                        await component.session.setTrace(value);
+                    } catch (error) {
+                        this.log.push('host', `Could not set the trace of ${titleOf(component.profile)}: ${errorText(error)}`);
+                    }
+                })
+        );
+        this.notify();
     }
 
     /* The sidecars of the kind and how they are doing, for a status. */
@@ -938,13 +977,18 @@ export class LanguageServer {
                       }
                   }),
             onApplyEdit: (params) => this.options.hooks.applyEdit(this, params),
+            trace: this.trace,
+            onLog: (params) => this.log.push('server', params.message, { source: 'log', level: levelOf(params.type) }),
+            onTrace: (params) => this.log.push('server', params.verbose ? `${params.message}\n${params.verbose}` : params.message, { source: 'trace' }),
+            onMessage: (params) => void this.options.hooks.message(this, profile, params, false),
+            onShowMessage: (params) => this.options.hooks.message(this, profile, params, true),
+            onShowDocument: (params) => this.options.hooks.showDocument(this, profile, params),
             timeoutMs: 0
         });
         const component: Component = { profile, child, session, documents: new Map(), progress: new Set(), subscriptions: [], pulls: new Map() };
-        child.onStderr((text) => this.log.push('server', text));
+        child.onStderr((text) => this.log.push('server', text, { source: 'stderr' }));
         component.subscriptions.push(
             session.onError((error) => this.log.push('host', errorText(error))),
-            session.onNotification('window/logMessage', (params) => this.log.push('server', String((params as { message?: unknown }).message ?? ''))),
             session.onProgress((params) => this.progressed(component, params)),
             session.onDiagnostics((params) => {
                 const document = this.documentByUri(params.uri);
@@ -1110,11 +1154,13 @@ export class LanguageServer {
         const message = `The ${titleOf(component.profile)} language server ${reason}${said ? `: ${said}` : ''}`;
         // A person's own server, or a command that is not there, is no fault of Ruimte's to report.
         if (exit.error === undefined && SHIPPED_COMPONENTS.has(component.profile.name)) {
-            const stderr = this.log
-                .tail()
-                .filter((line) => line.stream === 'server')
-                .map((line) => line.text);
-            reportHelperExit({ helper: 'language-server', kind: component.profile.name, code: exit.code, signal: exit.signal, stderr });
+            reportHelperExit({
+                helper: 'language-server',
+                kind: component.profile.name,
+                code: exit.code,
+                signal: exit.signal,
+                stderr: this.log.serverOutput()
+            });
         }
         if (component.profile.sidecar === true) {
             this.dropSidecar(component, message);

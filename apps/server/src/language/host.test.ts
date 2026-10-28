@@ -2054,3 +2054,177 @@ describe('the SQL of a project', () => {
         expect(process!.server.paramsOf('workspace/didChangeWatchedFiles')).toEqual([{ changes: [{ uri: 'file:///snapshots/shop.json', type: 2 }] }]);
     });
 });
+
+describe('what a server says to a person', () => {
+    async function talking() {
+        const result = await installed();
+        await openReady(result.host);
+        const { server } = result.spawner.processes[0]!;
+
+        return { ...result, server };
+    }
+
+    function messages(events: SessionEvent[]) {
+        return kinds(events, 'language.message').map(
+            (event) => (event as { payload: { messageId: string; type: number; message: string; actions?: string[] } }).payload
+        );
+    }
+
+    it('toasts an error and a warning to the holders, and keeps an info and a log in the log', async () => {
+        const { host, server, events } = await talking();
+
+        await server.notify('window/showMessage', { type: 1, message: 'broken' });
+        await server.notify('window/showMessage', { type: 2, message: 'careful' });
+        await server.notify('window/showMessage', { type: 3, message: 'fyi' });
+        await server.notify('window/showMessage', { type: 4, message: 'chatter' });
+        await settle();
+
+        expect(messages(events['client-1']).map((message) => [message.type, message.message, message.actions])).toEqual([
+            [1, 'broken', undefined],
+            [2, 'careful', undefined]
+        ]);
+        expect(messages(events['client-2'])).toEqual([]);
+        expect((await host.log('p1', 'typescript')).filter((line) => line.source === 'message').map((line) => [line.text, line.level])).toEqual([
+            ['broken', 'error'],
+            ['careful', 'warning'],
+            ['fyi', 'info'],
+            ['chatter', 'log']
+        ]);
+    });
+
+    it('waits for the first answer to a message request, ignores the second and tells the holders it closed', async () => {
+        const { host, server, events } = await talking();
+        const asked = server.request('window/showMessageRequest', { type: 3, message: 'Update?', actions: [{ title: 'Yes', id: 1 }, { title: 'No' }] });
+        await settle();
+        const [message] = messages(events['client-1']);
+
+        expect(message).toMatchObject({ type: 3, message: 'Update?', actions: ['Yes', 'No'] });
+
+        host.answerMessage({ projectId: 'p1', messageId: message!.messageId, action: 'Yes' });
+        host.answerMessage({ projectId: 'p1', messageId: message!.messageId, action: 'No' });
+
+        expect(await asked).toEqual({ title: 'Yes', id: 1 });
+        expect(kinds(events['client-1'], 'language.messageClosed')).toMatchObject([{ payload: { projectId: 'p1', messageId: message!.messageId } }]);
+    });
+
+    it('answers null to a dismissed request, to an action it does not list, and at once when nobody holds the project', async () => {
+        const { host, server, events, holders } = await talking();
+        const dismissed = server.request('window/showMessageRequest', { type: 2, message: 'Sure?', actions: [{ title: 'Yes' }] });
+        await settle();
+        host.answerMessage({ projectId: 'p1', messageId: messages(events['client-1'])[0]!.messageId, action: null });
+
+        expect(await dismissed).toBeNull();
+
+        const unknown = server.request('window/showMessageRequest', { type: 2, message: 'Again?', actions: [{ title: 'Yes' }] });
+        await settle();
+        host.answerMessage({ projectId: 'p1', messageId: messages(events['client-1'])[1]!.messageId, action: 'Maybe' });
+
+        expect(await unknown).toBeNull();
+
+        holders.clear();
+
+        expect(await server.request('window/showMessageRequest', { type: 2, message: 'Alone?', actions: [{ title: 'Yes' }] })).toBeNull();
+        expect(messages(events['client-1'])).toHaveLength(2);
+    });
+
+    it('settles a request when its server goes down, so the prompt closes', async () => {
+        const { server, spawner, events } = await talking();
+        // The connection dies with the process, so the server's own side of the request fails.
+        const asked = server.request('window/showMessageRequest', { type: 2, message: 'Sure?', actions: [{ title: 'Yes' }] }).catch(() => undefined);
+        await settle();
+
+        expect(kinds(events['client-1'], 'language.messageClosed')).toHaveLength(0);
+
+        await spawner.processes[0]!.crash();
+        await asked;
+        await settle();
+
+        expect(kinds(events['client-1'], 'language.messageClosed')).toHaveLength(1);
+    });
+
+    it('settles a request with null when the last holder of the project leaves', async () => {
+        const { host, server, holders } = await talking();
+        holders.clear();
+        holders.add('client-3');
+        const leave = host.subscribe('client-3', () => undefined);
+        const asked = server.request('window/showMessageRequest', { type: 2, message: 'Sure?', actions: [{ title: 'Yes' }] });
+        await settle();
+        holders.clear();
+        leave();
+
+        expect(await asked).toBeNull();
+    });
+
+    describe('showing a document', () => {
+        async function showing(uriToShow: string, clientId = 'client-1', external?: boolean) {
+            const result = await talking();
+            result.server.handle('workspace/executeCommand', () =>
+                result.server.request('window/showDocument', { uri: uriToShow, selection: range, ...(external === undefined ? {} : { external }) })
+            );
+            const answer = (await result.host.command(clientId, { projectId: 'p1', path: 'src/a.ts', command: 'show' })).result;
+
+            return { ...result, answer };
+        }
+
+        const range = { start: { line: 2, character: 0 }, end: { line: 2, character: 4 } };
+        const shownTo = (events: SessionEvent[]) => kinds(events, 'language.show').map((event) => event.payload);
+
+        it('refuses without a running command, and says so in the log', async () => {
+            const { host, server, events } = await talking();
+
+            expect(await server.request<{ success: boolean }>('window/showDocument', { uri: uri('src/b.ts') })).toEqual({ success: false });
+            expect(shownTo(events['client-1'])).toEqual([]);
+            expect((await host.log('p1', 'typescript')).some((line) => line.text.includes('asked to show') && line.text.includes('no command'))).toBe(true);
+        });
+
+        it('opens a file of the project in the client whose command runs, and in no other', async () => {
+            const { answer, events } = await showing(uri('src/b.ts'), 'client-2');
+
+            expect(answer).toEqual({ success: true });
+            expect(shownTo(events['client-2'])).toEqual([{ projectId: 'p1', server: 'typescript', title: 'typescript', path: 'src/b.ts', selection: range }]);
+            expect(shownTo(events['client-1'])).toEqual([]);
+        });
+
+        it('refuses a file outside the project and a file that asks for an outside application', async () => {
+            const outside = await showing(pathToFileUri(resolve('/elsewhere/x.ts')));
+            const external = await showing(uri('src/b.ts'), 'client-1', true);
+
+            expect(outside.answer).toEqual({ success: false });
+            expect(external.answer).toEqual({ success: false });
+            expect(shownTo(outside.events['client-1'])).toEqual([]);
+            expect(shownTo(external.events['client-1'])).toEqual([]);
+        });
+
+        it('offers a web address with the answer no, since nothing was shown yet', async () => {
+            const { answer, events } = await showing('https://ruimte.app/docs');
+
+            expect(answer).toEqual({ success: false });
+            expect(shownTo(events['client-1'])).toEqual([{ projectId: 'p1', server: 'typescript', title: 'typescript', url: 'https://ruimte.app/docs' }]);
+        });
+
+        it('refuses mailto and anything that is no address', async () => {
+            for (const refused of ['mailto:bas@example.com', 'vscode://file/x', 'not an address']) {
+                const { answer, events } = await showing(refused);
+
+                expect(answer).toEqual({ success: false });
+                expect(shownTo(events['client-1'])).toEqual([]);
+            }
+        });
+    });
+
+    describe('trace', () => {
+        it('switches the trace of a running server and says so in its status', async () => {
+            const { host, spawner } = await talking();
+
+            expect((await host.trace('p1', 'typescript', 'messages')).trace).toBe('messages');
+            expect(spawner.processes[0]!.server.paramsOf('$/setTrace')).toEqual([{ value: 'messages' }]);
+            expect((await host.trace('p1', 'typescript', 'off')).trace).toBeUndefined();
+        });
+
+        it('refuses a server that does not run in the project', async () => {
+            const { host } = await talking();
+
+            await expect(host.trace('p1', 'css', 'verbose')).rejects.toMatchObject({ code: LANGUAGE_ERROR_CODES.unavailable });
+        });
+    });
+});

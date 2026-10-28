@@ -84,6 +84,18 @@ describe('language handlers', () => {
         expect(await call('language.willSave', { ...target, reason: 7 })).toMatchObject({ ok: false, error: { code: 'bad-request' } });
     });
 
+    test('an answer to a message nobody waits on is accepted and does nothing, and any client may switch a trace', async () => {
+        expect(await call('language.messageAnswer', { projectId: 'p1', messageId: 'message-9', action: null }, GUEST)).toMatchObject({ ok: true, result: {} });
+        expect(await call('language.trace', { projectId: 'p1', server: 'css', value: 'verbose' }, GUEST)).toMatchObject({
+            ok: false,
+            error: { code: 'language-unavailable' }
+        });
+        expect(await call('language.trace', { projectId: 'p1', server: 'css', value: 'loud' }, GUEST)).toMatchObject({
+            ok: false,
+            error: { code: 'bad-request' }
+        });
+    });
+
     test('a method outside the list is refused before it reaches a server', async () => {
         expect(await call('language.request', { projectId: 'p1', path: 'a.ts', method: 'workspace/executeCommand', params: {} })).toMatchObject({
             ok: false,

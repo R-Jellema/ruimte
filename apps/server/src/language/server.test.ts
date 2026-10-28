@@ -4,7 +4,15 @@ import { INITIALIZE_TIMEOUT_MS, LanguageServer, STABLE_AFTER_MS, type LanguageSe
 import { KIND_PROFILES, type ProjectSqlSettings } from './profiles.ts';
 import { fakeSpawner, ManualClock, settle, type FakeSpawner } from './test-fakes.ts';
 import type { LanguageServerKind } from '@ruimte/contracts';
-import { TextMirror, type Diagnostic, type PublishDiagnosticsParams, type RequestHandler, type ServerCapabilities } from '@adecore/lsp';
+import {
+    TextMirror,
+    type Diagnostic,
+    type PublishDiagnosticsParams,
+    type RequestHandler,
+    type ServerCapabilities,
+    type ShowDocumentParams,
+    type ShowMessageRequestParams
+} from '@adecore/lsp';
 
 const runtime = { command: '/ruimte', args: [], env: { BUN_BE_BUN: '1' } };
 
@@ -28,6 +36,9 @@ interface Rig {
     states: string[];
     diagnostics: { path: string; component: string; params: PublishDiagnosticsParams }[];
     providers: string[];
+    /* What the processes asked a person: the message and whether it was a request, and the document they asked to have shown. */
+    messages: { params: ShowMessageRequestParams; request: boolean }[];
+    shown: ShowDocumentParams[];
     install: { installed: boolean };
     /* The time the server reads, which moves only when a test says so. */
     time: { now: number };
@@ -38,9 +49,21 @@ function rig(kind: LanguageServerKind, spawner = fakeSpawner(), overrides: Parti
     const states: string[] = [];
     const diagnostics: Rig['diagnostics'] = [];
     const providers: string[] = [];
+    const messages: Rig['messages'] = [];
+    const shown: ShowDocumentParams[] = [];
     const install = { installed: true };
     const time = { now: 1_000 };
     const hooks: LanguageServerHooks = {
+        message: async (_server, _profile, params, request) => {
+            messages.push({ params, request });
+
+            return request ? (params.actions?.[0] ?? null) : null;
+        },
+        showDocument: async (_server, _profile, params) => {
+            shown.push(params);
+
+            return { success: true };
+        },
         status: (server) => states.push(server.state),
         diagnostics: (doc, component, params) => diagnostics.push({ path: doc.storedPath, component, params }),
         providers: (doc) => providers.push(doc.storedPath),
@@ -64,7 +87,7 @@ function rig(kind: LanguageServerKind, spawner = fakeSpawner(), overrides: Parti
         hooks,
         ...overrides
     });
-    return { server, spawner, clock, states, diagnostics, providers, install, time };
+    return { server, spawner, clock, states, diagnostics, providers, messages, shown, install, time };
 }
 
 describe('a language server of one kind in one project', () => {
@@ -1037,6 +1060,80 @@ describe('a save of a document', () => {
 
         await expect(server.willSave(main, 1)).resolves.toBeUndefined();
         await expect(server.saved(main)).resolves.toBeUndefined();
+    });
+});
+
+describe('what a server says to a person', () => {
+    async function started() {
+        const made = rig('css');
+        made.server.attach(document('/work/a.css', 'css', 'a {}'));
+        await settle();
+
+        return { ...made, fake: made.spawner.processes[0]!.server };
+    }
+
+    it('writes its log lines with where they came from and how serious they are', async () => {
+        const { server, fake, spawner } = await started();
+
+        await fake.notify('window/logMessage', { type: 2, message: 'careful' });
+        await fake.notify('$/logTrace', { message: 'Sending request', verbose: 'params' });
+        spawner.processes[0]!.say('boom');
+        await settle();
+
+        expect(server.log.tail().map((line) => [line.text, line.source, line.level])).toEqual([
+            ['careful', 'log', 'warning'],
+            ['Sending request', 'trace', undefined],
+            ['params', 'trace', undefined],
+            ['boom', 'stderr', undefined]
+        ]);
+    });
+
+    it('starts at trace off, sends the value with initialize and $/setTrace, and keeps it across a restart', async () => {
+        const { server, fake, spawner } = await started();
+
+        expect(server.traceValue).toBe('off');
+        expect((fake.paramsOf('initialize')[0] as { trace: string }).trace).toBe('off');
+
+        await server.setTrace('verbose');
+        await settle();
+
+        expect(fake.paramsOf('$/setTrace')).toEqual([{ value: 'verbose' }]);
+
+        await server.restart();
+        await settle();
+
+        expect((spawner.processes.at(-1)!.server.paramsOf('initialize')[0] as { trace: string }).trace).toBe('verbose');
+    });
+
+    it('hands a message and a message request to the host, and answers the request with the action it chose', async () => {
+        const { fake, messages } = await started();
+
+        await fake.notify('window/showMessage', { type: 1, message: 'broken' });
+        const chosen = await fake.request('window/showMessageRequest', { type: 3, message: 'update?', actions: [{ title: 'Yes' }, { title: 'No' }] });
+
+        expect(messages).toEqual([
+            { params: { type: 1, message: 'broken' }, request: false },
+            { params: { type: 3, message: 'update?', actions: [{ title: 'Yes' }, { title: 'No' }] }, request: true }
+        ]);
+        expect(chosen).toEqual({ title: 'Yes' });
+    });
+
+    it('hands a request to show a document to the host and answers with its verdict', async () => {
+        const { fake, shown } = await started();
+
+        const answer = await fake.request('window/showDocument', { uri: 'file:///work/b.css' });
+
+        expect(shown).toEqual([{ uri: 'file:///work/b.css' }]);
+        expect(answer).toEqual({ success: true });
+    });
+
+    it('drops telemetry', async () => {
+        const { server, fake } = await started();
+
+        await fake.notify('telemetry/event', { secret: 'x' });
+        await settle();
+
+        expect(server.log.tail().some((line) => line.text.includes('secret'))).toBe(false);
     });
 });
 
