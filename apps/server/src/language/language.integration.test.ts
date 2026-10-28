@@ -564,6 +564,60 @@ describe('CSS, HTML and JSON, from one package of extracted servers', () => {
         expect(JSON.stringify(hover)).toContain('color');
     }, 180_000);
 
+    test('CSS finds the color of a declaration and offers it written in other ways', async () => {
+        const text = 'a { color: #ff0000 }\n';
+
+        await openAndWait('colors.css', 'css', 'css', text);
+
+        const colors = await eventually(
+            'the colors of the document',
+            () => ask('colors.css', 'textDocument/documentColor', {}).then((reply) => reply.result as Array<{ range: unknown; color: { red: number } }> | null),
+            (list) => (list?.length ?? 0) > 0
+        );
+
+        expect(colors![0]!.color.red).toBe(1);
+
+        const presentations = await ask('colors.css', 'textDocument/colorPresentation', { color: colors![0]!.color, range: colors![0]!.range });
+
+        expect(JSON.stringify(presentations.result)).toContain('#ff0000');
+    }, 180_000);
+
+    test('HTML links the two halves of a tag and the address of a link', async () => {
+        const text = '<div><a href="other.html">x</a></div>\n';
+
+        await openAndWait('links.html', 'html', 'html', text);
+
+        const linked = await eventually(
+            'the ranges of a tag name',
+            () =>
+                ask('links.html', 'textDocument/linkedEditingRange', { position: positionOf(text, 'div', 1) }).then(
+                    (reply) => reply.result as { ranges: unknown[] } | null
+                ),
+            (result) => (result?.ranges.length ?? 0) === 2
+        );
+
+        expect(linked!.ranges).toHaveLength(2);
+
+        const links = await eventually(
+            'the links of the document',
+            () => ask('links.html', 'textDocument/documentLink', {}).then((reply) => reply.result as Array<{ target?: string }> | null),
+            (list) => (list?.length ?? 0) > 0
+        );
+
+        expect(links!.some((link) => link.target?.endsWith('other.html'))).toBe(true);
+    }, 180_000);
+
+    test('a save of the exact text of an open document reaches the server without a failure in the log', async () => {
+        const text = 'a { color: red; }\n';
+
+        await openAndWait('saved.css', 'css', 'css', text);
+        await host.saved(join(project, 'saved.css'), text);
+
+        const log = await host.log('p1', 'css');
+
+        expect(log.some((line) => line.text.includes('Could not'))).toBe(false);
+    }, 180_000);
+
     test('HTML completes a tag in an unfinished document', async () => {
         await openAndWait('page.html', 'html', 'html', OTHER_FILES['page.html']);
         const completion = await eventually(
