@@ -18,6 +18,24 @@ export interface Parts {
     silhouette: Cell[];
     details: Cell[];
     props: Cell[];
+
+    /* Where a bow goes on this frame's head, painted only for a pet whose node has a color. */
+    bow?: BowCell[];
+}
+
+/* A cell of a bow, in a tone of the node's color rather than a color of its own. */
+export interface BowCell {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    tone: 'base' | 'light' | 'shade';
+}
+
+export interface BowColors {
+    base: string;
+    light: string;
+    shade: string;
 }
 
 export const PET_POSES = ['stand', 'work', 'wait', 'sleep', 'stopped'] as const;
@@ -66,8 +84,48 @@ export function emptyParts(): Parts {
 
 /* Upside down inside the sprite's grid, then `drop` cells lower: legs in the air. */
 export function flipped(parts: Parts, drop: number): Parts {
-    const flip = (cells: Cell[]): Cell[] => cells.map((part) => ({ ...part, y: SPRITE_ROWS - part.y - part.h - 1 + drop }));
-    return { silhouette: flip(parts.silhouette), details: flip(parts.details), props: flip(parts.props) };
+    const flip = <T extends { y: number; h: number }>(cells: T[]): T[] => cells.map((part) => ({ ...part, y: SPRITE_ROWS - part.y - part.h - 1 + drop }));
+    return { silhouette: flip(parts.silhouette), details: flip(parts.details), props: flip(parts.props), bow: parts.bow && flip(parts.bow) };
+}
+
+/* A bow of two loops and a knot, its knot's top left at `x - 1, y - 1`: on the middle of a head whose top row is `y`. */
+export function bow(x: number, y: number): BowCell[] {
+    return [
+        { x: x - 4, y: y - 2, w: 3, h: 3, tone: 'base' },
+        { x: x + 1, y: y - 2, w: 3, h: 3, tone: 'base' },
+        { x: x - 1, y: y - 1, w: 2, h: 2, tone: 'base' },
+        { x: x - 4, y: y - 2, w: 1, h: 1, tone: 'light' },
+        { x: x + 1, y: y - 2, w: 1, h: 1, tone: 'light' },
+        { x: x - 3, y: y - 1, w: 1, h: 1, tone: 'shade' },
+        { x: x + 2, y: y - 1, w: 1, h: 1, tone: 'shade' },
+        { x: x - 1, y: y - 1, w: 2, h: 2, tone: 'shade' }
+    ];
+}
+
+function channels(hex: string): number[] | null {
+    const match = /^#([0-9a-f]{6})$/i.exec(hex);
+    if (match === null) {
+        return null;
+    }
+    const value = Number.parseInt(match[1], 16);
+    return [value >> 16, (value >> 8) & 255, value & 255];
+}
+
+function toHex(values: number[]): string {
+    return `#${values.map((value) => Math.round(value).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/* The three tones of a bow in a node's color, a lighter one for the shine and a darker one for the folds; null for a color that is no hex. */
+export function bowColors(accent: string): BowColors | null {
+    const values = channels(accent);
+    if (values === null) {
+        return null;
+    }
+    return {
+        base: toHex(values),
+        light: toHex(values.map((value) => value + (255 - value) * 0.35)),
+        shade: toHex(values.map((value) => value * 0.7))
+    };
 }
 
 /* A cross for an eye that gave up. */
@@ -140,13 +198,22 @@ export interface PaintTarget {
     fillRect(x: number, y: number, w: number, h: number): void;
 }
 
-/* Paints parts at a cell offset, `size` pixels a cell. */
-export function paintParts(target: PaintTarget, sprite: Pick<DrawnSprite, 'outline'>, parts: Parts, offset: { x: number; y: number }, size: number): void {
-    const put = (part: Cell, color: string, grow: number): void => {
+/* Paints parts at a cell offset, `size` pixels a cell, with the bow in `bow`'s tones when there is one. */
+export function paintParts(
+    target: PaintTarget,
+    sprite: Pick<DrawnSprite, 'outline'>,
+    parts: Parts,
+    offset: { x: number; y: number },
+    size: number,
+    bow: BowColors | null = null
+): void {
+    const put = (part: Omit<Cell, 'color'>, color: string, grow: number): void => {
         target.fillStyle = color;
         target.fillRect((offset.x + part.x - grow) * size, (offset.y + part.y - grow) * size, (part.w + grow * 2) * size, (part.h + grow * 2) * size);
     };
-    for (const part of parts.silhouette) {
+    const bowCells = bow === null ? [] : (parts.bow ?? []);
+    // The bow's loops are outlined with the figure, so the two read as one shape.
+    for (const part of [...parts.silhouette, ...bowCells.filter((part) => part.tone === 'base')]) {
         put(part, sprite.outline, 1);
     }
     for (const part of parts.props) {
@@ -156,6 +223,12 @@ export function paintParts(target: PaintTarget, sprite: Pick<DrawnSprite, 'outli
     }
     for (const part of [...parts.silhouette, ...parts.props, ...parts.details]) {
         put(part, part.color, 0);
+    }
+    if (bow === null) {
+        return;
+    }
+    for (const part of bowCells) {
+        put(part, bow[part.tone], 0);
     }
 }
 

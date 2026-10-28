@@ -1,4 +1,4 @@
-import { cell, crossEye, emptyParts, flipped, laptop, snore, type DrawnSprite, type Parts } from '@/canvas/pets/pixel';
+import { bow, cell, crossEye, emptyParts, flipped, laptop, snore, type DrawnSprite, type Parts } from '@/canvas/pets/pixel';
 import { FOX, FROG } from '@/canvas/pets/sprite-colors';
 
 type AnimalPose = 'stand' | 'work' | 'wait' | 'sleep' | 'fallen';
@@ -18,6 +18,7 @@ function foxParts(pose: AnimalPose, frame: number): Parts {
         details.push(cell(14, 8, 3, 2, FOX.cream), cell(6, 12, 6, 2, FOX.cream), cell(13, 4, 1, 1, FOX.pink), cell(16, 4, 1, 1, FOX.pink));
         details.push(cell(18, 8, 1, 1, FOX.ink), cell(4, 10, 1, 1, FOX.shade), cell(12, 9, 1, 1, FOX.shade));
         details.push(...(pose === 'fallen' ? crossEye(15, 6, FOX.ink) : [cell(15, 6, 1, 1, FOX.ink)]));
+        parts.bow = bow(15, 4);
         return parts;
     }
     if (pose === 'sleep') {
@@ -27,6 +28,7 @@ function foxParts(pose: AnimalPose, frame: number): Parts {
         silhouette.push(cell(8, 15, 6, 2, FOX.cream));
         details.push(cell(15, 14, 2, 1, FOX.ink), cell(19, 14, 1, 1, FOX.ink), cell(14, 11, 1, 1, FOX.pink), cell(16, 11, 1, 1, FOX.pink));
         details.push(cell(5, 13 - breath, 1, 1, FOX.shade), cell(12, 13, 1, 3, FOX.shade));
+        parts.bow = bow(16, 11);
         parts.props.push(...snore(19, frame));
         return parts;
     }
@@ -47,6 +49,7 @@ function foxParts(pose: AnimalPose, frame: number): Parts {
         silhouette.push(cell(13, 10, 2, 1, FOX.body));
         details.push(cell(14, 4, 1, 1, FOX.ink));
     }
+    parts.bow = bow(13, 2);
     return parts;
 }
 
@@ -60,6 +63,7 @@ function frogParts(pose: AnimalPose, frame: number): Parts {
         silhouette.push(cell(10, 9, 3, 2, FROG.body), cell(14, 9, 3, 2, FROG.body));
         details.push(cell(10, 10, 3, 1, FROG.outline), cell(14, 10, 3, 1, FROG.outline), cell(12, 14, 5, 1, FROG.outline));
         details.push(cell(5, 13 - breath, 2, 1, FROG.spot), cell(8, 12 - breath, 2, 1, FROG.spot));
+        parts.bow = bow(6, 12 - breath);
         parts.props.push(...snore(19, frame));
         return parts;
     }
@@ -83,6 +87,8 @@ function frogParts(pose: AnimalPose, frame: number): Parts {
     } else {
         details.push(cell(12, 4, 1, 1, FROG.ink), cell(16, 4, 1, 1, FROG.ink));
     }
+    // Its eyes take the top of its head, so the bow sits on the back of it.
+    parts.bow = bow(7, 8);
     return parts;
 }
 

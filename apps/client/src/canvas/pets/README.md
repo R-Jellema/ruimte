@@ -14,6 +14,10 @@ the file system, the daemon's folders or a project file.
   where another node lies there (`petCrowded`), such as one 40 pixels above, so it never covers that
   node. A wait a person snoozed keeps its bubble until it is answered but does not jump. With reduced
   motion nothing moves: every pet holds one frame, and that follows the system setting as it changes.
+- A pet whose node has a color wears a bow in it on its head (`bow` and `bowColors` in `pixel.ts`),
+  so a person tells which pet is whose. Each pose of a built-in figure says where its head is; a
+  figure a person added gets none, since nothing says where its head is, and the visitor, which
+  belongs to no node, none either.
 - A pet paints its canvas only when the picture changes (`petPainter`), so a strip of one frame at
   rest paints once.
 - A click goes to the node (`goToNode`): the camera centers on it and selects it, and Back in the

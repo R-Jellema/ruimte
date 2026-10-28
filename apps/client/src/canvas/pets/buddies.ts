@@ -1,4 +1,4 @@
-import { cell, cloud, crossEye, outlined, snore, type DrawnSprite, type Parts } from '@/canvas/pets/pixel';
+import { bow, cell, cloud, crossEye, outlined, snore, type DrawnSprite, type Parts } from '@/canvas/pets/pixel';
 import { BUDDY_CLAUDE, BUDDY_CODEX, PROPS } from '@/canvas/pets/sprite-colors';
 
 type BuddyColors = typeof BUDDY_CLAUDE | typeof BUDDY_CODEX;
@@ -26,7 +26,7 @@ function body(colors: BuddyColors, terminal: boolean, frame: number, pose: 'stan
         // A recessed screen for a face, and a power lamp on the left nub.
         details.push(cell(5, top + 3, 10, 5, colors.outline), cell(2, top + 5, 1, 1, colors.ink));
     }
-    return { silhouette, details, props: [], top };
+    return { silhouette, details, props: [], bow: bow(10, top), top };
 }
 
 function face(colors: BuddyColors, terminal: boolean, parts: Body, look: Face, frame: number): void {
@@ -116,9 +116,9 @@ function buddy(id: string, colors: BuddyColors, terminal: boolean): DrawnSprite 
                 const parts = body(colors, terminal, 0, 'stand');
                 face(colors, terminal, parts, 'gone', frame);
                 // A quarter turn onto its side, which keeps the square body and its face as they are.
-                const turn = (cells: ReturnType<typeof cell>[]) =>
+                const turn = <T extends { x: number; y: number; w: number; h: number }>(cells: T[]): T[] =>
                     cells.map((part) => ({ ...part, x: 18 - part.y - part.h, y: part.x - 1, w: part.h, h: part.w }));
-                return { silhouette: turn(parts.silhouette), details: turn(parts.details), props: cloud(frame) };
+                return { silhouette: turn(parts.silhouette), details: turn(parts.details), props: cloud(frame), bow: parts.bow && turn(parts.bow) };
             }
         }
     };

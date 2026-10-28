@@ -3,6 +3,8 @@ import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { Tooltip } from '@adecore/ui';
 import { useChats } from '@adecore/agents-react/state';
+import { nodeColorOf } from '@ruimte/contracts';
+import { accentColor } from '@/canvas/accents';
 import { useNodeInViewport } from '@/canvas/culling';
 import { visibleRect } from '@/canvas/math';
 import { PAINT_SIZE, paintPet, petPainter, type PetLook } from '@/canvas/pets/paint';
@@ -19,6 +21,7 @@ import {
     petPlace,
     type PetMood
 } from '@/canvas/pets/pet-state';
+import { bowColors } from '@/canvas/pets/pixel';
 import { onPetTick } from '@/canvas/pets/ticker';
 import { usePetLook } from '@/canvas/pets/use-pet-look';
 import { createVisitor, VISIT_MS, visitSpot, type VisitSpot } from '@/canvas/pets/visitor';
@@ -56,7 +59,7 @@ function followMotion(onChange: () => void): () => void {
  * A canvas of its own that repaints on the shared beat, so React renders a pet only when its mood or
  * look changes, and the beat paints only a frame that differs from the one before it.
  */
-function PetFigure({ look, mood, crowded }: { look: PetLook; mood: PetMood; crowded: boolean }) {
+function PetFigure({ look, mood, crowded, accent }: { look: PetLook; mood: PetMood; crowded: boolean; accent?: string }) {
     const ref = useRef<HTMLCanvasElement>(null);
     // Read again when a person turns reduced motion on or off, so the figures stop or move at once.
     const still = useSyncExternalStore(followMotion, prefersStill, () => false);
@@ -65,8 +68,9 @@ function PetFigure({ look, mood, crowded }: { look: PetLook; mood: PetMood; crow
         if (context === null) {
             return;
         }
-        return onPetTick(petPainter(look, mood, still, (frame) => paintPet(context, look, frame, crowded)));
-    }, [look, mood, still, crowded]);
+        const bow = accent === undefined ? null : bowColors(accent);
+        return onPetTick(petPainter(look, mood, still, (frame) => paintPet(context, look, frame, crowded, bow)));
+    }, [look, mood, still, crowded, accent]);
     return (
         <canvas
             ref={ref}
@@ -110,7 +114,7 @@ function Pet({ id }: { id: string }) {
     const label = t(mood === 'waiting' || mood === 'snoozed' ? 'pets.waiting' : 'pets.goTo', { title });
     return (
         <div className="absolute" style={{ left: place.x, top: place.y, width: PET_PAINT_WIDTH, height: PET_HEIGHT }}>
-            {inView && <PetFigure look={look} mood={mood} crowded={crowded} />}
+            {inView && <PetFigure look={look} mood={mood} crowded={crowded} accent={accentColor(nodeColorOf(node))} />}
             <Tooltip label={label}>
                 <button
                     type="button"

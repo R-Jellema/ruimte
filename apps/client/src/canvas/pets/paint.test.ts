@@ -3,7 +3,18 @@ import { CLAUDE_BUDDY, CODEX_BUDDY } from '@/canvas/pets/buddies';
 import { FOX_SPRITE, FROG_SPRITE } from '@/canvas/pets/animals';
 import { drawnFrameKey, petPainter, type PetLook } from '@/canvas/pets/paint';
 import type { PetFrame, PetMood } from '@/canvas/pets/pet-state';
-import { DRAWN_CYCLE, PET_POSES } from '@/canvas/pets/pixel';
+import {
+    bowColors,
+    DRAWN_CYCLE,
+    paintParts,
+    PET_POSES,
+    SPRITE_COLUMNS,
+    SPRITE_ROWS,
+    type BowColors,
+    type DrawnSprite,
+    type PaintTarget,
+    type PetPose
+} from '@/canvas/pets/pixel';
 
 const STILL_STRIP: PetLook = { kind: 'sheet', sprite: { id: 'still', name: 'Still', image: 'data:image/png;base64,AAAA', frameSize: 16, frames: 1 } };
 const BUDDY: PetLook = { kind: 'drawn', sprite: CLAUDE_BUDDY };
@@ -67,5 +78,43 @@ describe('a pet paints only a picture that changed', () => {
         }
         const frame: PetFrame = { pose: 'work', frame: 3, lift: 0, bubble: false };
         expect(drawnFrameKey(BUDDY, frame)).toBe(drawnFrameKey(BUDDY, { ...frame, frame: 3 + DRAWN_CYCLE }));
+    });
+});
+
+describe('a pet on a colored node wears a bow in its color', () => {
+    const RED = '#e7000b';
+
+    function colorsPainted(sprite: DrawnSprite, pose: PetPose, bow: BowColors | null): Set<string> {
+        const colors = new Set<string>();
+        const target: PaintTarget = {
+            fillStyle: '',
+            fillRect() {
+                colors.add(String(target.fillStyle));
+            }
+        };
+        paintParts(target, sprite, sprite.poses[pose](0), { x: 0, y: 0 }, 1, bow);
+        return colors;
+    }
+
+    test('every pose of every built-in figure has a place for the bow, on its head and inside its grid', () => {
+        for (const sprite of [CLAUDE_BUDDY, CODEX_BUDDY, FOX_SPRITE, FROG_SPRITE]) {
+            for (const pose of PET_POSES) {
+                const cells = sprite.poses[pose](0).bow ?? [];
+                expect(cells.length).toBeGreaterThan(0);
+                expect(cells.every((cell) => cell.x >= 0 && cell.y >= 0 && cell.x + cell.w <= SPRITE_COLUMNS && cell.y + cell.h <= SPRITE_ROWS)).toBe(true);
+            }
+        }
+    });
+
+    test('the bow is painted in three tones of the color, and not at all without one', () => {
+        const bow = bowColors(RED);
+        expect(bow).toEqual({ base: RED, light: '#ef5960', shade: '#a20008' });
+        const painted = colorsPainted(CLAUDE_BUDDY, 'stand', bow);
+        expect([bow!.base, bow!.light, bow!.shade].every((color) => painted.has(color))).toBe(true);
+        expect(colorsPainted(CLAUDE_BUDDY, 'stand', null).has(RED)).toBe(false);
+    });
+
+    test('a color that is no hex gives no bow', () => {
+        expect(bowColors('var(--accent)')).toBeNull();
     });
 });

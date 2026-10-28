@@ -11,6 +11,7 @@ import {
     paintParts,
     SPRITE_COLUMNS,
     SPRITE_ROWS,
+    type BowColors,
     type DrawnSprite
 } from '@/canvas/pets/pixel';
 
@@ -52,14 +53,15 @@ export function petPainter(look: PetLook, mood: PetMood, still: boolean, paint: 
 
 /*
  * One frame of a pet, with its bubble when it waits on you, over its head or, where a node lies there,
- * beside it. False when a strip's image is not decoded yet.
+ * beside it, and a bow in its node's color when the node has one. A strip gets no bow: nothing says
+ * where its head is. False when a strip's image is not decoded yet.
  */
-export function paintPet(context: CanvasRenderingContext2D, look: PetLook, frame: PetFrame, crowded: boolean): boolean {
+export function paintPet(context: CanvasRenderingContext2D, look: PetLook, frame: PetFrame, crowded: boolean, bow: BowColors | null = null): boolean {
     context.clearRect(0, 0, PAINT_SIZE.w, PAINT_SIZE.h);
     const top = GROUND - frame.lift;
     let complete = true;
     if (look.kind === 'drawn') {
-        paintParts(context, look.sprite, look.sprite.poses[frame.pose](frame.frame), { x: 0, y: top }, PAINT_CELL);
+        paintParts(context, look.sprite, look.sprite.poses[frame.pose](frame.frame), { x: 0, y: top }, PAINT_CELL, bow);
     } else {
         complete = paintSheet(context, look.sprite, frame, top);
     }
