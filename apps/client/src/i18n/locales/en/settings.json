@@ -707,11 +707,46 @@
         }
     },
     "shortcuts": {
-        "commands": {
-            "title": "Commands"
+        "areas": {
+            "general": "General",
+            "canvas": "Canvas",
+            "views": "Views and split",
+            "editor": "Editor",
+            "navigation": "Editor navigation",
+            "code": "Code",
+            "terminal": "Terminal",
+            "launches": "Launches",
+            "chat": "Chat and prompts",
+            "drawing": "Drawing",
+            "browser": "Browser"
+        },
+        "editor": {
+            "save": "Save file",
+            "replace": "Replace in file",
+            "duplicateLine": "Duplicate line or selection",
+            "deleteLine": "Delete line",
+            "moveLineUp": "Move line up",
+            "moveLineDown": "Move line down",
+            "expandSelection": "Expand selection",
+            "shrinkSelection": "Shrink selection",
+            "matchBrace": "Move to matching bracket",
+            "wordLeft": "Move to previous word",
+            "wordRight": "Move to next word",
+            "selectWordLeft": "Select to previous word",
+            "selectWordRight": "Select to next word",
+            "deleteWordLeft": "Delete to previous word",
+            "deleteWordRight": "Delete to next word",
+            "smartHome": "Move to line start",
+            "selectSmartHome": "Select to line start",
+            "smartEnd": "Move to line end",
+            "selectSmartEnd": "Select to line end",
+            "textStart": "Move to start of file",
+            "selectTextStart": "Select to start of file",
+            "textEnd": "Move to end of file",
+            "selectTextEnd": "Select to end of file",
+            "acceptGhostWord": "Accept next word of suggestion"
         },
         "canvas": {
-            "title": "Canvas",
             "palette": "Command palette",
             "findInFiles": "Find in files",
             "pan": "Pan canvas",
@@ -724,14 +759,12 @@
             "enterNode": "Focus selected node's content"
         },
         "selection": {
-            "title": "Selection",
             "selectAll": "Select all",
             "add": "Add to selection",
             "delete": "Delete selection",
             "escape": "Clear selection, or leave the node"
         },
         "views": {
-            "title": "Views",
             "goTo": "Go to view 1 to 9",
             "previous": "Previous view",
             "next": "Next view",
@@ -739,7 +772,6 @@
             "rename": "Rename node, or open view settings"
         },
         "split": {
-            "title": "Split",
             "right": "Split right",
             "down": "Split down",
             "focusNeighbor": "Focus neighboring cell (arrow keys)",
@@ -747,7 +779,6 @@
             "close": "Close focused cell"
         },
         "drawing": {
-            "title": "Drawing",
             "select": "Select (1)",
             "hand": "Pan (hand)",
             "rectangle": "Rectangle (2)",
@@ -768,16 +799,13 @@
             "paste": "Paste into drawing"
         },
         "panels": {
-            "title": "Panels",
             "toggle": "Toggle last panel"
         },
         "launches": {
-            "title": "Launches",
             "run": "Run or restart chosen launch",
             "stop": "Stop chosen launch"
         },
         "prompts": {
-            "title": "Prompts",
             "answerFront": "Answer front prompt",
             "nextNeedsYou": "Go to what needs you, oldest first",
             "primary": "Allow, Next or Answer",
@@ -786,26 +814,22 @@
             "escape": "Back to where you were"
         },
         "chat": {
-            "title": "Chat",
             "previousMessage": "Previous message you sent",
             "nextMessage": "Next message you sent",
             "sendAndNewChat": "Send and start new chat beside it",
             "dictation": "Dictate: press to toggle, hold to talk"
         },
         "browser": {
-            "title": "Browser",
             "back": "Back",
             "forward": "Forward"
         },
         "nodes": {
-            "title": "Nodes",
             "nextNode": "Focus next node",
             "select": "Select focused node",
             "escape": "Clear selection (terminals pass Escape on)",
             "leave": "Leave a terminal node"
         },
         "terminal": {
-            "title": "Terminal",
             "clear": "Clear screen and scrollback",
             "find": "Find in terminal",
             "lineStart": "Go to line start",

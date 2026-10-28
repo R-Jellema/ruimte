@@ -707,11 +707,46 @@
         }
     },
     "shortcuts": {
-        "commands": {
-            "title": "Opdrachten"
+        "areas": {
+            "general": "Algemeen",
+            "canvas": "Canvas",
+            "views": "Weergaven en splitsen",
+            "editor": "Editor",
+            "navigation": "Navigatie in de editor",
+            "code": "Code",
+            "terminal": "Terminal",
+            "launches": "Launches",
+            "chat": "Chat en prompts",
+            "drawing": "Tekening",
+            "browser": "Browser"
+        },
+        "editor": {
+            "save": "Bestand opslaan",
+            "replace": "Vervangen in bestand",
+            "duplicateLine": "Regel of selectie dupliceren",
+            "deleteLine": "Regel verwijderen",
+            "moveLineUp": "Regel omhoog verplaatsen",
+            "moveLineDown": "Regel omlaag verplaatsen",
+            "expandSelection": "Selectie uitbreiden",
+            "shrinkSelection": "Selectie verkleinen",
+            "matchBrace": "Naar bijbehorend haakje",
+            "wordLeft": "Naar vorig woord",
+            "wordRight": "Naar volgend woord",
+            "selectWordLeft": "Selecteren tot vorig woord",
+            "selectWordRight": "Selecteren tot volgend woord",
+            "deleteWordLeft": "Verwijderen tot vorig woord",
+            "deleteWordRight": "Verwijderen tot volgend woord",
+            "smartHome": "Naar begin van regel",
+            "selectSmartHome": "Selecteren tot begin van regel",
+            "smartEnd": "Naar einde van regel",
+            "selectSmartEnd": "Selecteren tot einde van regel",
+            "textStart": "Naar begin van bestand",
+            "selectTextStart": "Selecteren tot begin van bestand",
+            "textEnd": "Naar einde van bestand",
+            "selectTextEnd": "Selecteren tot einde van bestand",
+            "acceptGhostWord": "Volgend woord van suggestie overnemen"
         },
         "canvas": {
-            "title": "Canvas",
             "palette": "Opdrachtenpalet",
             "findInFiles": "Zoeken in bestanden",
             "pan": "Canvas verschuiven",
@@ -724,14 +759,12 @@
             "enterNode": "Inhoud van geselecteerde node focussen"
         },
         "selection": {
-            "title": "Selectie",
             "selectAll": "Alles selecteren",
             "add": "Toevoegen aan selectie",
             "delete": "Selectie verwijderen",
             "escape": "Selectie opheffen, of node verlaten"
         },
         "views": {
-            "title": "Weergaven",
             "goTo": "Naar weergave 1 tot 9",
             "previous": "Vorige weergave",
             "next": "Volgende weergave",
@@ -739,7 +772,6 @@
             "rename": "Node hernoemen, of weergave-instellingen openen"
         },
         "split": {
-            "title": "Splitsen",
             "right": "Rechts splitsen",
             "down": "Omlaag splitsen",
             "focusNeighbor": "Cel ernaast focussen (pijltoetsen)",
@@ -747,7 +779,6 @@
             "close": "Gefocuste cel sluiten"
         },
         "drawing": {
-            "title": "Tekening",
             "select": "Selecteren (1)",
             "hand": "Verschuiven (hand)",
             "rectangle": "Rechthoek (2)",
@@ -768,16 +799,13 @@
             "paste": "Plakken in tekening"
         },
         "panels": {
-            "title": "Panelen",
             "toggle": "Laatste paneel tonen of verbergen"
         },
         "launches": {
-            "title": "Launches",
             "run": "Gekozen launch starten of herstarten",
             "stop": "Gekozen launch stoppen"
         },
         "prompts": {
-            "title": "Prompts",
             "answerFront": "Voorste prompt beantwoorden",
             "nextNeedsYou": "Naar wat op je wacht, oudste eerst",
             "primary": "Toestaan, Volgende of Antwoorden",
@@ -786,26 +814,22 @@
             "escape": "Terug naar waar je was"
         },
         "chat": {
-            "title": "Chat",
             "previousMessage": "Vorig bericht dat je stuurde",
             "nextMessage": "Volgend bericht dat je stuurde",
             "sendAndNewChat": "Versturen en daarnaast een nieuwe chat starten",
             "dictation": "Dicteren: druk om te schakelen, houd vast om te spreken"
         },
         "browser": {
-            "title": "Browser",
             "back": "Terug",
             "forward": "Vooruit"
         },
         "nodes": {
-            "title": "Nodes",
             "nextNode": "Volgende node focussen",
             "select": "Gefocuste node selecteren",
             "escape": "Selectie opheffen (terminals geven Escape door)",
             "leave": "Een terminalnode verlaten"
         },
         "terminal": {
-            "title": "Terminal",
             "clear": "Scherm en scrollback wissen",
             "find": "Zoeken in terminal",
             "lineStart": "Naar begin van regel",

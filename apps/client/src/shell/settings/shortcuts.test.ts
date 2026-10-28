@@ -1,20 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { shortcut } from '@adecore/ui';
-import { commandShortcuts, filterShortcuts, shortcutGroupOf, shortcutGroups, shortcutRowId } from './shortcuts.ts';
-
-describe('commandShortcuts', () => {
-    test('keeps only commands with a shortcut', () => {
-        const group = commandShortcuts([
-            { label: 'New terminal', shortcut: shortcut('Alt+T') },
-            { label: 'Open a folder' },
-            { label: 'Settings', shortcut: shortcut('Mod+,') }
-        ]);
-        expect(group.shortcuts).toEqual([
-            { keys: shortcut('Alt+T'), label: 'New terminal' },
-            { keys: shortcut('Mod+,'), label: 'Settings' }
-        ]);
-    });
-});
+import { filterShortcuts, shortcutGroupOf, shortcutGroups, shortcutRowId } from './shortcuts.ts';
 
 describe('shortcutGroups', () => {
     const labels = (apple: boolean): string[] => shortcutGroups(apple).flatMap((group) => group.shortcuts.map((row) => row.label));
@@ -29,6 +14,8 @@ describe('shortcutGroups', () => {
 describe('shortcutRowId', () => {
     test('names the category a search result has to open', () => {
         expect(shortcutGroupOf(shortcutRowId('drawing', 3))).toBe('drawing');
+        expect(shortcutGroupOf(shortcutRowId('editor', 0))).toBe('editor');
+        expect(shortcutGroupOf('keyboard.commands.2')).toBeNull();
         expect(shortcutGroupOf('appearance.theme')).toBeNull();
     });
 });

@@ -1,7 +1,8 @@
 import { appCommands } from '@/shell/commands';
-import { commandShortcuts, shortcutGroups, type ShortcutGroup } from '@/shell/settings/shortcuts';
+import { arrangeShortcuts } from '@/shell/settings/arrange-shortcuts';
+import type { ShortcutGroup } from '@/shell/settings/shortcuts';
 
-/* Every category of the Keyboard pane, the commands that carry a shortcut first. They follow canvas state (layouts, locks), so read this when it is drawn. */
+/* Every category of the Keyboard pane. The commands follow canvas state (layouts, locks), so read this when it is drawn. */
 export function keyboardGroups(apple: boolean): ShortcutGroup[] {
-    return [commandShortcuts(appCommands()), ...shortcutGroups(apple)];
+    return arrangeShortcuts(apple, appCommands());
 }

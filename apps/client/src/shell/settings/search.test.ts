@@ -55,8 +55,8 @@ describe('searching the settings', () => {
         const rows = shortcutSearchRows(shortcutGroups(true), true);
         expect(searchSettings('zoom out', rows)).toMatchObject([{ section: 'keyboard', label: 'Zoom out', description: 'Canvas · -' }]);
         const other = shortcutSearchRows(shortcutGroups(false), false);
-        expect(searchSettings('selection ctrl+a', other)).toMatchObject([{ section: 'keyboard', label: 'Select all', description: 'Selection · Ctrl+A' }]);
-        expect(searchSettings('selection ⌘a', rows)).toMatchObject([{ section: 'keyboard', label: 'Select all', description: 'Selection · ⌘A' }]);
+        expect(searchSettings('select all ctrl+a', other)).toMatchObject([{ section: 'keyboard', label: 'Select all', description: 'Canvas · Ctrl+A' }]);
+        expect(searchSettings('select all ⌘a', rows)).toMatchObject([{ section: 'keyboard', label: 'Select all', description: 'Canvas · ⌘A' }]);
         expect(searchSettings('zoom out')).toEqual([]);
     });
 
