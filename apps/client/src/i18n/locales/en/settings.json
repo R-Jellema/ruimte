@@ -103,7 +103,7 @@
         },
         "projectGlow": {
             "label": "Glow in project color",
-            "description": "Tints the top of the sidebar in the current project's color, or the toolbar when the sidebar is closed."
+            "description": "Tints the top of the sidebar, or the toolbar, in the project's color."
         }
     },
     "editor": {
@@ -122,12 +122,12 @@
                 "title": "Font",
                 "family": {
                     "label": "Editor font",
-                    "description": "For code and diffs in the editor, files, chats and the git panel. Falls back to the system font if missing.",
+                    "description": "For code and diffs. Falls back to the system font if missing.",
                     "system": "System"
                 },
                 "size": {
                     "label": "Code font size",
-                    "description": "Code and diffs in files, the editor and the git panel. Chats keep their own size.",
+                    "description": "For code and diffs. Chats keep their own size.",
                     "preview": "Code at the chosen size"
                 },
                 "lineHeight": {
@@ -136,7 +136,7 @@
                 },
                 "ligatures": {
                     "label": "Ligatures",
-                    "description": "Draws => and !== as one symbol in files, the editor, diffs and chats."
+                    "description": "Draws => and !== as one symbol."
                 }
             },
             "display": {
@@ -151,15 +151,15 @@
                 },
                 "whitespace": {
                     "label": "Show whitespace",
-                    "description": "Spaces as dots and tabs as arrows in the editor."
+                    "description": "Spaces as dots, tabs as arrows."
                 },
                 "stickyScroll": {
                     "label": "Sticky scroll",
-                    "description": "Pins the lines that open the current scopes to the top while you scroll."
+                    "description": "Keeps the enclosing class and function at the top while you scroll."
                 },
                 "rightMargin": {
                     "label": "Right margin",
-                    "description": "A line at the column set by max_line_length in the project's .editorconfig. Off for a project without one."
+                    "description": "A line at max_line_length from the project's .editorconfig."
                 }
             },
             "navigation": {
@@ -173,7 +173,7 @@
                 "title": "Saving",
                 "trailingWhitespace": {
                     "label": "Remove spaces at line ends",
-                    "description": "Right before a file saves. The line you are typing on keeps its spaces.",
+                    "description": "On save. The line you are typing on keeps its spaces.",
                     "options": {
                         "off": "Off",
                         "modified": "Changed lines",
@@ -182,14 +182,14 @@
                 },
                 "ensureFinalNewline": {
                     "label": "End files with a line break",
-                    "description": "Right before a file saves. A file that already ends in one stays as it is."
+                    "description": "Adds one on save when it is missing."
                 }
             },
             "documentation": {
                 "title": "Documentation",
                 "render": {
                     "label": "Render documentation comments",
-                    "description": "Shows documentation comments as formatted text. The book button beside a comment switches it back."
+                    "description": "As formatted text. The book button beside a comment switches it back."
                 }
             },
             "codeVision": {
@@ -200,7 +200,7 @@
                 },
                 "authors": {
                     "label": "Authors",
-                    "description": "Shows who wrote a class, function or method, above its declaration. Click it to see the commits."
+                    "description": "Who wrote each class, function and method. Click it to see the commits."
                 }
             }
         },
@@ -244,7 +244,7 @@
             "outline": {
                 "title": "Outline",
                 "label": "Show fold arrows",
-                "description": "Arrows beside the lines that fold and unfold blocks. A folded block always shows its marker.",
+                "description": "Arrows to fold and unfold blocks. A folded block always shows one.",
                 "options": {
                     "off": "Never",
                     "hover": "On hover",
@@ -253,7 +253,7 @@
             },
             "general": {
                 "title": "Fold by default",
-                "description": "What folds when a file opens for the first time. A file you already folded stays the way you left it.",
+                "description": "What folds when you first open a file. After that, a file stays as you left it.",
                 "fileHeader": {
                     "label": "File header",
                     "description": "The comment at the top of a file, such as a license."
@@ -268,7 +268,7 @@
                 },
                 "methodBodies": {
                     "label": "Function and method bodies",
-                    "description": "What sits between the braces, with the signature left in view. PHP has its own switches."
+                    "description": "The signature stays in view. PHP has its own switches."
                 },
                 "customRegions": {
                     "label": "Custom regions",
@@ -280,7 +280,7 @@
                 "description": "Also for JSX and TSX.",
                 "objectLiterals": {
                     "label": "Object literals",
-                    "description": "Objects written out as a value, such as after an equals sign or in a call."
+                    "description": "Objects written out as a value."
                 },
                 "arrayLiterals": {
                     "label": "Array literals",
@@ -296,7 +296,7 @@
                 "description": "Imports, documentation comments and the file header follow the switches above.",
                 "tags": {
                     "label": "PHP tags",
-                    "description": "Blocks of PHP between markup, from <?php to ?>, other than the one that opens the file."
+                    "description": "Blocks from <?php to ?> between markup, except the first."
                 },
                 "heredocs": {
                     "label": "Heredocs and nowdocs",
@@ -348,7 +348,7 @@
             "title": "Smart keys",
             "pairBrackets": {
                 "label": "Pair brackets",
-                "description": "Typing ( [ or { adds the closing bracket, and typing it goes over it."
+                "description": "Typing ( [ or { adds the closing one."
             },
             "pairQuotes": {
                 "label": "Pair quotes",
@@ -388,7 +388,7 @@
             "empty": "No templates of your own yet. Add one, or select code and choose Save as Live Template.",
             "noMatch": "No template matches “{{query}}”.",
             "projectTooNew": "This project's templates come from a newer Ruimte and are left alone.",
-            "projectInvalid": "This project's templates file cannot be read and is left alone. Fix it, or remove it, to use project templates.",
+            "projectInvalid": "This project's templates file cannot be read. Fix or remove it to use project templates.",
             "search": "Search templates",
             "clearSearch": "Clear search",
             "add": "Add template",
@@ -406,7 +406,7 @@
             },
             "live": {
                 "label": "Show live templates in suggestions",
-                "description": "Lists the templates whose key you are typing next to the suggestions. Tab expands them either way."
+                "description": "Lists matching templates among the suggestions. Tab expands them either way."
             },
             "postfix": {
                 "label": "Postfix completion",
@@ -414,7 +414,7 @@
             },
             "postfixInCompletion": {
                 "label": "Show postfix templates in suggestions",
-                "description": "Lists the postfix templates after a dot, next to the suggestions."
+                "description": "Lists postfix templates among the suggestions after a dot."
             },
             "sections": {
                 "live": {
@@ -554,7 +554,7 @@
         "colors": {
             "light": {
                 "label": "Light theme",
-                "description": "Code colors in light mode, in files, the editor and chats."
+                "description": "Code colors in light mode."
             },
             "dark": {
                 "label": "Dark theme",
@@ -584,7 +584,7 @@
         "links": {
             "title": "Links",
             "label": "Open terminal links in",
-            "description": "Opens a browser view, or a browser node beside the terminal on a canvas. Without a project on the same machine, links open in your external browser.",
+            "description": "On a canvas, a link opens beside the terminal. Without a project on that machine, it opens in your external browser.",
             "options": {
                 "external": "External browser",
                 "ruimte": "Ruimte"
@@ -649,7 +649,7 @@
     "views": {
         "nodeSizes": {
             "title": "New nodes on {{machine}}",
-            "description": "Starting size per node kind, also for nodes agents add. Type it here, or right-click a node and choose Set as default size.",
+            "description": "The size a new node starts at, also when an agent adds it. Or right-click a node and choose Set as default size.",
             "searchLabel": "Default node sizes",
             "builtIn": "Built in",
             "custom": "Custom, built in {{builtIn}}",
@@ -667,11 +667,11 @@
             "title": "Canvas",
             "minimap": {
                 "label": "Canvas map",
-                "description": "A small map in the bottom right shows every node and the part you see. Click to jump there, drag the frame to pan. Hidden on a narrow canvas."
+                "description": "A map of every node in the bottom right. Click to jump, drag the frame to pan. Hidden on a narrow canvas."
             },
             "renderDistance": {
                 "label": "Render distance",
-                "description": "How far out the canvas still draws pages, files, diagrams and devices live. Further out they show a still picture or their name. In the desktop app a page carries on out of sight. Applies at once to every window on this computer, not to your other devices. Far and Unlimited ask more of this computer.",
+                "description": "How far out pages, files, diagrams and devices stay live. Further out they show a still picture or their name. Applies to every window on this computer. Far and Unlimited ask more of it.",
                 "options": {
                     "standard": "Standard",
                     "far": "Far",
@@ -683,11 +683,11 @@
             "title": "Pets",
             "enabled": {
                 "label": "Pets",
-                "description": "A small figure stands on every chat and every terminal with an agent, and shows what it does. When one waits on you, its pet jumps with a speech bubble until you answer. Click a pet to go to its node."
+                "description": "A small figure on every agent shows what it does, and jumps when it needs you. Click a pet to go to its node."
             },
             "place": {
                 "label": "Where pets are",
-                "description": "On their nodes, or along the bottom of the screen, where they wander about and hop onto the dock. A pet wears a bow in its node's color.",
+                "description": "On their nodes, or roaming the bottom of the screen with a bow in their node's color.",
                 "nodes": "On their nodes",
                 "screen": "Bottom of the screen"
             },
@@ -705,7 +705,7 @@
             },
             "custom": {
                 "label": "Your own figures",
-                "description": "A PNG or WebP strip of square frames side by side, as high as one frame, played in a loop: up to {{frames}} frames of at most {{size}} pixels, {{kilobytes}} KB at most. It stays in this app.",
+                "description": "A PNG or WebP strip of square frames side by side. Up to {{frames}} frames of {{size}} pixels, {{kilobytes}} KB at most.",
                 "add": "Add figure",
                 "remove": "Remove {{name}}",
                 "frames_one": "{{count}} frame, {{size}} px",
@@ -716,7 +716,7 @@
                     "unreadable": "This file could not be read as a PNG or WebP image.",
                     "frame-small": "A frame is at least {{min}} pixels high.",
                     "frame-large": "A frame is at most {{max}} pixels high.",
-                    "frames-whole": "The width is not a whole number of square frames as high as the image.",
+                    "frames-whole": "The width must be a whole number of square frames.",
                     "frames-many": "A strip has at most {{frames}} frames.",
                     "full": "You can keep {{limit}} figures at most. Remove one first.",
                     "storage": "There is no room left to keep this figure."
@@ -747,11 +747,11 @@
             },
             "hidden": {
                 "label": "Show hidden and ignored files",
-                "description": "Git-ignored files, build output such as node_modules, and dotfiles outside a repository. System files stay hidden."
+                "description": "Ignored files, node_modules and dotfiles. System files stay hidden."
             },
             "browseStart": {
                 "label": "Start browsing in",
-                "description": "The folder the command palette starts in when you browse, on every machine. Leave empty to start in your home folder."
+                "description": "Where browsing in the command palette starts, on every machine. Empty means your home folder."
             }
         },
         "git": {
@@ -921,7 +921,7 @@
             "dev": "The dev app always runs a machine of its own and stops it when it quits.",
             "windows": "Not available on Windows yet, so this machine stops when Ruimte quits.",
             "appimage": "Not available in the AppImage. Install the deb or rpm package to keep this machine running.",
-            "commandLine": "This machine runs as the background service that `npx ruimte service install` set up. Ruimte uses it as it is and leaves it alone; `npx ruimte service uninstall` removes it."
+            "commandLine": "This machine runs as the service `npx ruimte service install` set up. Remove it with `npx ruimte service uninstall`."
         },
         "pending": {
             "takeOver": "Takes effect the next time Ruimte quits.",
@@ -1001,13 +1001,13 @@
         "resumeAtReset": {
             "label": "Chats resume after a limit",
             "rowLabel": "Chats on {{machine}} resume after a limit",
-            "description": "A chat stopped by a usage limit continues once it resets. A turn that failed on an overloaded model retries after 1, 5 and 15 minutes.",
+            "description": "A chat stopped by a usage limit continues once it resets. A turn that failed on an overloaded model tries again later.",
             "notConnected": "Not connected. Change this while a project on the machine is open."
         },
         "visualReplies": {
             "label": "Visual replies",
             "rowLabel": "Agents on {{machine}} may show visual replies",
-            "description": "Agents may show a chart, table or mockup above a reply. Off, they answer in text; existing visuals stay.",
+            "description": "A chart, table or mockup above a reply. Off, agents answer in text.",
             "notConnected": "Not connected. Change this while a project on the machine is open."
         },
         "machine": {
@@ -1103,16 +1103,16 @@
             },
             "steerByDefault": {
                 "label": "Steer running agents by default",
-                "description": "A message you send while Codex or Claude works reaches it at its next step. Off, it waits until the agent is done. Hold Option or Alt while sending to do the opposite."
+                "description": "A message sent while Claude or Codex works reaches it at its next step. Off, it waits until the agent is done. Hold Option or Alt to do the opposite."
             },
             "hideToolCalls": {
                 "label": "Hide tool calls",
-                "description": "Show only the agent's messages, not the files it read or the commands it ran. Design chats always hide them."
+                "description": "Hides the files an agent read and the commands it ran. Design chats always hide them."
             }
         },
         "integrations": {
             "title": "Agent status in terminals",
-            "description": "Ruimte shows whether a coding tool in a terminal is working, done or waiting for you by adding a few lines to that tool's settings. They apply to the tool everywhere on this computer, also outside Ruimte.",
+            "description": "Shows whether an agent in a terminal is working, done or waiting for you. Ruimte adds a few lines to its settings, which also apply outside Ruimte.",
             "dialog": {
                 "title": "Let Ruimte change CLI settings?",
                 "description": "Ruimte adds a few settings to your coding tools. They apply everywhere on this computer, also outside Ruimte.",
@@ -1122,8 +1122,8 @@
                 "doneAndTool": "Shows when a terminal is done. Also lets Ruimte's own tool run without asking."
             },
             "off": "Without them, {{provider}} terminals show no status or alerts. Chats are not affected.",
-            "codexRule": "For Codex this also lets Ruimte's own tool run outside Codex's sandbox. Without it, Codex in a sandboxed mode fails or asks for your approval each time it uses Ruimte.",
-            "antigravityRule": "For Antigravity this also lets Ruimte's own tool run without asking. Without it, Antigravity in a terminal asks for your approval each time it uses Ruimte.",
+            "codexRule": "For Codex this also lets Ruimte's tool run outside its sandbox. Without it, Codex asks for approval each time it uses Ruimte.",
+            "antigravityRule": "For Antigravity this also lets Ruimte's tool run without asking for approval each time.",
             "files": "Ruimte writes to:",
             "allow": "Allow",
             "deny": "Don't allow",
@@ -1271,7 +1271,7 @@
         },
         "input": {
             "title": "Microphone and language",
-            "description": "Speech to Text listens in this language; the microphone serves Voice Control too. Changes apply to the next recording."
+            "description": "The language Speech to Text listens for. Voice Control uses the same microphone."
         }
     },
     "computer": {
@@ -1307,7 +1307,7 @@
             "unknown": "Checking…"
         },
         "open": "Open System Settings",
-        "restartNote": "Screen Recording applies after Ruimte Computer Use restarts, which happens when you return to this window.",
+        "restartNote": "Screen Recording takes effect when you return to this window.",
         "checkAgain": "Check again",
         "remote": "Allow these on {{machine}} itself, in System Settings > Privacy & Security.",
         "apps": {
@@ -1474,7 +1474,7 @@
                 "current": "This is the device you are using. It loses access to this machine and forgets it here.",
                 "statement": "It loses access the next time it connects, and signing in through an account will not let it back in.",
                 "link": "It loses access the next time it connects.",
-                "machine": "This machine can no longer give tasks here, and linking it again will not let it back in. Tasks it already started keep running here, but their results never reach it. To stop them, unlink its projects under Linked projects.",
+                "machine": "It can no longer give tasks here, even when linked again. Tasks it started keep running, but their results never reach it. Unlink its projects under Linked projects to stop them.",
                 "action": "Revoke"
             }
         },
@@ -1567,7 +1567,7 @@
         },
         "confirmRemove": {
             "title": "Remove {{machine}} from your account?",
-            "description": "Every device signed in to your account drops it the next time it refreshes. Devices that are signed out keep it. The machine keeps the devices it let in.",
+            "description": "Your signed-in devices drop it at their next refresh. The machine keeps the devices it let in.",
             "action": "Remove"
         },
         "subtitle": "{{reach}} · {{version}}"
@@ -1732,7 +1732,7 @@
             "description": "Chat with the models your NanoGPT subscription includes. Requests go only to the subscription API, never to pay as you go.",
             "footer": "The key stays on this machine and is never shown again. Every tool a model asks for needs your approval.",
             "key": "API key",
-            "keyDescription": "A subscription API key from nano-gpt.com. Saving checks it and fetches the included models.",
+            "keyDescription": "A subscription API key from nano-gpt.com.",
             "saved": "Saved",
             "status": "Subscription",
             "save": "Save",
@@ -1756,7 +1756,7 @@
             },
             "runs": {
                 "label": "Runs before it stops",
-                "description": "How many runs a chat takes by itself, from 1 to 20. Each run spends your allowance, so this stops a chat that keeps going."
+                "description": "Runs a chat starts by itself, 1 to 20. Each run spends your allowance."
             }
         },
         "acpServer": {
@@ -1821,9 +1821,9 @@
         },
         "claudeApi": {
             "description": "Chat with Claude through the API, with a key of your own. Anthropic bills every call per token, so check your spending there.",
-            "footer": "The key stays on this machine and is never shown again. Tools follow the chat permission mode. A chat only continues automatically if you allow it below.",
+            "footer": "The key stays on this machine and is never shown again. Tools follow the chat's permission mode.",
             "key": "API key",
-            "keyDescription": "A key from console.anthropic.com. Saving checks it and fetches the models it can use.",
+            "keyDescription": "A key from console.anthropic.com.",
             "saved": "Saved",
             "status": "API key",
             "save": "Save",
@@ -1838,19 +1838,19 @@
             "failed": "Could not change the Claude API on this machine.",
             "continue": {
                 "label": "Continue automatically",
-                "description": "When a chat reaches its tool rounds for one run, it goes on by itself, and every call is paid for. Off, it stops and waits for your message."
+                "description": "A chat that uses up a run's tool rounds starts the next run itself, and every call is billed. Off, it waits for you."
             },
             "rounds": {
                 "label": "Tool rounds per run",
-                "description": "How many rounds of tools a run takes before it is cut, from 5 to 200."
+                "description": "Tool rounds before a run stops, 5 to 200."
             },
             "runs": {
                 "label": "Runs before it stops",
-                "description": "How many runs a chat takes by itself, from 1 to 20. This is the limit on a loop that never ends."
+                "description": "Runs a chat starts by itself, 1 to 20. Each run is billed."
             },
             "tokens": {
                 "label": "Output tokens per reply",
-                "description": "The most a single reply may use, from 1,024 to 128,000, and never more than the model allows. Thinking counts toward it."
+                "description": "The most a reply may use, 1,024 to 128,000, within the model's limit. Thinking counts too."
             },
             "noKey": "No API key saved"
         }

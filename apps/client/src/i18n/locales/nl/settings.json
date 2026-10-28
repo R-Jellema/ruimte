@@ -103,7 +103,7 @@
         },
         "projectGlow": {
             "label": "Gloed in projectkleur",
-            "description": "Kleurt de bovenkant van de zijbalk in de kleur van het huidige project, of de werkbalk als de zijbalk dicht is."
+            "description": "Kleurt de bovenkant van de zijbalk, of de werkbalk, in de kleur van het project."
         }
     },
     "editor": {
@@ -122,12 +122,12 @@
                 "title": "Lettertype",
                 "family": {
                     "label": "Editorlettertype",
-                    "description": "Voor code en diffs in de editor, bestanden, chats en het git-paneel. Valt terug op het systeemlettertype als het ontbreekt.",
+                    "description": "Voor code en diffs. Valt terug op het systeemlettertype als het ontbreekt.",
                     "system": "Systeem"
                 },
                 "size": {
                     "label": "Tekstgrootte code",
-                    "description": "Code en diffs in bestanden, de editor en het git-paneel. Chats houden hun eigen grootte.",
+                    "description": "Voor code en diffs. Chats houden hun eigen grootte.",
                     "preview": "Code op de gekozen grootte"
                 },
                 "lineHeight": {
@@ -136,7 +136,7 @@
                 },
                 "ligatures": {
                     "label": "Ligaturen",
-                    "description": "Tekent => en !== als één teken in bestanden, de editor, diffs en chats."
+                    "description": "Tekent => en !== als één teken."
                 }
             },
             "display": {
@@ -151,15 +151,15 @@
                 },
                 "whitespace": {
                     "label": "Witruimte tonen",
-                    "description": "Spaties als punten en tabs als pijlen in de editor."
+                    "description": "Spaties als punten, tabs als pijlen."
                 },
                 "stickyScroll": {
                     "label": "Plakkend scrollen",
-                    "description": "Houdt de regels die de huidige blokken openen bovenaan vast terwijl je scrolt."
+                    "description": "Houdt de omliggende klasse en functie bovenaan terwijl je scrolt."
                 },
                 "rightMargin": {
                     "label": "Rechtermarge",
-                    "description": "Een lijn op de kolom die max_line_length in de .editorconfig van het project aangeeft. Uit voor een project zonder."
+                    "description": "Een lijn op max_line_length uit de .editorconfig van het project."
                 }
             },
             "navigation": {
@@ -173,7 +173,7 @@
                 "title": "Opslaan",
                 "trailingWhitespace": {
                     "label": "Spaties aan regeleinden verwijderen",
-                    "description": "Vlak voordat een bestand wordt opgeslagen. De regel waarop je typt houdt zijn spaties.",
+                    "description": "Bij opslaan. De regel waarop je typt houdt zijn spaties.",
                     "options": {
                         "off": "Uit",
                         "modified": "Gewijzigde regels",
@@ -182,14 +182,14 @@
                 },
                 "ensureFinalNewline": {
                     "label": "Bestanden eindigen met een regeleinde",
-                    "description": "Vlak voordat een bestand wordt opgeslagen. Een bestand dat er al mee eindigt, blijft zoals het is."
+                    "description": "Voegt er bij opslaan een toe als die ontbreekt."
                 }
             },
             "documentation": {
                 "title": "Documentatie",
                 "render": {
                     "label": "Documentatiecommentaar renderen",
-                    "description": "Toont documentatiecommentaar als opgemaakte tekst. De boekknop naast een commentaar zet het terug."
+                    "description": "Als opgemaakte tekst. De boekknop naast een commentaar zet het terug."
                 }
             },
             "codeVision": {
@@ -200,7 +200,7 @@
                 },
                 "authors": {
                     "label": "Auteurs",
-                    "description": "Toont wie een klasse, functie of methode schreef, boven de declaratie. Klik erop voor de commits."
+                    "description": "Wie elke klasse, functie en methode schreef. Klik erop voor de commits."
                 }
             }
         },
@@ -244,7 +244,7 @@
             "outline": {
                 "title": "Pijltjes",
                 "label": "Vouwpijltjes tonen",
-                "description": "Pijltjes naast de regels om blokken in en uit te vouwen. Een ingevouwen blok toont altijd zijn markering.",
+                "description": "Pijltjes om blokken in en uit te vouwen. Een ingevouwen blok toont er altijd een.",
                 "options": {
                     "off": "Nooit",
                     "hover": "Bij aanwijzen",
@@ -253,7 +253,7 @@
             },
             "general": {
                 "title": "Standaard invouwen",
-                "description": "Wat ingevouwen is als een bestand voor het eerst opengaat. Een bestand dat je al vouwde, blijft zoals je het achterliet.",
+                "description": "Wat ingevouwen is als je een bestand voor het eerst opent. Daarna blijft een bestand zoals je het achterliet.",
                 "fileHeader": {
                     "label": "Bestandskop",
                     "description": "De opmerking bovenaan een bestand, zoals een licentie."
@@ -268,7 +268,7 @@
                 },
                 "methodBodies": {
                     "label": "Bodies van functies en methoden",
-                    "description": "Wat tussen de accolades staat, met de signatuur in beeld. PHP heeft eigen schakelaars."
+                    "description": "De signatuur blijft in beeld. PHP heeft eigen schakelaars."
                 },
                 "customRegions": {
                     "label": "Eigen gebieden",
@@ -280,7 +280,7 @@
                 "description": "Ook voor JSX en TSX.",
                 "objectLiterals": {
                     "label": "Objectliteralen",
-                    "description": "Objecten die als waarde zijn uitgeschreven, zoals na een gelijkteken of in een aanroep."
+                    "description": "Objecten die als waarde zijn uitgeschreven."
                 },
                 "arrayLiterals": {
                     "label": "Arrayliteralen",
@@ -296,7 +296,7 @@
                 "description": "Imports, documentatiecommentaar en de bestandskop volgen de schakelaars hierboven.",
                 "tags": {
                     "label": "PHP-tags",
-                    "description": "Blokken PHP tussen markup, van <?php tot ?>, behalve het blok dat het bestand opent."
+                    "description": "Blokken van <?php tot ?> tussen markup, behalve het eerste."
                 },
                 "heredocs": {
                     "label": "Heredocs en nowdocs",
@@ -348,7 +348,7 @@
             "title": "Slimme toetsen",
             "pairBrackets": {
                 "label": "Haakjes automatisch sluiten",
-                "description": "Typ je ( [ of {, dan komt de sluithaak vanzelf, en typ je die zelf, dan stap je eroverheen."
+                "description": "Typ je ( [ of {, dan komt de sluithaak vanzelf."
             },
             "pairQuotes": {
                 "label": "Aanhalingstekens automatisch sluiten",
@@ -388,7 +388,7 @@
             "empty": "Nog geen eigen sjablonen. Voeg er een toe, of selecteer code en kies Opslaan als sjabloon.",
             "noMatch": "Geen sjabloon gevonden voor “{{query}}”.",
             "projectTooNew": "De sjablonen van dit project komen van een nieuwere Ruimte en blijven ongemoeid.",
-            "projectInvalid": "Het sjablonenbestand van dit project is onleesbaar en blijft ongemoeid. Herstel of verwijder het om projectsjablonen te gebruiken.",
+            "projectInvalid": "Het sjablonenbestand van dit project is onleesbaar. Herstel of verwijder het om projectsjablonen te gebruiken.",
             "search": "Zoek sjablonen",
             "clearSearch": "Zoekopdracht wissen",
             "add": "Sjabloon toevoegen",
@@ -406,7 +406,7 @@
             },
             "live": {
                 "label": "Live-sjablonen tonen in suggesties",
-                "description": "Toont de sjablonen waarvan je de sleutel typt naast de suggesties. Tab vouwt ze in beide gevallen uit."
+                "description": "Toont passende sjablonen tussen de suggesties. Tab vouwt ze in beide gevallen uit."
             },
             "postfix": {
                 "label": "Postfix-aanvulling",
@@ -414,7 +414,7 @@
             },
             "postfixInCompletion": {
                 "label": "Postfix-sjablonen tonen in suggesties",
-                "description": "Toont de postfix-sjablonen na een punt, naast de suggesties."
+                "description": "Toont postfix-sjablonen tussen de suggesties na een punt."
             },
             "sections": {
                 "live": {
@@ -554,7 +554,7 @@
         "colors": {
             "light": {
                 "label": "Licht thema",
-                "description": "Codekleuren in lichte modus, in bestanden, de editor en chats."
+                "description": "Codekleuren in lichte modus."
             },
             "dark": {
                 "label": "Donker thema",
@@ -584,7 +584,7 @@
         "links": {
             "title": "Links",
             "label": "Terminallinks openen in",
-            "description": "Opent een browserweergave, of een browsernode naast de terminal op een canvas. Zonder project op dezelfde machine openen links in je externe browser.",
+            "description": "Op een canvas opent een link naast de terminal. Zonder project op die machine opent hij in je externe browser.",
             "options": {
                 "external": "Externe browser",
                 "ruimte": "Ruimte"
@@ -649,7 +649,7 @@
     "views": {
         "nodeSizes": {
             "title": "Nieuwe nodes op {{machine}}",
-            "description": "Begingrootte per soort node, ook voor nodes van agents. Typ hem hier, of klik met rechts op een node en kies Als standaardgrootte instellen.",
+            "description": "De grootte waarmee een nieuwe node begint, ook als een agent hem toevoegt. Of klik met rechts op een node en kies Als standaardgrootte instellen.",
             "searchLabel": "Standaardgrootte van nodes",
             "builtIn": "Ingebouwd",
             "custom": "Eigen grootte, ingebouwd {{builtIn}}",
@@ -667,11 +667,11 @@
             "title": "Canvas",
             "minimap": {
                 "label": "Canvaskaart",
-                "description": "Een kleine kaart rechtsonder toont elke node en het deel dat je ziet. Klik om erheen te gaan, sleep het kader om te schuiven. Verborgen op een smal canvas."
+                "description": "Een kaart van elke node rechtsonder. Klik om erheen te gaan, sleep het kader om te schuiven. Verborgen op een smal canvas."
             },
             "renderDistance": {
                 "label": "Tekenafstand",
-                "description": "Hoe ver het canvas pagina's, bestanden, diagrammen en apparaten nog live tekent. Verder weg tonen ze een stilstaand beeld of hun naam. In de desktop-app loopt een pagina buiten beeld door. Geldt meteen voor elk venster op deze computer, niet voor je andere apparaten. Ver en Onbeperkt vragen meer van deze computer.",
+                "description": "Hoe ver pagina's, bestanden, diagrammen en apparaten live blijven. Verder weg tonen ze een stilstaand beeld of hun naam. Geldt voor elk venster op deze computer. Ver en Onbeperkt vragen er meer van.",
                 "options": {
                     "standard": "Standaard",
                     "far": "Ver",
@@ -683,11 +683,11 @@
             "title": "Pets",
             "enabled": {
                 "label": "Pets",
-                "description": "Op elke chat en elke terminal met een agent staat een klein figuurtje dat laat zien wat die doet. Wacht een agent op jou, dan springt zijn figuurtje met een tekstballon tot je antwoordt. Klik op een figuurtje om naar zijn node te gaan."
+                "description": "Een klein figuurtje op elke agent laat zien wat die doet, en springt als hij je nodig heeft. Klik op een figuurtje om naar zijn node te gaan."
             },
             "place": {
                 "label": "Waar pets staan",
-                "description": "Op hun node, of onderin het scherm, waar ze rondlopen en op de dock springen. Een figuurtje draagt een strikje in de kleur van zijn node.",
+                "description": "Op hun node, of rondlopend onderin het scherm met een strikje in de kleur van hun node.",
                 "nodes": "Op hun node",
                 "screen": "Onderin het scherm"
             },
@@ -705,7 +705,7 @@
             },
             "custom": {
                 "label": "Je eigen figuren",
-                "description": "Een PNG- of WebP-strook van vierkante frames naast elkaar, zo hoog als één frame, die in een lus speelt: tot {{frames}} frames van hoogstens {{size}} pixels, hoogstens {{kilobytes}} KB. Hij blijft in deze app.",
+                "description": "Een PNG- of WebP-strook van vierkante frames naast elkaar. Tot {{frames}} frames van {{size}} pixels, hoogstens {{kilobytes}} KB.",
                 "add": "Figuur toevoegen",
                 "remove": "{{name}} verwijderen",
                 "frames_one": "{{count}} frame, {{size}} px",
@@ -716,7 +716,7 @@
                     "unreadable": "Dit bestand kon niet worden gelezen als PNG- of WebP-afbeelding.",
                     "frame-small": "Een frame is minstens {{min}} pixels hoog.",
                     "frame-large": "Een frame is hoogstens {{max}} pixels hoog.",
-                    "frames-whole": "De breedte is geen heel aantal vierkante frames zo hoog als de afbeelding.",
+                    "frames-whole": "De breedte moet een heel aantal vierkante frames zijn.",
                     "frames-many": "Een strook heeft hoogstens {{frames}} frames.",
                     "full": "Je kunt hoogstens {{limit}} figuren bewaren. Verwijder er eerst een.",
                     "storage": "Er is geen ruimte meer om deze figuur te bewaren."
@@ -747,11 +747,11 @@
             },
             "hidden": {
                 "label": "Verborgen en genegeerde bestanden tonen",
-                "description": "Door git genegeerde bestanden, bouwoutput zoals node_modules, en dotfiles buiten een repository. Systeembestanden blijven verborgen."
+                "description": "Genegeerde bestanden, node_modules en dotfiles. Systeembestanden blijven verborgen."
             },
             "browseStart": {
                 "label": "Bladeren beginnen in",
-                "description": "De map waarin het opdrachtenpalet begint als je bladert, op elke machine. Laat leeg om in je thuismap te beginnen."
+                "description": "Waar bladeren in het opdrachtenpalet begint, op elke machine. Leeg is je thuismap."
             }
         },
         "git": {
@@ -921,7 +921,7 @@
             "dev": "De dev-app draait altijd een eigen machine en stopt die als hij afsluit.",
             "windows": "Nog niet beschikbaar op Windows, dus deze machine stopt als Ruimte afsluit.",
             "appimage": "Niet beschikbaar in de AppImage. Installeer het deb- of rpm-pakket om deze machine te laten draaien.",
-            "commandLine": "Deze machine draait als de achtergronddienst die `npx ruimte service install` heeft ingesteld. Ruimte gebruikt die zoals hij is en laat hem met rust; `npx ruimte service uninstall` verwijdert hem."
+            "commandLine": "Deze machine draait als de dienst die `npx ruimte service install` heeft ingesteld. Verwijder hem met `npx ruimte service uninstall`."
         },
         "pending": {
             "takeOver": "Gaat in zodra Ruimte de volgende keer afsluit.",
@@ -1001,13 +1001,13 @@
         "resumeAtReset": {
             "label": "Chats gaan verder na een limiet",
             "rowLabel": "Chats op {{machine}} gaan verder na een limiet",
-            "description": "Een chat die op een verbruikslimiet stopte, gaat verder zodra die reset. Een turn die mislukte op een overbelast model, probeert het opnieuw na 1, 5 en 15 minuten.",
+            "description": "Een chat die op een verbruikslimiet stopte, gaat verder zodra die reset. Een turn die mislukte op een overbelast model, probeert het later opnieuw.",
             "notConnected": "Niet verbonden. Pas dit aan terwijl er een project op de machine open staat."
         },
         "visualReplies": {
             "label": "Visuele antwoorden",
             "rowLabel": "Agents op {{machine}} mogen visuele antwoorden tonen",
-            "description": "Agents mogen een grafiek, tabel of mockup boven een antwoord tonen. Uit antwoorden ze in tekst; bestaande visualisaties blijven.",
+            "description": "Een grafiek, tabel of mockup boven een antwoord. Uit antwoorden agents in tekst.",
             "notConnected": "Niet verbonden. Pas dit aan terwijl er een project op de machine open staat."
         },
         "machine": {
@@ -1103,16 +1103,16 @@
             },
             "steerByDefault": {
                 "label": "Werkende agents standaard bijsturen",
-                "description": "Een bericht dat je stuurt terwijl Codex of Claude werkt, komt bij de volgende stap aan. Uit wacht het tot de agent klaar is. Houd Option of Alt ingedrukt bij het sturen voor het omgekeerde."
+                "description": "Een bericht dat je stuurt terwijl Claude of Codex werkt, komt bij de volgende stap aan. Uit wacht het tot de agent klaar is. Houd Option of Alt ingedrukt voor het omgekeerde."
             },
             "hideToolCalls": {
                 "label": "Tool calls verbergen",
-                "description": "Toon alleen de berichten van de agent, niet de bestanden die hij las of de commando's die hij draaide. Design chats verbergen ze altijd."
+                "description": "Verbergt de bestanden die een agent las en de commando's die hij draaide. Design chats verbergen ze altijd."
             }
         },
         "integrations": {
             "title": "Agentstatus in terminals",
-            "description": "Ruimte toont of een codeertool in een terminal werkt, klaar is of op je wacht door een paar regels aan de instellingen van die tool toe te voegen. Die gelden overal op deze computer, ook buiten Ruimte.",
+            "description": "Toont of een agent in een terminal werkt, klaar is of op je wacht. Ruimte voegt daarvoor een paar regels toe aan zijn instellingen, die ook buiten Ruimte gelden.",
             "dialog": {
                 "title": "Mag Ruimte CLI-instellingen aanpassen?",
                 "description": "Ruimte voegt een paar instellingen toe aan je codeertools. Die gelden overal op deze computer, ook buiten Ruimte.",
@@ -1122,8 +1122,8 @@
                 "doneAndTool": "Laat zien wanneer een terminal klaar is. Laat ook de eigen tool van Ruimte draaien zonder te vragen."
             },
             "off": "Zonder deze instellingen tonen terminals met {{provider}} geen status of meldingen. Chats merken er niets van.",
-            "codexRule": "Voor Codex laat dit ook de eigen tool van Ruimte buiten de sandbox van Codex draaien. Zonder dit mislukt Codex in een sandboxmodus of vraagt het elke keer om toestemming als het Ruimte gebruikt.",
-            "antigravityRule": "Voor Antigravity laat dit ook de eigen tool van Ruimte zonder vragen draaien. Zonder dit vraagt Antigravity in een terminal elke keer om toestemming als het Ruimte gebruikt.",
+            "codexRule": "Voor Codex laat dit ook de tool van Ruimte buiten de sandbox draaien. Zonder dit vraagt Codex elke keer om toestemming als het Ruimte gebruikt.",
+            "antigravityRule": "Voor Antigravity laat dit ook de tool van Ruimte draaien zonder elke keer om toestemming te vragen.",
             "files": "Ruimte schrijft in:",
             "allow": "Toestaan",
             "deny": "Niet toestaan",
@@ -1271,7 +1271,7 @@
         },
         "input": {
             "title": "Microfoon en taal",
-            "description": "Speech to Text luistert in deze taal; de microfoon geldt ook voor Voice Control. Wijzigingen gelden voor de volgende opname."
+            "description": "De taal waarin Speech to Text luistert. Voice Control gebruikt dezelfde microfoon."
         }
     },
     "computer": {
@@ -1307,7 +1307,7 @@
             "unknown": "Controleren…"
         },
         "open": "Open Systeeminstellingen",
-        "restartNote": "Schermopname werkt na een herstart van Ruimte Computer Use, zodra je terugkomt in dit venster.",
+        "restartNote": "Schermopname werkt zodra je terugkomt in dit venster.",
         "checkAgain": "Opnieuw controleren",
         "remote": "Sta deze toe op {{machine}} zelf, in Systeeminstellingen > Privacy en beveiliging.",
         "apps": {
@@ -1474,7 +1474,7 @@
                 "current": "Dit is het apparaat dat je gebruikt. Het verliest toegang tot deze machine en vergeet die hier.",
                 "statement": "Hij verliest toegang bij de volgende verbinding, en inloggen via een account laat hem er niet meer in.",
                 "link": "Hij verliest toegang bij de volgende verbinding.",
-                "machine": "Deze machine kan hier geen taken meer geven, en opnieuw koppelen laat hem er niet meer in. Taken die hij al startte, blijven hier doorlopen, maar de resultaten bereiken hem niet meer. Om ze te stoppen, koppel je zijn projecten los onder Gekoppelde projecten.",
+                "machine": "Hij kan hier geen taken meer geven, ook niet na opnieuw koppelen. Taken die hij startte, lopen door, maar de resultaten bereiken hem niet. Koppel zijn projecten los onder Gekoppelde projecten om ze te stoppen.",
                 "action": "Intrekken"
             }
         },
@@ -1567,7 +1567,7 @@
         },
         "confirmRemove": {
             "title": "{{machine}} van je account verwijderen?",
-            "description": "Elk apparaat dat op je account is ingelogd laat hem vallen bij de volgende verversing. Apparaten die uitgelogd zijn houden hem. De machine houdt de apparaten die ze binnenliet.",
+            "description": "Je ingelogde apparaten laten hem vallen bij hun volgende verversing. De machine houdt de apparaten die ze binnenliet.",
             "action": "Verwijderen"
         },
         "subtitle": "{{reach}} · {{version}}"
@@ -1732,7 +1732,7 @@
             "description": "Chat met de modellen die je NanoGPT-abonnement bevat. Verzoeken gaan alleen naar de abonnements-API, nooit naar pay as you go.",
             "footer": "De sleutel blijft op deze machine en wordt nooit meer getoond. Elke tool die een model vraagt, heeft jouw goedkeuring nodig.",
             "key": "API-sleutel",
-            "keyDescription": "Een abonnements-API-sleutel van nano-gpt.com. Bij opslaan wordt hij gecontroleerd en worden de inbegrepen modellen opgehaald.",
+            "keyDescription": "Een abonnements-API-sleutel van nano-gpt.com.",
             "saved": "Opgeslagen",
             "status": "Abonnement",
             "save": "Opslaan",
@@ -1756,7 +1756,7 @@
             },
             "runs": {
                 "label": "Runs voordat hij stopt",
-                "description": "Hoeveel runs een chat zelf neemt, van 1 tot 20. Elke run kost tegoed, dus dit stopt een chat die blijft doorgaan."
+                "description": "Runs die een chat zelf start, 1 tot 20. Elke run kost tegoed."
             }
         },
         "acpServer": {
@@ -1821,9 +1821,9 @@
         },
         "claudeApi": {
             "description": "Chat met Claude via de API, met een eigen sleutel. Anthropic rekent elke call per token af, dus houd je uitgaven daar in de gaten.",
-            "footer": "De sleutel blijft op deze machine en wordt nooit meer getoond. Tools volgen de toestemmingsmodus van de chat. Een chat gaat alleen automatisch door als je dat hieronder toestaat.",
+            "footer": "De sleutel blijft op deze machine en wordt nooit meer getoond. Tools volgen de toestemmingsmodus van de chat.",
             "key": "API-sleutel",
-            "keyDescription": "Een sleutel van console.anthropic.com. Bij opslaan wordt hij gecontroleerd en worden de modellen opgehaald die hij mag gebruiken.",
+            "keyDescription": "Een sleutel van console.anthropic.com.",
             "saved": "Opgeslagen",
             "status": "API-sleutel",
             "save": "Opslaan",
@@ -1838,19 +1838,19 @@
             "failed": "De Claude API kon niet worden gewijzigd op deze machine.",
             "continue": {
                 "label": "Automatisch doorgaan",
-                "description": "Als een chat zijn toolrondes voor één run bereikt, gaat hij zelf verder, en elke call kost geld. Uit, dan stopt hij en wacht op jouw bericht."
+                "description": "Een chat die de toolrondes van een run opmaakt, start zelf de volgende, en elke call kost geld. Uit wacht hij op jou."
             },
             "rounds": {
                 "label": "Toolrondes per run",
-                "description": "Hoeveel rondes tools een run neemt voordat hij wordt afgekapt, van 5 tot 200."
+                "description": "Toolrondes voordat een run stopt, 5 tot 200."
             },
             "runs": {
                 "label": "Runs voordat hij stopt",
-                "description": "Hoeveel runs een chat zelf neemt, van 1 tot 20. Dit is de rem op een lus die nooit stopt."
+                "description": "Runs die een chat zelf start, 1 tot 20. Elke run kost geld."
             },
             "tokens": {
                 "label": "Outputtokens per antwoord",
-                "description": "Het meeste dat één antwoord mag gebruiken, van 1.024 tot 128.000, en nooit meer dan het model toestaat. Denken telt mee."
+                "description": "Het meeste dat een antwoord mag gebruiken, 1.024 tot 128.000, binnen de grens van het model. Denken telt mee."
             },
             "noKey": "Geen API-sleutel ingesteld"
         }
