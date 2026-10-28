@@ -3,7 +3,6 @@ import { ActionRefusal, FILE_READ_MAX_LINES, type ActionActorKind, type ActionHa
 import { copyTextOrRefuse } from '@/actions/clipboard';
 import { refusing, type Requester } from '@/actions/refusal';
 import { desktop } from '@/desktop/bridge';
-import { forgetDeletedEdits } from '@/language/ruimte-project-language';
 import { canCopyFilesOn } from '@/shell/panels/file-copy';
 import { absoluteOf, basenameOf, isAbsolutePath, isPathBelow, relativeTo, revealableInFiles } from '@/shell/panels/files-tree';
 import { useFiles } from '@/state/files';
@@ -57,7 +56,10 @@ const LIVE_MACHINE: FilesMachine = {
         const transport = machineFor(endpointId)?.transport;
         forgetDeleted(endpointId, path);
         if (current !== null && transport !== undefined) {
-            forgetDeletedEdits(transport, current.projectId, current.folder, path);
+            // Loaded here and not at the top: the start screen reaches these actions and carries no editor code.
+            void import('@/language/ruimte-project-language').then(({ forgetDeletedEdits }) =>
+                forgetDeletedEdits(transport, current.projectId, current.folder, path)
+            );
         }
     },
     move: async (from, to) => {
