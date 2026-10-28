@@ -138,7 +138,12 @@ describe('the keys of the statement, clipboard, word, change and navigation comm
         ['codeBlockStartWithSelection', 'Mod+Alt+Shift+[', 'Ctrl+Alt+Shift+['],
         ['codeBlockEndWithSelection', 'Mod+Alt+Shift+]', 'Ctrl+Alt+Shift+]'],
         ['shrinkSelection', 'Alt+ArrowDown', 'Alt+ArrowDown'],
-        ['wrapWithAbbreviation', 'Mod+Alt+J', 'Mod+Alt+J'],
+        ['insertLiveTemplate', 'Mod+J', 'Mod+J'],
+        ['surroundWith', 'Mod+Alt+T', 'Mod+Alt+T'],
+        ['surroundWithLiveTemplate', 'Mod+Alt+J', 'Mod+Alt+J'],
+        ['unwrap', 'Mod+Shift+Delete', 'Mod+Shift+Delete'],
+        ['saveAsLiveTemplate', null, null],
+        ['wrapWithAbbreviation', null, null],
         ['typeHierarchy', 'Ctrl+H', 'Ctrl+H']
     ];
 

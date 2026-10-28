@@ -7,9 +7,13 @@ import {
     AtSign,
     Blocks,
     BookOpen,
+    BookmarkPlus,
+    Braces,
+    Brackets,
     ClipboardList,
     CodeXml,
     Cpu,
+    FilePlus,
     FileSearch,
     GitFork,
     History,
@@ -21,6 +25,7 @@ import {
     MapPin,
     MessageSquarePlus,
     Network,
+    PackageOpen,
     Parentheses,
     Redo2,
     Rows3,
@@ -85,7 +90,18 @@ const TABLE = {
     'last-edit-location': { icon: Undo2, menu: 'go', key: 'lastEditLocation', shortcut: CANVAS_SHORTCUTS.lastEditLocation },
     'next-edit-location': { icon: Redo2, menu: 'go', key: 'nextEditLocation', shortcut: editorShortcut('nextEditLocation') },
     'paste-from-history': { icon: ClipboardList, menu: 'edit', group: 'clipboard', key: 'pasteFromHistory', shortcut: CANVAS_SHORTCUTS.pasteFromHistory },
-    'wrap-with-abbreviation': { icon: CodeXml, menu: 'code', key: 'wrapWithAbbreviation', shortcut: CANVAS_SHORTCUTS.wrapWithAbbreviation }
+    // Emmet keeps its row without a key: Surround with Live Template has Mod+Alt+J, as in IntelliJ.
+    'wrap-with-abbreviation': { icon: CodeXml, menu: 'code', key: 'wrapWithAbbreviation' },
+    'insert-live-template': { icon: FilePlus, menu: 'code', key: 'insertLiveTemplate', shortcut: CANVAS_SHORTCUTS.insertLiveTemplate },
+    'surround-with': { icon: Brackets, menu: 'code', key: 'surroundWith', shortcut: CANVAS_SHORTCUTS.surroundWith },
+    'surround-with-live-template': {
+        icon: Braces,
+        menu: 'code',
+        key: 'surroundWithLiveTemplate',
+        shortcut: CANVAS_SHORTCUTS.surroundWithLiveTemplate
+    },
+    unwrap: { icon: PackageOpen, menu: 'code', key: 'unwrap', shortcut: CANVAS_SHORTCUTS.unwrap },
+    'save-as-live-template': { icon: BookmarkPlus, menu: 'code', key: 'saveAsLiveTemplate' }
 } satisfies Record<string, LanguageCommandSpec>;
 
 export type LanguageCommandId = keyof typeof TABLE;

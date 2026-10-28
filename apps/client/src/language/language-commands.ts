@@ -37,7 +37,12 @@ const RUNNERS: Record<LanguageCommandId, (language: EditorLanguage) => void> = {
     'last-edit-location': (language) => void language.history.lastEdit(),
     'next-edit-location': (language) => void language.history.nextEdit(),
     'paste-from-history': (language) => language.pasteHistory.open(),
-    'wrap-with-abbreviation': (language) => language.markup.startWrap()
+    'wrap-with-abbreviation': (language) => language.markup.startWrap(),
+    'insert-live-template': (language) => language.templates.insert(),
+    'surround-with': (language) => language.surround.open(),
+    'surround-with-live-template': (language) => language.surround.openTemplates(),
+    unwrap: (language) => language.surround.unwrap(),
+    'save-as-live-template': (language) => void language.templates.saveSelection()
 };
 
 /* Ghost text, inline edit, explain and the selection to chat wait for a document a language server serves. */

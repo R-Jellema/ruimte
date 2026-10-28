@@ -6,6 +6,7 @@ import {
     ProjectLanguage as SharedProjectLanguage,
     shikiLanguageOf,
     shikiLanguageOfPath,
+    TemplateRegistry,
     type AcquireOptions,
     type LanguageDocumentHandle,
     type ProjectFiles,
@@ -20,10 +21,12 @@ import { openFileLink } from '@/shell/panels/file-links';
 import { RUIMTE_EDITOR_KEYMAP } from '@/shell/editor-keymap';
 import { isApplePlatform, openInSystemBrowser } from '@/desktop/bridge';
 import { useSettings } from '@/state/settings';
+import { useUi } from '@/state/ui';
 import { useToasts } from '@/state/toasts';
 import { machineAnswers } from '@/transport/features';
 import type { Transport } from '@/transport/transport';
 import { LanguageStatusTracker } from './status';
+import { TemplatesTracker } from './templates';
 import { abortable, WireLanguageService, type WireLanguageServiceOptions } from './wire-service';
 import { readPanelHeight, writePanelHeight } from './panel-height';
 import type { DraftProjectFiles } from './project-files';
@@ -33,6 +36,8 @@ export class ProjectLanguage extends SharedProjectLanguage {
     declare readonly service: WireLanguageService;
     readonly transport: Transport;
     readonly status: LanguageStatusTracker;
+    // Feeds the registry of `templates` with what the machine holds, and is what a settings tab reads.
+    readonly templateSync: TemplatesTracker;
     private readonly projectId: string;
     // The wire resynchronizes from the sending editor without starting a second document owner.
     private readonly editorsByUri: Map<string, Editor[]>;
@@ -55,7 +60,11 @@ export class ProjectLanguage extends SharedProjectLanguage {
             applyEdit: (params) => applyEdit?.(params) ?? Promise.resolve({ applied: false, failureReason: 'The project language is not ready' })
         });
         const panelBodyHeight = readPanelHeight();
+        const templates = new TemplateRegistry();
         super(service, {
+            templates,
+            openTemplateSettings: () => useUi.getState().setSettings({ open: true, section: 'editor', target: 'editor.templates.live' }),
+            // `saveAsLiveTemplate` waits for the template dialog, so Save as Live Template does nothing yet.
             i18n: i18next,
             folder,
             ...(files === null ? {} : { files }),
@@ -92,6 +101,8 @@ export class ProjectLanguage extends SharedProjectLanguage {
         this.projectId = projectId;
         this.status = new LanguageStatusTracker(transport, projectId);
         void this.status.refresh().catch(() => undefined);
+        this.templateSync = new TemplatesTracker(transport, projectId, templates);
+        void this.templateSync.refresh().catch(() => undefined);
         this.stopDrafts = files !== null && 'watchUnsaved' in files ? holdUnsavedTexts(service, folder, files) : () => undefined;
     }
 
@@ -151,6 +162,7 @@ export class ProjectLanguage extends SharedProjectLanguage {
         this.editorsByUri.clear();
         this.service.dispose();
         this.status.dispose();
+        this.templateSync.dispose();
     }
 }
 
