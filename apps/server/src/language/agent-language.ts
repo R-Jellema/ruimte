@@ -43,6 +43,36 @@ interface AgentDiagnostic extends AgentSpan {
     message: string;
 }
 
+interface AgentType extends AgentSpan {
+    name: string;
+    kind: string;
+    detail: string | null;
+}
+
+interface AgentTypes {
+    type: AgentType | null;
+    types: AgentType[];
+}
+
+/* A `TypeHierarchyItem` as a server answers it. */
+interface TypeItem {
+    name: string;
+    kind: number;
+    detail?: string;
+    uri: string;
+    range: Range;
+    selectionRange?: Range;
+}
+
+interface AgentProblems {
+    servers: Array<{ kind: string; process: string }>;
+    files: number;
+    diagnostics: AgentDiagnostic[];
+    truncated: boolean;
+    /* Files left out because their SQL is read against a connection turned off for agents. */
+    withheld: number;
+}
+
 interface AgentSymbol {
     name: string;
     kind: string;
@@ -77,6 +107,9 @@ interface AgentLanguagePlace {
 }
 
 const SEVERITIES = ['error', 'warning', 'information', 'hint'] as const;
+
+/* The most problems a whole-project answer lists; the rest is only counted as truncated. */
+const PROBLEMS_LIMIT = 500;
 
 /* `SymbolKind` of LSP, from 1. */
 const SYMBOL_KINDS = [
@@ -229,8 +262,15 @@ function severityOf(diagnostic: Diagnostic): AgentDiagnostic['severity'] {
     return SEVERITIES[(diagnostic.severity ?? 1) - 1] ?? 'error';
 }
 
+/* The kind a process belongs to; a server of a person's own is its own kind. */
+function kindOfProcess(process: string): string {
+    const kind = Object.values(KIND_PROFILES).find((profile) => profile.components.some((component) => component.name === process));
+
+    return kind?.kind ?? process;
+}
+
 interface AgentLanguageOptions {
-    host: Pick<LanguageHost, 'forAgent' | 'programOf'>;
+    host: Pick<LanguageHost, 'forAgent' | 'programOf' | 'workspaceProblems'>;
     sql: Pick<SqlAnalysis, 'fileContext'>;
     /* The text of a file on disk, or null when it cannot be read. */
     readText?: (path: string) => Promise<string | null>;
@@ -295,6 +335,26 @@ export class AgentLanguage {
         });
     }
 
+    /*
+     * The problems the servers that report for the whole project last found, in every file, also those nobody has
+     * open. With a path that file opens first, so its servers start and the same refusals apply as for `diagnostics`.
+     */
+    async problems(place: AgentLanguagePlace, caller: string, path: string | null): Promise<AgentProblems> {
+        if (path === null) {
+            return this.workspaceProblems(place);
+        }
+
+        return this.ask(place, caller, path, () => this.workspaceProblems(place));
+    }
+
+    async supertypes(place: AgentLanguagePlace, caller: string, path: string, at: AgentPosition): Promise<AgentAnswerHead & AgentTypes> {
+        return this.hierarchy(place, caller, path, at, 'typeHierarchy/supertypes');
+    }
+
+    async subtypes(place: AgentLanguagePlace, caller: string, path: string, at: AgentPosition): Promise<AgentAnswerHead & AgentTypes> {
+        return this.hierarchy(place, caller, path, at, 'typeHierarchy/subtypes');
+    }
+
     /* Which connection, database and snapshot a `.sql` file is read against, and the command that checks it from a shell. */
     async sqlFile(place: AgentLanguagePlace, path: string): Promise<AgentSqlFile> {
         const stored = storedPathOf(place.folder, path);
@@ -332,6 +392,112 @@ export class AgentLanguage {
             command,
             installed: program !== null
         };
+    }
+
+    private async workspaceProblems(place: AgentLanguagePlace): Promise<AgentProblems> {
+        const { servers, files, reports } = await this.options.host.workspaceProblems(null, place.projectId);
+
+        if (servers.length === 0) {
+            throw new VerbRefusal(
+                'no-workspace-diagnostics',
+                'No running language server of this project reports problems for the whole project; language diagnostics <path> reads one file'
+            );
+        }
+
+        const texts = new Map<string, string | null>();
+        const withheld = new Set<string>();
+        const found: AgentDiagnostic[] = [];
+
+        for (const report of reports) {
+            if (withheld.has(report.path)) {
+                continue;
+            }
+
+            if (readsSql(kindOfProcess(report.server))) {
+                const context = await this.options.sql.fileContext(place.projectId, report.absolutePath);
+
+                if (isWithheld(context.access, context.choice)) {
+                    withheld.add(report.path);
+                    continue;
+                }
+            }
+
+            if (!texts.has(report.absolutePath)) {
+                texts.set(report.absolutePath, await this.readText(report.absolutePath));
+            }
+
+            for (const diagnostic of report.diagnostics) {
+                found.push({
+                    ...spanOf(report.path, diagnostic.range, texts.get(report.absolutePath) ?? null),
+                    severity: severityOf(diagnostic),
+                    server: report.server,
+                    source: diagnostic.source ?? null,
+                    code: diagnostic.code === undefined ? null : String(diagnostic.code),
+                    message: diagnostic.message
+                });
+            }
+        }
+
+        found.sort((a, b) => a.path.localeCompare(b.path) || a.line - b.line || a.column - b.column);
+
+        return {
+            servers: servers.map((process) => ({ kind: kindOfProcess(process), process })),
+            files,
+            diagnostics: found.slice(0, PROBLEMS_LIMIT),
+            truncated: found.length > PROBLEMS_LIMIT,
+            withheld: withheld.size
+        };
+    }
+
+    /* The type at a place, then its supertypes or subtypes; the follow-up reaches the process that made the item. */
+    private async hierarchy(
+        place: AgentLanguagePlace,
+        caller: string,
+        path: string,
+        at: AgentPosition,
+        method: 'typeHierarchy/supertypes' | 'typeHierarchy/subtypes'
+    ): Promise<AgentAnswerHead & AgentTypes> {
+        return this.ask(place, caller, path, async (document, head) => {
+            const prepared = await document.request('textDocument/prepareTypeHierarchy', { position: positionIn(document.text, at) });
+            const item = Array.isArray(prepared.result) ? (prepared.result[0] as TypeItem | undefined) : undefined;
+
+            if (item === undefined) {
+                return { ...head, type: null, types: [] };
+            }
+
+            const answer = await document.request(method, { item });
+            const items = Array.isArray(answer.result) ? (answer.result as TypeItem[]) : [];
+            const texts = new Map<string, string | null>([[document.absolutePath, document.text]]);
+            const typeOf = async (entry: TypeItem): Promise<AgentType | null> => {
+                const target = fileUriToPath(entry.uri);
+
+                if (target === null) {
+                    return null;
+                }
+
+                if (!texts.has(target)) {
+                    texts.set(target, await this.readText(target));
+                }
+
+                return {
+                    ...spanOf(storedPathOf(place.folder, target), entry.selectionRange ?? entry.range, texts.get(target) ?? null),
+                    name: entry.name,
+                    kind: SYMBOL_KINDS[entry.kind - 1] ?? 'symbol',
+                    detail: entry.detail ?? null
+                };
+            };
+            const types: AgentType[] = [];
+
+            for (const entry of items) {
+                const type = await typeOf(entry);
+
+                if (type !== null) {
+                    types.push(type);
+                }
+            }
+
+            return { ...head, type: await typeOf(item), types };
+        });
     }
 
     private async locate(
@@ -418,13 +584,18 @@ export class AgentLanguage {
 
     /* The same rule `database` holds agents to: a connection a person turned off for agents says nothing of its schema to them. */
     private gate(access: string, choice: SqlChoice): void {
-        if (access === 'off' && choice.source !== 'none' && choice.source !== 'unbound') {
+        if (isWithheld(access, choice) && choice.source !== 'none' && choice.source !== 'unbound') {
             throw new VerbRefusal(
                 'database-access-off',
                 `The SQL of this file is read against ${choice.connection.name}, which a person turned off for agents; ask them, who can turn it on in the connections dialog of the app`
             );
         }
     }
+}
+
+/* Whether the connection a file is read against was turned off for agents. */
+function isWithheld(access: string, choice: SqlChoice): boolean {
+    return access === 'off' && choice.source !== 'none' && choice.source !== 'unbound';
 }
 
 /* Whether a kind reads the project's SQL settings, which is what makes its answers say what a schema holds. */

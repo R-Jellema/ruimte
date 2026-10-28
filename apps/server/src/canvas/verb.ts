@@ -294,7 +294,10 @@ interface ProposalHost {
     propose(ask: ProposalAsk): Promise<ProposalAnswer>;
 }
 
-export type LanguageAgentHost = Pick<AgentLanguage, 'diagnostics' | 'hover' | 'definition' | 'references' | 'symbols' | 'sqlFile'>;
+export type LanguageAgentHost = Pick<
+    AgentLanguage,
+    'diagnostics' | 'hover' | 'definition' | 'references' | 'symbols' | 'sqlFile' | 'problems' | 'supertypes' | 'subtypes'
+>;
 
 /* `enabled` is the machine's switch that lets an agent show a new visual. */
 export interface VisualHost {

@@ -197,6 +197,108 @@ const symbolsAction = defineActionVerb('language', {
     }
 });
 
+const problemsAction = defineActionVerb('language', {
+    name: 'problems',
+    action: 'language.problems',
+    usage: '[<path>] [--json]',
+    params: [{ syntax: '<path>', need: 'optional', field: 'path' }, JSON_PARAM],
+    detail: [
+        'prints\tserver\tkind\tprocess\tone line per running language server that reports problems for the whole project',
+        'prints\tdiagnostic\tpath:line:column\tseverity\tsource/code\tmessage\tone line per problem, by path, line and column, at most 500',
+        'files\tAlso files nobody has open, for the servers that report for the whole project; a server that is not running is not asked',
+        'path\tWith a path that file opens first, so its servers start; without it only servers that already run are asked',
+        'sql\tA file whose SQL is read against a connection a person turned off for agents is left out and counted in a note',
+        PLACE_LINE,
+        `refusals\t${SERVER_REFUSALS}\tno-workspace-diagnostics\tthe codes this action refuses with`
+    ],
+    positionals: z.tuple([z.string().trim().min(1, 'language problems takes the path of a file, or nothing').optional()], {
+        error: (issue) =>
+            issue.code === 'too_big' ? 'language problems takes one path and nothing else' : 'language problems takes the path of a file, or nothing'
+    }),
+    flags: z.object({}),
+    switches: ['json'],
+    async run({ positionals: [path], switches }, call) {
+        const answer = await runAction(call, 'language.problems', { path: path ?? null });
+        if (switches.has('json')) {
+            return json(answer);
+        }
+        return [
+            ...answer.servers.map((server) => `server\t${server.kind}\t${server.process}`),
+            ...orNote(
+                answer.diagnostics.map((diagnostic) =>
+                    [
+                        'diagnostic',
+                        place(diagnostic),
+                        diagnostic.severity,
+                        diagnostic.source === null && diagnostic.code === null ? '-' : field([diagnostic.source ?? '-', diagnostic.code ?? '-'].join('/')),
+                        field(diagnostic.message)
+                    ].join('\t')
+                ),
+                'The language servers find no problem in the project'
+            ),
+            ...(answer.truncated ? ['note\tOnly the first 500 problems are listed; language diagnostics <path> reads one file whole'] : []),
+            ...(answer.withheld > 0
+                ? [`note\tWithheld from ${answer.withheld} ${answer.withheld === 1 ? 'file' : 'files'} read against a connection turned off for agents`]
+                : [])
+        ];
+    }
+});
+
+function typesLines(answer: ActionOutput<'language.supertypes'>, none: string): string[] {
+    return [
+        ...headLines(answer),
+        ...(answer.type === null
+            ? ['note\tThe language servers find no type at that place']
+            : [
+                  `type\t${field(answer.type.name)}\t${answer.type.kind}\t${answer.type.detail === null ? '-' : field(answer.type.detail)}`,
+                  ...orNote(
+                      answer.types.map((type) => `location\t${place(type)}\t${type.endLine}:${type.endColumn}\t${field(type.name)}`),
+                      none
+                  )
+              ])
+    ];
+}
+
+const supertypesAction = defineActionVerb('language', {
+    name: 'supertypes',
+    action: 'language.supertypes',
+    usage: '<path> <line> <column> [--json]',
+    params: [...POSITION_PARAMS, JSON_PARAM],
+    detail: [
+        'prints\ttype\tname\tkind\tdetail\tthe type at the place',
+        'prints\tlocation\tpath:line:column\tendLine:endColumn\tname\tone line per type it extends or implements',
+        PLACE_LINE,
+        `refusals\t${SERVER_REFUSALS}\tbad-position\tthe codes this action refuses with`
+    ],
+    positionals: positionTuple('supertypes'),
+    flags: z.object({}),
+    switches: ['json'],
+    async run({ positionals: [path, line, column], switches }, call) {
+        const answer = await runAction(call, 'language.supertypes', { path, line, column });
+        return switches.has('json') ? json(answer) : typesLines(answer, 'The type has no supertype the language servers know');
+    }
+});
+
+const subtypesAction = defineActionVerb('language', {
+    name: 'subtypes',
+    action: 'language.subtypes',
+    usage: '<path> <line> <column> [--json]',
+    params: [...POSITION_PARAMS, JSON_PARAM],
+    detail: [
+        'prints\ttype\tname\tkind\tdetail\tthe type at the place',
+        'prints\tlocation\tpath:line:column\tendLine:endColumn\tname\tone line per type that extends or implements it',
+        PLACE_LINE,
+        `refusals\t${SERVER_REFUSALS}\tbad-position\tthe codes this action refuses with`
+    ],
+    positionals: positionTuple('subtypes'),
+    flags: z.object({}),
+    switches: ['json'],
+    async run({ positionals: [path, line, column], switches }, call) {
+        const answer = await runAction(call, 'language.subtypes', { path, line, column });
+        return switches.has('json') ? json(answer) : typesLines(answer, 'No type the language servers know extends or implements it');
+    }
+});
+
 const sqlAction = defineActionVerb('language', {
     name: 'sql',
     action: 'language.sql',
@@ -245,10 +347,11 @@ const sqlAction = defineActionVerb('language', {
 });
 
 export const LANGUAGE_SUMMARY =
-    "Asks the project's running language servers about a file: its problems, what a name is, where it is defined and used, its symbols, and what a .sql file is read against";
+    "Asks the project's running language servers about a file: its problems, what a name is, where it is defined and used, its symbols, the supertypes and subtypes of a type, the problems of the whole project, and what a .sql file is read against";
 
 export const LANGUAGE_DETAIL: readonly string[] = [
     'when\tBefore and after you change a file, to see what the language servers see: language diagnostics for its problems, hover, definition and references for a name, symbols for what it defines',
+    'project\tlanguage problems lists what the servers that run found in every file, also files nobody has open; language supertypes and subtypes follow the type at a place up and down its hierarchy',
     'servers\tA file opens in the servers of this machine that are installed, as it would for a person; one that is not installed stays so, since only a person installs one in the app',
     "sql\tA .sql file is read against a connection and database a person chose for it, the folder of a console, or the project's default, which the SQL in the strings of PHP files is read against too; language sql says which, with the schema snapshot and the shell command",
     'shell\tWith only a shell, language sql <path> prints the snapshot a .sql file is read against and the command that checks it, such as sql-language-server check --dialect mariadb --schema <snapshot> <path>; describe and format run the same way',
@@ -256,4 +359,14 @@ export const LANGUAGE_DETAIL: readonly string[] = [
     SCOPE_LINE
 ];
 
-export const LANGUAGE_ACTIONS = [diagnosticsAction, hoverAction, definitionAction, referencesAction, symbolsAction, sqlAction] as const;
+export const LANGUAGE_ACTIONS = [
+    diagnosticsAction,
+    hoverAction,
+    definitionAction,
+    referencesAction,
+    symbolsAction,
+    problemsAction,
+    supertypesAction,
+    subtypesAction,
+    sqlAction
+] as const;

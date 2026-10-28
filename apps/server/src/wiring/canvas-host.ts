@@ -126,7 +126,8 @@ export function wireCanvasHost(input: CanvasHostInput): CanvasHost {
         language: new AgentLanguage({
             host: {
                 forAgent: (projectId, request, languageWork) => later.language().forAgent(projectId, request, languageWork),
-                programOf: (kind) => later.language().programOf(kind)
+                programOf: (kind) => later.language().programOf(kind),
+                workspaceProblems: (clientId, projectId) => later.language().workspaceProblems(clientId, projectId)
             },
             sql: databases.sqlAnalysis
         }),

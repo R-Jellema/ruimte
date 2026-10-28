@@ -69,6 +69,49 @@ beforeEach(async () => {
             servers: SERVERS,
             symbols: [{ name: 'users', kind: 'class', detail: null, depth: 0, line: 1, column: 19, endLine: 1, endColumn: 24 }]
         }),
+        problems: async (_place, _caller, path) => {
+            asked.push({ action: 'problems', path: path ?? '' });
+            return {
+                servers: [{ kind: 'typescript', process: 'typescript' }],
+                files: 3,
+                diagnostics: [
+                    {
+                        path: 'src/a.ts',
+                        line: 2,
+                        column: 5,
+                        endLine: 2,
+                        endColumn: 9,
+                        severity: 'warning',
+                        server: 'typescript',
+                        source: 'ts',
+                        code: '6133',
+                        message: 'unused'
+                    }
+                ],
+                truncated: true,
+                withheld: 2
+            };
+        },
+        supertypes: async (_place, _caller, path, position) => {
+            asked.push({ action: 'supertypes', path, position });
+            return {
+                path: 'src/a.ts',
+                unsaved: false,
+                servers: SERVERS,
+                type: { path: 'src/a.ts', line: 2, column: 7, endLine: 2, endColumn: 8, name: 'B', kind: 'class', detail: null },
+                types: [{ path: 'src/a.ts', line: 1, column: 7, endLine: 1, endColumn: 8, name: 'A', kind: 'class', detail: null }]
+            };
+        },
+        subtypes: async (_place, _caller, path, position) => {
+            asked.push({ action: 'subtypes', path, position });
+            return {
+                path: 'src/a.ts',
+                unsaved: false,
+                servers: SERVERS,
+                type: { path: 'src/a.ts', line: 1, column: 7, endLine: 1, endColumn: 8, name: 'A', kind: 'class', detail: null },
+                types: []
+            };
+        },
         sqlFile: async () => ({
             path: 'db/report.sql',
             source: 'file',
@@ -127,6 +170,32 @@ describe('ruimte-context language', () => {
 
     test('lists the symbols with how deep each sits', async () => {
         expect(await run(['symbols', 'db/report.sql'])).toEqual(['server\tsql-native\tready', 'symbol\t0\tclass\tusers\t1:19\t-']);
+    });
+
+    test('prints the problems of the whole project, with a note for what was cut and what was withheld', async () => {
+        expect(await run(['problems'])).toEqual([
+            'server\ttypescript\ttypescript',
+            'diagnostic\tsrc/a.ts:2:5\twarning\tts/6133\tunused',
+            'note\tOnly the first 500 problems are listed; language diagnostics <path> reads one file whole',
+            'note\tWithheld from 2 files read against a connection turned off for agents'
+        ]);
+        expect(asked.at(-1)).toEqual({ action: 'problems', path: '' });
+
+        await run(['problems', 'db/report.sql']);
+
+        expect(asked.at(-1)).toEqual({ action: 'problems', path: join(folder, 'db', 'report.sql') });
+        expect(JSON.parse((await run(['problems', '--json']))[0]!)).toMatchObject({ files: 3, truncated: true, withheld: 2 });
+    });
+
+    test('prints the type at a place and one location per supertype or subtype', async () => {
+        expect(await run(['supertypes', 'db/report.sql', '2', '7'])).toEqual([
+            'server\tsql-native\tready',
+            'type\tB\tclass\t-',
+            'location\tsrc/a.ts:1:7\t1:8\tA'
+        ]);
+        expect(asked.at(-1)).toMatchObject({ action: 'supertypes', position: { line: 2, column: 7 } });
+        expect((await run(['subtypes', 'db/report.sql', '1', '7'])).at(-1)).toStartWith('note\t');
+        expect((await run(['supertypes', 'db/report.sql', '1']))[0]).toStartWith('refused\t');
     });
 
     test('says which connection and snapshot a SQL file reads, and how to check it from a shell', async () => {

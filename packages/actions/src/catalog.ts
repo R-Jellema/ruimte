@@ -447,6 +447,7 @@ const languageLine = z.number().int().min(1).describe('The line, counting from 1
 const languageColumn = z.number().int().min(1).describe('The column, counting characters from 1');
 const languageServers = z.array(z.object({ kind: z.string(), state: z.string(), message: z.string().optional() }));
 const languageSpan = z.object({ path: z.string(), line: z.number().int(), column: z.number().int(), endLine: z.number().int(), endColumn: z.number().int() });
+const languageType = languageSpan.extend({ name: z.string(), kind: z.string(), detail: z.string().nullable() });
 // What every answer of the language servers says besides itself: the file, whether its text is an editor's, and the servers.
 const languageHead = { path: z.string(), unsaved: z.boolean(), servers: languageServers };
 export const DATABASE_QUERY_ROWS = 100;
@@ -4477,6 +4478,50 @@ export const ACTION_DEFINITIONS = {
                 })
             )
         })
+    },
+    'language.problems': {
+        title: 'Read the problems of the whole project',
+        description:
+            "Reads the problems the project's running language servers find in every file, also files nobody has open, for the servers that report for the whole project.",
+        effect: 'read',
+        domain: 'developer',
+        actors: AGENT,
+        input: z.object({
+            path: languagePath.nullable().describe('A file whose servers are started first; without it only servers already running are asked')
+        }),
+        output: z.object({
+            servers: z.array(z.object({ kind: z.string(), process: z.string() })),
+            files: z.number().int(),
+            diagnostics: z.array(
+                languageSpan.extend({
+                    severity: z.enum(['error', 'warning', 'information', 'hint']),
+                    server: z.string(),
+                    source: z.string().nullable(),
+                    code: z.string().nullable(),
+                    message: z.string()
+                })
+            ),
+            truncated: z.boolean(),
+            withheld: z.number().int()
+        })
+    },
+    'language.supertypes': {
+        title: 'Find the supertypes of a type',
+        description: 'Finds what the type at a place in a file extends or implements, as the language servers of the project know it.',
+        effect: 'read',
+        domain: 'developer',
+        actors: AGENT,
+        input: z.object({ path: languagePath, line: languageLine, column: languageColumn }),
+        output: z.object({ ...languageHead, type: languageType.nullable(), types: z.array(languageType) })
+    },
+    'language.subtypes': {
+        title: 'Find the subtypes of a type',
+        description: 'Finds the types that extend or implement the type at a place in a file, as the language servers of the project know it.',
+        effect: 'read',
+        domain: 'developer',
+        actors: AGENT,
+        input: z.object({ path: languagePath, line: languageLine, column: languageColumn }),
+        output: z.object({ ...languageHead, type: languageType.nullable(), types: z.array(languageType) })
     },
     'language.sql': {
         title: 'Read what a SQL file is read against',

@@ -28,6 +28,15 @@ export const languageActions: ActionHandlers<ServerActionContext> = {
     'language.symbols': async ({ path }, { actor, context }) => ({
         output: await languageOf(context).symbols(context.place, actor.id, await fileOf(context, path))
     }),
+    'language.problems': async ({ path }, { actor, context }) => ({
+        output: await languageOf(context).problems(context.place, actor.id, path === null ? null : await fileOf(context, path))
+    }),
+    'language.supertypes': async ({ path, line, column }, { actor, context }) => ({
+        output: await languageOf(context).supertypes(context.place, actor.id, await fileOf(context, path), { line, column })
+    }),
+    'language.subtypes': async ({ path, line, column }, { actor, context }) => ({
+        output: await languageOf(context).subtypes(context.place, actor.id, await fileOf(context, path), { line, column })
+    }),
     'language.sql': async ({ path }, { context }) => ({
         output: await languageOf(context).sqlFile(context.place, await fileOf(context, path))
     })
