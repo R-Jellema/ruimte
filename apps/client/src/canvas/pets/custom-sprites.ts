@@ -206,7 +206,7 @@ export async function addPetSprite(
     if (file.size > SHEET_LIMITS.bytes) {
         return { problem: 'bytes' };
     }
-    if (usePetSprites.getState().sprites.length >= SHEET_LIMITS.maxSprites) {
+    if (keepsNoMore()) {
         return { problem: 'full' };
     }
     let image: string;
@@ -237,8 +237,16 @@ export async function addPetSprite(
     } catch {
         return { problem: 'unreadable' };
     }
+    // Asked again, since another window, or a second pick in this one, may have taken the last place while this file was read.
+    if (keepsNoMore()) {
+        return { problem: 'full' };
+    }
     const sprite: CustomPetSprite = { id: newId(), name: spriteNameOf(file.name), image, ...layout };
     return usePetSprites.getState().add(sprite) ? { sprite } : { problem: 'storage' };
+}
+
+function keepsNoMore(): boolean {
+    return usePetSprites.getState().sprites.length >= SHEET_LIMITS.maxSprites;
 }
 
 /* The browser's own reading of a picked file and of the image in it. */

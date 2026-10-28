@@ -682,12 +682,12 @@
     }
 
     /* A pet that drops by while Pets is off (`canvas/pets/PetLayer.tsx`): it fades in, stays a moment and
-       fades out over the length of a visit (`VISIT_MS`), and takes no press on its way. */
+       fades out over the length of a visit, which the visitor sets from `VISIT_MS`, and takes no press on its way. */
     .pet-visitor {
         position: absolute;
         pointer-events: none;
         opacity: 0;
-        animation: pet-visit 4s ease-in-out forwards;
+        animation: pet-visit var(--pet-visit-duration) ease-in-out forwards;
     }
     @keyframes pet-visit {
         0% {

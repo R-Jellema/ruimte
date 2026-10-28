@@ -5,19 +5,20 @@ Off to start with. Everything here is the client's: what a pet shows comes from 
 already holds (`chat.status`, a terminal's `session.status` from the CLI's hooks), and nothing reads
 the file system, the daemon's folders or a project file.
 
-- Which nodes have one: a chat, and a terminal whose CLI reported through its hooks (`petsOf` in
-  `pet-state.ts`). A node a collapsed group hides has none.
+- Which nodes have one: a chat, and a terminal whose CLI reported through its hooks (`petNodeKey`
+  and `petOf` in `pet-state.ts`). A node a collapsed group hides has none.
 - What it shows: working, waiting on you, idle or stopped. Waiting is the "needs you" every count
   reads (`groupAttention`). A waiting pet has a black speech bubble with an orange exclamation mark
-  and jumps until the question or approval is answered. A wait a person snoozed keeps its bubble until
-  it is answered but does not jump. With reduced motion nothing moves: every pet holds one frame, and
-  that follows the system setting as it changes.
+  and jumps until the question or approval is answered. The bubble stands over its head, or beside it
+  where another node lies there (`petCrowded`), such as one 40 pixels above, so it never covers that
+  node. A wait a person snoozed keeps its bubble until it is answered but does not jump. With reduced
+  motion nothing moves: every pet holds one frame, and that follows the system setting as it changes.
 - A pet paints its canvas only when the picture changes (`petPainter`), so a strip of one frame at
   rest paints once.
 - A click goes to the node (`goToNode`): the camera centers on it and selects it, and Back in the
   camera history returns.
-- Only the figure takes a press (`petHitBox`, 52 by 40 world pixels from its feet up, which covers it
-  at rest and through its jump); the bubble above it never does. Where that box lies on another node
+- Only the figure takes a press (`petHitBox`, 52 by 38 world pixels from its node's top edge up, which
+  covers it at rest and through its jump); the bubble never does. Where that box lies on another node
   (`coversOtherNode`, a group the node stands in aside), or while a line is being aimed, the pet takes
   no press at all, so a press on the bottom of a node standing close above still lands in that node.
   Its button still takes the keyboard. A text on the canvas is not counted.

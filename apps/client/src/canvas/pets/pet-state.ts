@@ -3,10 +3,22 @@ import type { ChatStatuses } from '@adecore/agents-react/state';
 import { CLAUDE_BUDDY, CODEX_BUDDY } from '@/canvas/pets/buddies';
 import { FOX_SPRITE, FROG_SPRITE } from '@/canvas/pets/animals';
 import type { Rect } from '@/canvas/math';
-import { JUMP_ROWS, PAINT_COLUMNS, PAINT_ROWS, SPRITE_ROWS, type DrawnSprite, type PetPose } from '@/canvas/pets/pixel';
+import {
+    BUBBLE_ABOVE,
+    BUBBLE_BESIDE,
+    BUBBLE_ROWS,
+    BUBBLE_SIZE,
+    JUMP_ROWS,
+    PAINT_COLUMNS,
+    PAINT_ROWS,
+    SPRITE_COLUMNS,
+    SPRITE_ROWS,
+    type DrawnSprite,
+    type PetPose
+} from '@/canvas/pets/pixel';
 import { nodeWorking } from '@/state/agent-work';
 import { groupAttention } from '@/state/attention';
-import type { CanvasNode } from '@/state/canvas';
+import type { CanvasNode, CanvasState } from '@/state/canvas';
 import { endpointKey, endpointOfNode } from '@/state/keys';
 import { nodeProvider, nodeStatus, type SessionsByKey } from '@/state/sessions';
 import type { Snoozes } from '@/state/snooze';
@@ -15,58 +27,47 @@ import type { Snoozes } from '@/state/snooze';
 export type PetMood = 'working' | 'waiting' | 'snoozed' | 'idle' | 'stopped' | 'visiting';
 
 export interface CanvasPet {
-    id: string;
     /* The CLI behind the node, which picks the built-in figure; none for a chat that has not said yet. */
     agent: AgentKind | undefined;
     mood: PetMood;
-    /* Whether its figure stands over another node, where a press belongs to that node and not to the pet. */
-    blocked: boolean;
 }
 
 // Nothing here asks whether a pet was seen, so an empty record keeps the attention pass to the waits alone.
 const NO_UNSEEN: Readonly<Record<string, true>> = {};
 
 /*
- * A pet for every node with an agent in it: a chat, or a terminal whose CLI reported through its
- * hooks. Waiting is the same "needs you" every count reads. A wait a person snoozed keeps its bubble
- * until it is answered, since the question is still open, but does not jump.
+ * The nodes that may have a pet, a chat or a terminal no collapsed group hides, as one string: it
+ * changes when one comes or goes and not on every frame of a drag, so the pets are not all drawn again.
  */
-export function petsOf(
-    nodes: Readonly<Record<string, CanvasNode>>,
-    hidden: ReadonlySet<string>,
-    sessions: SessionsByKey,
-    chats: ChatStatuses,
-    endpointId: string,
-    snoozes: Snoozes
-): CanvasPet[] {
-    const shown = Object.values(nodes).filter((node) => (node.kind === 'chat' || node.kind === 'terminal') && !hidden.has(node.id));
-    const attention = groupAttention(shown, sessions, chats, endpointId, NO_UNSEEN, snoozes);
-    const waiting = new Set(attention.needsYou);
-    const snoozed = new Set(attention.snoozed);
-    const pets: CanvasPet[] = [];
-    for (const node of shown) {
-        let agent: AgentKind | undefined;
-        if (node.kind === 'terminal') {
-            const session = sessions[endpointKey(endpointOfNode(node, endpointId), node.id)];
-            if (!session?.agent) {
-                continue;
-            }
-            agent = session.agent.kind;
-        } else {
-            agent = nodeProvider(node, chats, endpointId);
-        }
-        pets.push({
-            id: node.id,
-            agent,
-            mood: snoozed.has(node.id) ? 'snoozed' : moodOf(node, waiting, sessions, chats, endpointId),
-            blocked: coversOtherNode(petHitBox(node), node.id, nodes, hidden)
-        });
-    }
-    return pets;
+export function petNodeKey(s: Pick<CanvasState, 'nodes' | 'hidden'>): string {
+    return Object.values(s.nodes)
+        .filter((node) => (node.kind === 'chat' || node.kind === 'terminal') && !s.hidden.has(node.id))
+        .map((node) => node.id)
+        .join('\n');
 }
 
-function moodOf(node: CanvasNode, waiting: ReadonlySet<string>, sessions: SessionsByKey, chats: ChatStatuses, endpointId: string): PetMood {
-    if (waiting.has(node.id)) {
+/*
+ * The pet of a node with an agent in it: a chat, or a terminal whose CLI reported through its hooks.
+ * Waiting is the same "needs you" every count reads. A wait a person snoozed keeps its bubble until it
+ * is answered, since the question is still open, but does not jump.
+ */
+export function petOf(node: CanvasNode, sessions: SessionsByKey, chats: ChatStatuses, endpointId: string, snoozes: Snoozes): CanvasPet | null {
+    let agent: AgentKind | undefined;
+    if (node.kind === 'terminal') {
+        const session = sessions[endpointKey(endpointOfNode(node, endpointId), node.id)];
+        if (!session?.agent) {
+            return null;
+        }
+        agent = session.agent.kind;
+    } else {
+        agent = nodeProvider(node, chats, endpointId);
+    }
+    const attention = groupAttention([node], sessions, chats, endpointId, NO_UNSEEN, snoozes);
+    return { agent, mood: attention.snoozed.length > 0 ? 'snoozed' : moodOf(node, attention.needsYou.length > 0, sessions, chats, endpointId) };
+}
+
+function moodOf(node: CanvasNode, waiting: boolean, sessions: SessionsByKey, chats: ChatStatuses, endpointId: string): PetMood {
+    if (waiting) {
         return 'waiting';
     }
     if (nodeWorking(node, sessions, chats, endpointId)) {
@@ -112,9 +113,11 @@ export function petFrame(mood: PetMood, tick: number, still: boolean): PetFrame 
 
 /* World pixels a cell takes, so a pet stays pixel art at every zoom. */
 export const WORLD_CELL = 2;
-export const PET_WIDTH = PAINT_COLUMNS * WORLD_CELL;
+/* The figure's width, and the paint's, which is wider for the bubble beside it. */
+export const PET_WIDTH = SPRITE_COLUMNS * WORLD_CELL;
+export const PET_PAINT_WIDTH = PAINT_COLUMNS * WORLD_CELL;
 export const PET_HEIGHT = PAINT_ROWS * WORLD_CELL;
-// The bottom row of a sprite is the outline under its feet, which stands on the node's top edge.
+// The bottom row of a sprite is the outline under its feet, which lies on the node's top edge, inside its frame.
 const FEET = WORLD_CELL;
 const INSET = 24;
 
@@ -129,16 +132,40 @@ export function visitorPlace(node: Pick<CanvasNode, 'x' | 'y'>): { x: number; y:
 }
 
 /*
- * The rows a figure fills, at rest and at the top of a jump: every row of a sprite but its first two,
- * which only a fox's ear tips and a sleeper's letters reach, and the rows it jumps into. The bubble
- * above them is paint and never takes a press. It stays clear of a node 40 pixels above, the gap new nodes get.
+ * The rows a figure fills over its node, at rest and at the top of a jump: every row of a sprite but its
+ * first two, which only a fox's ear tips and a sleeper's letters reach, and its last, the outline under
+ * its feet inside the node's frame, where a press is the node's; and the rows it jumps into. The bubble
+ * is paint and never takes a press. It stays clear of a node 40 pixels above, the gap new nodes get.
  */
-export const PET_HIT_HEIGHT = (SPRITE_ROWS - 2 + JUMP_ROWS) * WORLD_CELL;
+export const PET_HIT_HEIGHT = (SPRITE_ROWS - 3 + JUMP_ROWS) * WORLD_CELL;
 
-/* What a press on a pet lands on: its figure, from its feet on its node's top edge up, wherever it is in a jump. */
+/* How far below the top of a pet's paint its press box begins. */
+export const PET_HIT_TOP = PET_HEIGHT - FEET - PET_HIT_HEIGHT;
+
+/* What a press on a figure standing here lands on: from its node's top edge up, wherever it is in a jump. */
+export function hitBoxAt(place: { x: number; y: number }): Rect {
+    return { x: place.x, y: place.y + PET_HIT_TOP, w: PET_WIDTH, h: PET_HIT_HEIGHT };
+}
+
 export function petHitBox(node: Pick<CanvasNode, 'x' | 'y' | 'w'>): Rect {
+    return hitBoxAt(petPlace(node));
+}
+
+/*
+ * Where a waiting pet's bubble starts in its paint, in cells, at a lift: over its head, or beside it when
+ * a node lies there. Beside, it rises no higher than the press box, so it stays clear of a node 40 pixels
+ * above as the figure does, through the jump and at rest alike.
+ */
+export function bubbleCell(lift: number, beside: boolean): { x: number; y: number } {
+    const spriteTop = BUBBLE_ROWS + JUMP_ROWS - lift;
+    return beside ? { x: BUBBLE_BESIDE, y: spriteTop + 2 } : { x: BUBBLE_ABOVE, y: spriteTop - BUBBLE_ROWS };
+}
+
+/* What a node's pet's bubble covers on the canvas at a lift. */
+export function petBubbleBox(node: Pick<CanvasNode, 'x' | 'y' | 'w'>, lift: number, beside: boolean): Rect {
     const place = petPlace(node);
-    return { x: place.x, y: place.y + PET_HEIGHT - PET_HIT_HEIGHT, w: PET_WIDTH, h: PET_HIT_HEIGHT };
+    const at = bubbleCell(lift, beside);
+    return { x: place.x + at.x * WORLD_CELL, y: place.y + at.y * WORLD_CELL, w: BUBBLE_SIZE.columns * WORLD_CELL, h: BUBBLE_SIZE.rows * WORLD_CELL };
 }
 
 function overlaps(a: Rect, b: Rect): boolean {
@@ -160,6 +187,26 @@ export function coversOtherNode(box: Rect, ownId: string, nodes: Readonly<Record
     return Object.values(nodes).some(
         (other) => other.id !== ownId && !hidden.has(other.id) && !(other.kind === 'group' && holdsOwn(other)) && overlaps(box, other)
     );
+}
+
+/*
+ * Whether a node's pet stands over another node, where a press belongs to that node and not to the pet.
+ * A boolean, so a pet that selects it is drawn again only when it flips, not on every frame of a drag.
+ */
+export function petBlocked(s: Pick<CanvasState, 'nodes' | 'hidden'>, id: string): boolean {
+    const node = s.nodes[id];
+    return node !== undefined && coversOtherNode(petHitBox(node), id, s.nodes, s.hidden);
+}
+
+/* Whether another node lies where the bubble over a pet's head goes, anywhere in its jump, so it goes beside the pet. */
+export function petCrowded(s: Pick<CanvasState, 'nodes' | 'hidden'>, id: string): boolean {
+    const node = s.nodes[id];
+    if (node === undefined) {
+        return false;
+    }
+    const top = petBubbleBox(node, JUMP_ROWS, false);
+    const rest = petBubbleBox(node, 0, false);
+    return coversOtherNode({ ...top, h: rest.y + rest.h - top.y }, id, s.nodes, s.hidden);
 }
 
 export const PET_SETS = ['buddies', 'animals'] as const;

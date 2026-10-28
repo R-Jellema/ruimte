@@ -1,5 +1,5 @@
 import { spriteImage, type CustomPetSprite } from '@/canvas/pets/custom-sprites';
-import { petFrame, type PetFrame, type PetMood } from '@/canvas/pets/pet-state';
+import { bubbleCell, petFrame, type PetFrame, type PetMood } from '@/canvas/pets/pet-state';
 import {
     BUBBLE_ROWS,
     bubble,
@@ -50,8 +50,11 @@ export function petPainter(look: PetLook, mood: PetMood, still: boolean, paint: 
     };
 }
 
-/* One frame of a pet, with its bubble when it waits on you. False when a strip's image is not decoded yet. */
-export function paintPet(context: CanvasRenderingContext2D, look: PetLook, frame: PetFrame): boolean {
+/*
+ * One frame of a pet, with its bubble when it waits on you, over its head or, where a node lies there,
+ * beside it. False when a strip's image is not decoded yet.
+ */
+export function paintPet(context: CanvasRenderingContext2D, look: PetLook, frame: PetFrame, crowded: boolean): boolean {
     context.clearRect(0, 0, PAINT_SIZE.w, PAINT_SIZE.h);
     const top = GROUND - frame.lift;
     let complete = true;
@@ -61,7 +64,8 @@ export function paintPet(context: CanvasRenderingContext2D, look: PetLook, frame
         complete = paintSheet(context, look.sprite, frame, top);
     }
     if (frame.bubble) {
-        paintCells(context, bubble(top - BUBBLE_ROWS + 1), PAINT_CELL);
+        const at = bubbleCell(frame.lift, crowded);
+        paintCells(context, bubble(at.x, at.y), PAINT_CELL);
     }
     return complete;
 }

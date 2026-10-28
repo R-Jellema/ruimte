@@ -159,6 +159,21 @@ describe('a picked file', () => {
         expect(await addPetSprite({ name: 'one.png', type: 'image/png', size: 900 }, reader(STRIP), () => 'more')).toEqual({ problem: 'full' });
     });
 
+    test('is refused when the last place went while it was read, as another window or a second pick may take it', async () => {
+        for (let i = 0; i < SHEET_LIMITS.maxSprites - 1; i++) {
+            await addPetSprite({ name: `cat${i}.png`, type: 'image/png', size: 900 }, reader(STRIP), () => `c${i}`);
+        }
+        const meanwhile: SheetReader = {
+            dataUrl: async () => {
+                await addPetSprite({ name: 'other.png', type: 'image/png', size: 900 }, reader(STRIP), () => 'other');
+                return STRIP;
+            },
+            size: async () => ({ width: 64, height: 16 })
+        };
+        expect(await addPetSprite({ name: 'late.png', type: 'image/png', size: 900 }, meanwhile, () => 'late')).toEqual({ problem: 'full' });
+        expect(usePetSprites.getState().sprites).toHaveLength(SHEET_LIMITS.maxSprites);
+    });
+
     test('is named after its file, without the extension and never too long', () => {
         expect(spriteNameOf('my cat.png')).toBe('my cat');
         expect(spriteNameOf('.png')).toBe('.png');

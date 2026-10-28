@@ -1,5 +1,5 @@
 import type { Rect } from '@/canvas/math';
-import { coversOtherNode, PET_HEIGHT, PET_HIT_HEIGHT, PET_WIDTH, visitorPlace } from '@/canvas/pets/pet-state';
+import { coversOtherNode, hitBoxAt, PET_HEIGHT, PET_WIDTH, visitorPlace } from '@/canvas/pets/pet-state';
 import type { CanvasNode } from '@/state/canvas';
 
 /* How long after the last visit, or after a canvas opened, a pet may drop by: somewhere in this window. */
@@ -87,9 +87,7 @@ export function visitSpot(nodes: Readonly<Record<string, CanvasNode>>, hidden: R
         .filter(
             (spot) => spot.x >= visible.x && spot.y >= visible.y && spot.x + PET_WIDTH <= visible.x + visible.w && spot.y + PET_HEIGHT <= visible.y + visible.h
         )
-        .filter(
-            (spot) => !coversOtherNode({ x: spot.x, y: spot.y + PET_HEIGHT - PET_HIT_HEIGHT, w: PET_WIDTH, h: PET_HIT_HEIGHT }, spot.nodeId, nodes, hidden)
-        );
+        .filter((spot) => !coversOtherNode(hitBoxAt(spot), spot.nodeId, nodes, hidden));
     if (spots.length === 0) {
         return null;
     }

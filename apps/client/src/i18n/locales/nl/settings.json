@@ -683,7 +683,7 @@
             "title": "Pets",
             "enabled": {
                 "label": "Pets",
-                "description": "Op elke chat en elke terminal met een agent staat een klein figuurtje dat laat zien wat die doet. Wacht er een op jou, dan springt zijn pet met een tekstballon tot je antwoordt. Klik op een pet om naar zijn node te gaan."
+                "description": "Op elke chat en elke terminal met een agent staat een klein figuurtje dat laat zien wat die doet. Wacht een agent op jou, dan springt zijn figuurtje met een tekstballon tot je antwoordt. Klik op een figuurtje om naar zijn node te gaan."
             },
             "sprite": {
                 "label": "Figuren",

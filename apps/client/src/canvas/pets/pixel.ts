@@ -38,8 +38,15 @@ export const SPRITE_ROWS = 18;
 export const BUBBLE_ROWS = 9;
 export const JUMP_ROWS = 4;
 
-/* The grid a pet paints in: its own, with the bubble and the jump above it. */
-export const PAINT_COLUMNS = SPRITE_COLUMNS;
+/* The cells the bubble covers, its rim and tail included; the tail reaches two rows into the figure's. */
+export const BUBBLE_SIZE = { columns: 12, rows: BUBBLE_ROWS + 2 } as const;
+
+/* The bubble's first column over a pet's head, and beside it: one clear of every built-in figure's wait pose. */
+export const BUBBLE_ABOVE = 14;
+export const BUBBLE_BESIDE = 20;
+
+/* The grid a pet paints in: its own, with the bubble and the jump above it and room on its right for the bubble beside it. */
+export const PAINT_COLUMNS = BUBBLE_BESIDE + BUBBLE_SIZE.columns;
 export const PAINT_ROWS = BUBBLE_ROWS + JUMP_ROWS + SPRITE_ROWS;
 
 /* Every pose of a built-in figure repeats after this many frames (its steps are 2, 3, 4 and 6 long), so a frame and the one this far on look the same. */
@@ -115,17 +122,16 @@ export function cloud(frame: number): Cell[] {
     ];
 }
 
-/* The bubble over a pet that waits on you: black, with an exclamation mark, its tail pointing down at the pet. */
-export function bubble(top: number): Cell[] {
-    const left = 15;
+/* The bubble of a pet that waits on you, from its top left cell: black, with an exclamation mark, its tail pointing down at the pet. */
+export function bubble(x: number, y: number): Cell[] {
     return [
-        cell(left - 1, top, 12, 8, BUBBLE.rim),
-        cell(left, top - 1, 10, 10, BUBBLE.rim),
-        cell(left + 1, top + 8, 3, 2, BUBBLE.rim),
-        cell(left, top, 10, 8, BUBBLE.ground),
-        cell(left + 2, top + 8, 1, 1, BUBBLE.ground),
-        cell(left + 4, top + 1, 2, 4, BUBBLE.mark),
-        cell(left + 4, top + 6, 2, 1, BUBBLE.mark)
+        cell(x, y + 1, 12, 8, BUBBLE.rim),
+        cell(x + 1, y, 10, 10, BUBBLE.rim),
+        cell(x + 2, y + 9, 3, 2, BUBBLE.rim),
+        cell(x + 1, y + 1, 10, 8, BUBBLE.ground),
+        cell(x + 3, y + 9, 1, 1, BUBBLE.ground),
+        cell(x + 5, y + 2, 2, 4, BUBBLE.mark),
+        cell(x + 5, y + 7, 2, 1, BUBBLE.mark)
     ];
 }
 
