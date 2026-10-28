@@ -687,7 +687,7 @@
             },
             "place": {
                 "label": "Waar pets staan",
-                "description": "Op hun node, of rondlopend onderin het scherm met een strikje in de kleur van hun node.",
+                "description": "Op hun node, of rondlopend onderin het scherm.",
                 "nodes": "Op hun node",
                 "screen": "Onderin het scherm"
             },

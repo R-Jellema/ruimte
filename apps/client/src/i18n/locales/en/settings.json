@@ -687,7 +687,7 @@
             },
             "place": {
                 "label": "Where pets are",
-                "description": "On their nodes, or roaming the bottom of the screen with a bow in their node's color.",
+                "description": "On their nodes, or roaming the bottom of the screen.",
                 "nodes": "On their nodes",
                 "screen": "Bottom of the screen"
             },
