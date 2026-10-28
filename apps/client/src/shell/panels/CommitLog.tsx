@@ -244,10 +244,13 @@ const CommitRow = memo(function CommitRow({ commit, picture, selected, now, onOp
                 <span className="truncate text-text">{commit.subject}</span>
                 {refs.slice(0, REFS_SHOWN).map((ref) => (
                     <Tooltip key={ref.name} label={ref.tracked === null ? ref.name : t('git.log.tracked', { name: ref.name, remote: ref.tracked })}>
-                        <Pill mono size="sm" className="max-w-32 min-w-0 shrink py-0">
-                            <span className="min-w-0 truncate">{ref.name}</span>
-                            {ref.tracked !== null && <Icon icon={Cloud} size={12} className="shrink-0 text-text-faint" />}
-                        </Pill>
+                        {/* A Pill takes the tooltip's click handler and turns into a button, which a row that is a button cannot hold. */}
+                        <span className="flex max-w-32 min-w-0 shrink">
+                            <Pill mono size="sm" className="min-w-0 py-0">
+                                <span className="min-w-0 truncate">{ref.name}</span>
+                                {ref.tracked !== null && <Icon icon={Cloud} size={12} className="shrink-0 text-text-faint" />}
+                            </Pill>
+                        </span>
                     </Tooltip>
                 ))}
                 {refs.length > REFS_SHOWN && (
@@ -257,9 +260,11 @@ const CommitRow = memo(function CommitRow({ commit, picture, selected, now, onOp
                             .map((ref) => ref.name)
                             .join(', ')}
                     >
-                        <Pill size="sm" className="shrink-0 py-0 tabular-nums">
-                            {t('git.log.moreRefs', { count: refs.length - REFS_SHOWN })}
-                        </Pill>
+                        <span className="flex shrink-0">
+                            <Pill size="sm" className="py-0 tabular-nums">
+                                {t('git.log.moreRefs', { count: refs.length - REFS_SHOWN })}
+                            </Pill>
+                        </span>
                     </Tooltip>
                 )}
                 {/* Under a date the age says that date again; the time of day says what it does not. */}

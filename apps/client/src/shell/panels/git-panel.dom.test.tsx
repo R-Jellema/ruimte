@@ -86,7 +86,7 @@ beforeEach(async () => {
                 subject: cwd === API ? 'feat: api work' : cwd === WEB ? 'feat: web work' : 'feat: lexer work',
                 author: 'Bas',
                 at: COMMITTED_AT,
-                refs: []
+                refs: cwd === API ? ['v1.0', 'v1.1'] : []
             }
         ],
         cursor: null
@@ -205,6 +205,14 @@ describe('the git panel over a folder of two repositories', () => {
         expect(repoRow?.textContent).toContain('web');
         await clickOn(repoRow);
         await until(() => emptyLine() === null);
+    });
+
+    test('a commit row is one button, with its tags and the count of the rest as labels inside it', async () => {
+        await until(() => document.body.textContent?.includes('feat: api work') === true);
+        const row = [...document.body.querySelectorAll('button')].find((candidate) => candidate.textContent?.includes('feat: api work'));
+        expect(row?.textContent).toContain('v1.0');
+        expect(row?.textContent).toContain('+1');
+        expect(row?.querySelector('button')).toBeNull();
     });
 
     test('the log narrows to one repository and widens again', async () => {
