@@ -89,11 +89,6 @@
             "interfaceSize": {
                 "label": "Interface font size",
                 "description": "Scales text and spacing everywhere except terminals and code."
-            },
-            "mono": {
-                "label": "Monospace font",
-                "description": "For terminals and code. Falls back to the system font if missing.",
-                "system": "System"
             }
         },
         "sidebar": {
@@ -125,9 +120,14 @@
         "general": {
             "font": {
                 "title": "Font",
+                "family": {
+                    "label": "Editor font",
+                    "description": "For code and diffs in the editor, files, chats and the git panel. Falls back to the system font if missing.",
+                    "system": "System"
+                },
                 "size": {
                     "label": "Code font size",
-                    "description": "Code and diffs in files, the editor and the git panel. Chats keep their own size. The font itself is under Appearance.",
+                    "description": "Code and diffs in files, the editor and the git panel. Chats keep their own size.",
                     "preview": "Code at the chosen size"
                 },
                 "lineHeight": {
@@ -565,9 +565,15 @@
     "terminal": {
         "font": {
             "title": "Font",
+            "family": {
+                "label": "Terminal font",
+                "description": "Falls back to the system font if missing.",
+                "editor": "Same as Editor",
+                "system": "System"
+            },
             "size": {
                 "label": "Terminal font size",
-                "description": "The font itself is under Appearance."
+                "description": "The size of the text in every terminal."
             },
             "lineHeight": {
                 "label": "Terminal line height",

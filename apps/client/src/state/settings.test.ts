@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { bundledThemesInfo } from 'shiki/themes';
 import { DEFAULT_STUN_SERVER } from '@ruimte/pulsar';
 import { DEFAULT_CODE_FOLDING } from './code-folding';
-import { codeLineHeight, codeThemesOf, iceServersFrom, settingsFrom, useSettings, type KeepAwakeMode, type Settings } from './settings';
+import { codeLineHeight, codeThemesOf, iceServersFrom, settingsFrom, terminalFontOf, useSettings, type KeepAwakeMode, type Settings } from './settings';
 
 test('project glow defaults to on while preserving an explicit opt-out', () => {
     expect(settingsFrom({}).projectGlow).toBe(true);
@@ -14,6 +14,20 @@ test("a fresh client keeps the theme's own grays and a gone preset falls back to
     expect(settingsFrom({}).palette).toBe('default');
     expect(settingsFrom({ palette: 'slate' }).palette).toBe('slate');
     expect(settingsFrom({ palette: 'sepia' as Settings['palette'] }).palette).toBe('default');
+});
+
+describe('the terminal font', () => {
+    test('follows the editor unless a font is stored, and an unknown value falls back', () => {
+        expect(settingsFrom({}).terminalFont).toBe('editor');
+        expect(settingsFrom({ terminalFont: 'editor' }).terminalFont).toBe('editor');
+        expect(settingsFrom({ terminalFont: 'fira' }).terminalFont).toBe('fira');
+        expect(settingsFrom({ terminalFont: 'comic' as Settings['terminalFont'] }).terminalFont).toBe('editor');
+    });
+
+    test('resolves to the editor font while it follows and to its own font otherwise', () => {
+        expect(terminalFontOf({ font: 'jetbrains', terminalFont: 'editor' })).toBe('jetbrains');
+        expect(terminalFontOf({ font: 'jetbrains', terminalFont: 'menlo' })).toBe('menlo');
+    });
 });
 
 describe('project navigation', () => {

@@ -89,11 +89,6 @@
             "interfaceSize": {
                 "label": "Tekstgrootte interface",
                 "description": "Schaalt tekst en ruimte overal, behalve in terminals en code."
-            },
-            "mono": {
-                "label": "Monospace-lettertype",
-                "description": "Voor terminals en code. Valt terug op het systeemlettertype als het ontbreekt.",
-                "system": "Systeem"
             }
         },
         "sidebar": {
@@ -125,9 +120,14 @@
         "general": {
             "font": {
                 "title": "Lettertype",
+                "family": {
+                    "label": "Editorlettertype",
+                    "description": "Voor code en diffs in de editor, bestanden, chats en het git-paneel. Valt terug op het systeemlettertype als het ontbreekt.",
+                    "system": "Systeem"
+                },
                 "size": {
                     "label": "Tekstgrootte code",
-                    "description": "Code en diffs in bestanden, de editor en het git-paneel. Chats houden hun eigen grootte. Het lettertype zelf staat onder Uiterlijk.",
+                    "description": "Code en diffs in bestanden, de editor en het git-paneel. Chats houden hun eigen grootte.",
                     "preview": "Code op de gekozen grootte"
                 },
                 "lineHeight": {
@@ -565,9 +565,15 @@
     "terminal": {
         "font": {
             "title": "Lettertype",
+            "family": {
+                "label": "Terminallettertype",
+                "description": "Valt terug op het systeemlettertype als het ontbreekt.",
+                "editor": "Zelfde als editor",
+                "system": "Systeem"
+            },
             "size": {
                 "label": "Tekstgrootte terminal",
-                "description": "Het lettertype zelf staat onder Uiterlijk."
+                "description": "De grootte van de tekst in elke terminal."
             },
             "lineHeight": {
                 "label": "Regelhoogte terminal",

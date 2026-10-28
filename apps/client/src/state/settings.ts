@@ -54,6 +54,17 @@ export const MONO_FONTS = [
 
 export type MonoFontId = (typeof MONO_FONTS)[number]['id'];
 
+export type TerminalFontId = MonoFontId | 'editor';
+
+export function monoFontStack(id: MonoFontId): string {
+    return (MONO_FONTS.find((entry) => entry.id === id) ?? MONO_FONTS[0]).stack;
+}
+
+/* The face the terminals draw in: their own pick, or the editor's while the pick is `editor`. */
+export function terminalFontOf(settings: Pick<Settings, 'font' | 'terminalFont'>): MonoFontId {
+    return settings.terminalFont === 'editor' ? settings.font : settings.terminalFont;
+}
+
 /* Inter, IBM Plex Sans and Geist are bundled; a browser fetches a face only once a stack uses it. */
 export const INTERFACE_FONTS = [
     { id: 'system', label: 'System', stack: '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif' },
@@ -259,6 +270,8 @@ export interface Settings {
     onboardingSkipWelcome: boolean;
     /* Whether a file ends in a line break after a save. On, since a file without one shows up in every diff and in tools that read lines. */
     codeEnsureFinalNewline: boolean;
+    /* The face of the terminals; `editor` follows `font`, so a client that stored nothing sees one face everywhere. */
+    terminalFont: TerminalFontId;
 }
 
 /* What `RTCPeerConnection` takes for the servers in the setting; none for an empty field. */
@@ -340,7 +353,8 @@ const DEFAULT_SETTINGS: Settings = {
     onboardingSeen: false,
     onboardingIntroSeen: false,
     onboardingSkipWelcome: false,
-    codeEnsureFinalNewline: true
+    codeEnsureFinalNewline: true,
+    terminalFont: 'editor'
 };
 
 // Rounded as well as clamped: storage can still hold a half pixel, and text renders sharpest on a whole one.
@@ -444,7 +458,9 @@ export function settingsFrom(stored: Partial<Settings>): Settings {
         onboardingSeen: stored.onboardingSeen === true,
         onboardingIntroSeen: stored.onboardingIntroSeen === true,
         onboardingSkipWelcome: stored.onboardingSkipWelcome === true,
-        codeEnsureFinalNewline: stored.codeEnsureFinalNewline !== false
+        codeEnsureFinalNewline: stored.codeEnsureFinalNewline !== false,
+        terminalFont:
+            stored.terminalFont === 'editor' ? 'editor' : (MONO_FONTS.find((entry) => entry.id === stored.terminalFont)?.id ?? DEFAULT_SETTINGS.terminalFont)
     };
 }
 
@@ -534,8 +550,12 @@ function apply(settings: Settings): void {
     applyColors(settings.palette, settings.accent);
     const interfaceFont = INTERFACE_FONTS.find((entry) => entry.id === settings.interfaceFont);
     setFontStack('--font-sans', interfaceFont && interfaceFont.id !== 'system' ? interfaceFont.stack : null);
+    // The editor's face lives in `--font-code`, which `styles.css` hands to the page as `--font-mono` from the body down.
+    // The root keeps the terminals' face in `--font-mono`, because that is where the terminal library reads it.
     const font = MONO_FONTS.find((entry) => entry.id === settings.font);
-    setFontStack('--font-mono', font && font.id !== 'system' ? font.stack : null);
+    setFontStack('--font-code', font && font.id !== 'system' ? font.stack : null);
+    const terminalFont = MONO_FONTS.find((entry) => entry.id === terminalFontOf(settings));
+    setFontStack('--font-mono', terminalFont && terminalFont.id !== 'system' ? terminalFont.stack : null);
     if (settings.codeLigatures) {
         root.removeProperty('font-variant-ligatures');
     } else {

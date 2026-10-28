@@ -1,12 +1,12 @@
 import { useTranslation } from 'react-i18next';
-import { Segmented, Stepper, Switch } from '@adecore/ui';
+import { Segmented, Select, Stepper, Switch } from '@adecore/ui';
 import { SettingsRow } from '@adecore/ui/settings';
 import { RENDERED_DOC_COMMENTS } from '@/features';
 import { CodeThemePreview } from '@/shell/settings/panes/CodeSection';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { SettingSwitchRow } from '@/shell/settings/SettingSwitchRow';
 import { useCodeTheme } from '@/state/code-theme';
-import { CODE_LINE_HEIGHT_RANGE, FONT_SIZE_RANGE, TRAILING_WHITESPACE_MODES, type TrailingWhitespaceMode, useSettings } from '@/state/settings';
+import { CODE_LINE_HEIGHT_RANGE, FONT_SIZE_RANGE, MONO_FONTS, TRAILING_WHITESPACE_MODES, type TrailingWhitespaceMode, useSettings } from '@/state/settings';
 import { useTheme } from '@/state/theme';
 
 const CODE_SIZE_PREVIEW = ['export function greet(name: string): string {', '    return `Hello ${name}.`;', '}'].join('\n');
@@ -14,6 +14,7 @@ const CODE_SIZE_PREVIEW = ['export function greet(name: string): string {', '   
 /* How code is drawn and how the caret moves through it, in the editor and, where the words say so, in files and diffs. */
 export function EditorGeneralTab() {
     const { t } = useTranslation('settings');
+    const font = useSettings((s) => s.font);
     const codeFontSize = useSettings((s) => s.codeFontSize);
     const codeLineHeight = useSettings((s) => s.codeLineHeight);
     const smartKeys = useSettings((s) => s.smartKeys);
@@ -25,6 +26,23 @@ export function EditorGeneralTab() {
     return (
         <>
             <SettingsSection title={t('editor.general.font.title')}>
+                <SettingsRow
+                    searchId="editor.general.font.family"
+                    label={t('editor.general.font.family.label')}
+                    description={t('editor.general.font.family.description')}
+                    control={
+                        <Select
+                            value={font}
+                            label={t('editor.general.font.family.label')}
+                            align="end"
+                            items={MONO_FONTS.map((entry) => ({
+                                value: entry.id,
+                                label: entry.id === 'system' ? t('editor.general.font.family.system') : entry.label
+                            }))}
+                            onValueChange={(value) => update({ font: value })}
+                        />
+                    }
+                />
                 <SettingsRow
                     searchId="editor.general.font.size"
                     label={t('editor.general.font.size.label')}
