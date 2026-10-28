@@ -551,12 +551,11 @@ function apply(settings: Settings): void {
     applyColors(settings.palette, settings.accent);
     const interfaceFont = INTERFACE_FONTS.find((entry) => entry.id === settings.interfaceFont);
     setFontStack('--font-sans', interfaceFont && interfaceFont.id !== 'system' ? interfaceFont.stack : null);
-    // The editor's face lives in `--font-code`, which `styles.css` hands to the page as `--font-mono` from the body down.
-    // The root keeps the terminals' face in `--font-mono`, because that is where the terminal library reads it.
     const font = MONO_FONTS.find((entry) => entry.id === settings.font);
-    setFontStack('--font-code', font && font.id !== 'system' ? font.stack : null);
-    const terminalFont = MONO_FONTS.find((entry) => entry.id === terminalFontOf(settings));
-    setFontStack('--font-mono', terminalFont && terminalFont.id !== 'system' ? terminalFont.stack : null);
+    setFontStack('--font-mono', font && font.id !== 'system' ? font.stack : null);
+    // Unset, the terminal library falls back to `--font-mono`, so "Same as Editor" needs no stack of its own.
+    const terminalFont = settings.terminalFont === 'editor' ? undefined : MONO_FONTS.find((entry) => entry.id === settings.terminalFont);
+    setFontStack('--term-font', terminalFont && terminalFont.id !== 'system' ? terminalFont.stack : null);
     if (settings.codeLigatures) {
         root.removeProperty('font-variant-ligatures');
     } else {

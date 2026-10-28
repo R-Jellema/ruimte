@@ -55,6 +55,6 @@ export function readFontStacks(): Record<DrawingFont, string> {
     return {
         hand: DEFAULT_FONT_STACKS.hand,
         sans: tokenValue('--font-sans') || DEFAULT_FONT_STACKS.sans,
-        mono: tokenValue('--font-code') || DEFAULT_FONT_STACKS.mono
+        mono: tokenValue('--font-mono') || DEFAULT_FONT_STACKS.mono
     };
 }

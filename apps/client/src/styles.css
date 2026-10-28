@@ -319,12 +319,6 @@
         overscroll-behavior: none;
     }
 
-    /* The root's `--font-mono` is the terminals' face, since the terminal library reads it there. Everything
-       below the root draws monospace in the editor's face, or in the platform's own while none is picked. */
-    body {
-        --font-mono: var(--font-code, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace);
-    }
-
     /* A Home Screen app on iPadOS draws under the status bar and its fade, and a phone under the notch
        and the home indicator; the insets are 0 everywhere else. The body's background fills the strip. */
     #root {
