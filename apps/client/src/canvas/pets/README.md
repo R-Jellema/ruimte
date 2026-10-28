@@ -10,18 +10,23 @@ the file system, the daemon's folders or a project file.
 - What it shows: working, waiting on you, idle or stopped. Waiting is the "needs you" every count
   reads (`groupAttention`). A waiting pet has a black speech bubble with an orange exclamation mark
   and jumps until the question or approval is answered. A wait a person snoozed keeps its bubble until
-  it is answered but does not jump, and with reduced motion no pet jumps.
+  it is answered but does not jump. With reduced motion nothing moves: every pet holds one frame, and
+  that follows the system setting as it changes.
 - A pet paints its canvas only when the picture changes (`petPainter`), so a strip of one frame at
   rest paints once.
 - A click goes to the node (`goToNode`): the camera centers on it and selects it, and Back in the
   camera history returns.
+- Only the figure at rest takes a press (`petHitBox`, 52 by 36 world pixels from its feet up); the
+  bubble and the room to jump above it never do. Where that box lies on another node (`coversOtherNode`,
+  a group aside), or while a line is being aimed, the pet takes no press at all, so a press on the
+  bottom of a node standing close above still lands in that node. Its button still takes the keyboard.
 - One interval for the page drives every pet (`ticker.ts`), only while a pet is mounted, and a pet
   whose node is out of view mounts no canvas (`useNodeInViewport`).
 
 ## The visitor
 
 While Pets is off, a pet now and then stands beside a node on screen for four seconds and fades
-away (`visitor.ts`). One clock for the page, a first visit 20 to 60 minutes after a canvas opens and
+away (`visitor.ts`), never where it would stand on another node. One clock for the page, a first visit 20 to 60 minutes after a canvas opens and
 the next 20 to 60 minutes after that, only while the window is visible and nobody is dragging or has
 a node maximized. It takes no press and has no row in Settings. The setting `petsVisitor` in
 `ruimte.settings` turns it off: set it to `false` in this client's storage.

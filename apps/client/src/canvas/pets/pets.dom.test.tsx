@@ -82,6 +82,29 @@ describe('pets on a canvas', () => {
         expect(pet(WRITER.id)?.getAttribute('aria-label')).toBe('Go to Writer');
     });
 
+    test('a pet standing on the node above takes no press, so the bottom of that node stays its own', async () => {
+        // happy-dom does no hit testing, so this holds what decides it: the box that takes a press and whether it takes one.
+        const upper: ProjectNode = { id: 'upper', kind: 'chat', title: 'Upper', x: 0, y: 0, w: 480, h: 300 };
+        const close: ProjectNode = { id: 'close', kind: 'chat', title: 'Close', x: 0, y: 310, w: 480, h: 300 };
+        const spaced: ProjectNode = { id: 'spaced', kind: 'chat', title: 'Spaced', x: 600, y: 340, w: 480, h: 300 };
+        const above: ProjectNode = { id: 'above', kind: 'chat', title: 'Above', x: 600, y: 0, w: 480, h: 300 };
+        useSettings.getState().update({ pets: true });
+        canvas = await openCanvasPage(machine, [{ ...MAIN, nodes: [PLAN, upper, close, above, spaced] }], PLAN.id);
+        await act(async () => {
+            for (const node of [upper, close, above, spaced]) {
+                machine.emit('chat.status', { chatId: node.id, info: chatInfoOf(node.id) });
+            }
+        });
+        await until(() => pet(spaced.id) !== null && pet(close.id) !== null);
+
+        expect(pet(close.id)?.hasAttribute('data-pet-blocked')).toBe(true);
+        expect(pet(close.id)?.classList.contains('pointer-events-none')).toBe(true);
+        // Forty pixels apart, the gap new nodes get, the figure stands clear of the node above and takes its press.
+        expect(pet(spaced.id)?.hasAttribute('data-pet-blocked')).toBe(false);
+        expect(pet(spaced.id)?.classList.contains('pointer-events-auto')).toBe(true);
+        expect(pet(spaced.id)?.style.height).toBe('36px');
+    });
+
     test('a click on a pet brings its node to the middle of the view and selects it', async () => {
         useSettings.getState().update({ pets: true });
         await open();

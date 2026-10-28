@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { createVisitor, VISIT_GAP_MS, visitDelay, visitSpot, type VisitClock } from '@/canvas/pets/visitor';
+import type { CanvasNode } from '@/state/canvas';
 
 /* A clock a test turns by hand: timers wait until `advance` passes their time. */
 function fakeClock(random: () => number = () => 0.5) {
@@ -93,16 +94,26 @@ describe('when a visitor comes', () => {
 describe('where a visitor stands', () => {
     const visible = { x: 0, y: 0, w: 1000, h: 800 };
 
+    function nodesOf(...list: Record<string, unknown>[]): Record<string, CanvasNode> {
+        return Object.fromEntries(list.map((node) => [node.id, node as unknown as CanvasNode]));
+    }
+
     test('above a node on screen, and never on a group or a node at the edge of the view', () => {
-        const nodes = [
+        const nodes = nodesOf(
             { id: 'group', kind: 'group', x: 0, y: 100, w: 600, h: 600 },
             { id: 'edge', kind: 'note', x: 0, y: 10, w: 200, h: 200 },
-            { id: 'plan', kind: 'note', x: 100, y: 200, w: 300, h: 200 }
-        ];
-        expect(visitSpot(nodes, visible, () => 0)).toEqual({ nodeId: 'plan', x: 124, y: 200 - 62 + 2 });
+            { id: 'plan', kind: 'note', x: 100, y: 300, w: 300, h: 200 }
+        );
+        expect(visitSpot(nodes, new Set(), visible, () => 0)).toEqual({ nodeId: 'plan', x: 124, y: 300 - 62 + 2 });
+    });
+
+    test('never where it would stand on another node', () => {
+        const nodes = nodesOf({ id: 'upper', kind: 'note', x: 100, y: 0, w: 300, h: 290 }, { id: 'lower', kind: 'note', x: 100, y: 300, w: 300, h: 200 });
+        expect(visitSpot(nodes, new Set(), visible, () => 0)).toBeNull();
+        expect(visitSpot(nodes, new Set(['upper']), visible, () => 0)?.nodeId).toBe('lower');
     });
 
     test('nowhere when no node is in view', () => {
-        expect(visitSpot([{ id: 'far', kind: 'note', x: 4000, y: 4000, w: 200, h: 200 }], visible, () => 0)).toBeNull();
+        expect(visitSpot(nodesOf({ id: 'far', kind: 'note', x: 4000, y: 4000, w: 200, h: 200 }), new Set(), visible, () => 0)).toBeNull();
     });
 });

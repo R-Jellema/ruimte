@@ -16,7 +16,8 @@ export function CanvasPets({ z }: { z: number }) {
         return null;
     }
     return (
-        <ErrorBoundary label={t('pets.failed')} compact>
+        // Turning either one off and on again tries once more after a failure.
+        <ErrorBoundary label={t('pets.failed')} resetKeys={[pets, visitor]} compact>
             <LazyBoundary>
                 <PetLayer z={z} />
             </LazyBoundary>

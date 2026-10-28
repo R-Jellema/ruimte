@@ -1,8 +1,7 @@
 import { create } from 'zustand';
 import { z } from 'zod';
+import { onPetSpritesChanged, PET_SPRITES_STORAGE_KEY } from '@/canvas/pets/sprites-key';
 import { storedJson } from '@/state/stored-json';
-
-export const PET_SPRITES_STORAGE_KEY = 'ruimte.pets.sprites';
 
 /*
  * The bounds of a sprite a person adds. It lives in this client's storage beside the settings, which
@@ -179,6 +178,8 @@ export const usePetSprites = create<PetSpritesStore>((set, get) => ({
     }
 }));
 
+onPetSpritesChanged(() => usePetSprites.getState().reload());
+
 export interface SheetFile {
     name: string;
     type: string;
@@ -213,9 +214,21 @@ export async function addPetSprite(
     try {
         image = await reader.dataUrl(file);
         facts = imageFacts(image);
-        if (facts === null) {
-            return { problem: 'unreadable' };
-        }
+    } catch {
+        return { problem: 'unreadable' };
+    }
+    if (facts === null) {
+        return { problem: 'unreadable' };
+    }
+    if (facts.bytes > SHEET_LIMITS.bytes) {
+        return { problem: 'bytes' };
+    }
+    // The size in the header is checked before anything decodes, so a small file that claims a huge image is never drawn out.
+    const layout = sheetLayout(facts.width, facts.height);
+    if ('problem' in layout) {
+        return layout;
+    }
+    try {
         // The browser decodes it too, so a header that lies about the rest of the file is caught here.
         const decoded = await reader.size(image);
         if (decoded.width !== facts.width || decoded.height !== facts.height) {
@@ -223,13 +236,6 @@ export async function addPetSprite(
         }
     } catch {
         return { problem: 'unreadable' };
-    }
-    if (facts.bytes > SHEET_LIMITS.bytes) {
-        return { problem: 'bytes' };
-    }
-    const layout = sheetLayout(facts.width, facts.height);
-    if ('problem' in layout) {
-        return layout;
     }
     const sprite: CustomPetSprite = { id: newId(), name: spriteNameOf(file.name), image, ...layout };
     return usePetSprites.getState().add(sprite) ? { sprite } : { problem: 'storage' };

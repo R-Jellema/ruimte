@@ -4,7 +4,7 @@ import type { ChatState } from '@adecore/agents-react/state';
 import { CLAUDE_BUDDY, CODEX_BUDDY } from '@/canvas/pets/buddies';
 import { FOX_SPRITE, FROG_SPRITE } from '@/canvas/pets/animals';
 import { JUMP_ROWS, PET_POSES } from '@/canvas/pets/pixel';
-import { builtInSprite, PET_HEIGHT, petChoiceOf, petFrame, petPlace, petsOf } from '@/canvas/pets/pet-state';
+import { builtInSprite, coversOtherNode, PET_HEIGHT, PET_HIT_HEIGHT, petChoiceOf, petFrame, petHitBox, petPlace, petsOf } from '@/canvas/pets/pet-state';
 import type { CanvasNode } from '@/state/canvas';
 import type { SessionState } from '@/state/sessions';
 import { chatInfoOf } from '../../../testing/chat-info';
@@ -84,9 +84,13 @@ describe('what a pet shows', () => {
         expect(frames.at(-1)?.lift).toBe(0);
     });
 
-    test('with reduced motion a waiting pet keeps its bubble and stands still', () => {
+    test('with reduced motion nothing moves: a waiting pet keeps its bubble, and every pet holds one frame', () => {
         const frames = Array.from({ length: 8 }, (_, tick) => petFrame('waiting', tick, true));
         expect(frames.every((frame) => frame.bubble && frame.lift === 0)).toBe(true);
+        for (const mood of ['waiting', 'snoozed', 'working', 'idle', 'stopped', 'visiting'] as const) {
+            const still = Array.from({ length: 24 }, (_, tick) => petFrame(mood, tick, true));
+            expect(new Set(still.map((frame) => JSON.stringify(frame))).size).toBe(1);
+        }
     });
 
     test('no bubble and no jump once the question is answered', () => {
@@ -127,6 +131,43 @@ describe('the figures', () => {
         expect(petChoiceOf('custom:gone', ['a1'])).toEqual({ kind: 'built-in', set: 'buddies' });
         expect(petChoiceOf('animals', [])).toEqual({ kind: 'built-in', set: 'animals' });
         expect(petChoiceOf('dragons', [])).toEqual({ kind: 'built-in', set: 'buddies' });
+    });
+});
+
+describe('where a press on a pet lands', () => {
+    function chatAt(id: string, y: number): CanvasNode {
+        return { id, kind: 'chat', x: 0, y, w: 480, h: 300 } as CanvasNode;
+    }
+
+    test('only on the figure at rest, from its feet on the node up, never on the bubble or the room to jump', () => {
+        const box = petHitBox({ x: 100, y: 200, w: 400 });
+        expect(box.h).toBe(PET_HIT_HEIGHT);
+        expect(box.y + box.h).toBe(202);
+        expect(box.y).toBeGreaterThan(petPlace({ x: 100, y: 200, w: 400 }).y);
+    });
+
+    test('a node 40 pixels under another, the gap new nodes get, keeps its pet off the one above', () => {
+        const nodes = { upper: chatAt('upper', 0), lower: chatAt('lower', 340) };
+        const box = petHitBox(nodes.lower);
+        expect(box.y).toBeGreaterThanOrEqual(nodes.upper.y + nodes.upper.h);
+        expect(coversOtherNode(box, 'lower', nodes, new Set())).toBe(false);
+        expect(
+            petsOf(nodes, new Set(), {}, { 'local:upper': chat('upper', 'idle'), 'local:lower': chat('lower', 'idle') }, 'local', {}).map((pet) => pet.blocked)
+        ).toEqual([false, false]);
+    });
+
+    test('a pet whose figure stands on the node above leaves the press to that node', () => {
+        const nodes = { upper: chatAt('upper', 0), lower: chatAt('lower', 310) };
+        const pets = petsOf(nodes, new Set(), {}, { 'local:upper': chat('upper', 'idle'), 'local:lower': chat('lower', 'needs-you') }, 'local', {});
+        expect(pets.find((pet) => pet.id === 'lower')?.blocked).toBe(true);
+        expect(pets.find((pet) => pet.id === 'upper')?.blocked).toBe(false);
+    });
+
+    test('a group the node stands in, or a node a collapsed group hides, does not block it', () => {
+        const lower = chatAt('lower', 310);
+        const group = { id: 'team', kind: 'group', x: -40, y: -40, w: 600, h: 700 } as CanvasNode;
+        expect(coversOtherNode(petHitBox(lower), 'lower', { lower, team: group }, new Set())).toBe(false);
+        expect(coversOtherNode(petHitBox(lower), 'lower', { lower, upper: chatAt('upper', 0) }, new Set(['upper']))).toBe(false);
     });
 });
 

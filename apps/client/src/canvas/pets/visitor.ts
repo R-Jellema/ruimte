@@ -1,5 +1,6 @@
 import type { Rect } from '@/canvas/math';
-import { PET_HEIGHT, PET_WIDTH, visitorPlace } from '@/canvas/pets/pet-state';
+import { coversOtherNode, PET_HEIGHT, PET_HIT_HEIGHT, PET_WIDTH, visitorPlace } from '@/canvas/pets/pet-state';
+import type { CanvasNode } from '@/state/canvas';
 
 /* How long after the last visit, or after a canvas opened, a pet may drop by: somewhere in this window. */
 export const VISIT_GAP_MS = { min: 20 * 60_000, max: 60 * 60_000 } as const;
@@ -75,13 +76,19 @@ export interface VisitSpot {
     y: number;
 }
 
-/* A node on screen whose top edge has room for a visitor in view, picked at random; none when no node offers it. */
-export function visitSpot(nodes: readonly (Rect & { id: string; kind: string })[], visible: Rect, random: () => number): VisitSpot | null {
-    const spots = nodes
-        .filter((node) => node.kind !== 'group')
+/*
+ * A node on screen whose top edge has room for a visitor in view, picked at random; none when no node
+ * offers it. A spot where the figure would stand on another node is no room: a visitor never covers work.
+ */
+export function visitSpot(nodes: Readonly<Record<string, CanvasNode>>, hidden: ReadonlySet<string>, visible: Rect, random: () => number): VisitSpot | null {
+    const spots = Object.values(nodes)
+        .filter((node) => node.kind !== 'group' && !hidden.has(node.id))
         .map((node) => ({ nodeId: node.id, ...visitorPlace(node) }))
         .filter(
             (spot) => spot.x >= visible.x && spot.y >= visible.y && spot.x + PET_WIDTH <= visible.x + visible.w && spot.y + PET_HEIGHT <= visible.y + visible.h
+        )
+        .filter(
+            (spot) => !coversOtherNode({ x: spot.x, y: spot.y + PET_HEIGHT - PET_HIT_HEIGHT, w: PET_WIDTH, h: PET_HIT_HEIGHT }, spot.nodeId, nodes, hidden)
         );
     if (spots.length === 0) {
         return null;
