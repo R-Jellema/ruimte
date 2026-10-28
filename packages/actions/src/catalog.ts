@@ -96,6 +96,9 @@ import {
     RuntimeModeSchema,
     SECRET_LIMITS,
     SECRET_VARIABLE_PATTERN,
+    TEMPLATE_LANGUAGES,
+    TEMPLATE_LIMITS,
+    TEMPLATE_PLACES,
     TaskSchema,
     UNKNOWN_KIND,
     UsageProviderSchema,
@@ -4543,6 +4546,57 @@ export const ACTION_DEFINITIONS = {
             command: z.string(),
             installed: z.boolean()
         })
+    },
+    'template.list': {
+        title: 'List the editor templates',
+        description:
+            'Lists the live and postfix templates the editor expands in this project: the built-in ones that are switched on, the ones of the person and the ones the project shares. A built-in template has no body here.',
+        effect: 'read',
+        domain: 'developer',
+        actors: AGENT,
+        input: z.object({ language: z.enum(TEMPLATE_LANGUAGES).nullish().describe('Only the templates that apply to this language family') }),
+        output: z.object({
+            templates: z.array(
+                z.object({
+                    id: z.string(),
+                    kind: z.enum(['live', 'postfix']),
+                    key: z.string(),
+                    languages: z.array(z.string()),
+                    source: z.enum(['built-in', 'personal', 'project']),
+                    description: z.string().nullable(),
+                    body: z.string().nullable()
+                })
+            )
+        })
+    },
+    'template.add': {
+        title: 'Add an editor template',
+        description:
+            "Adds a new template to the person's own set, marked as added by an agent. It never changes or removes a template, never writes the project's file, and refuses a key that an enabled template for one of the same languages already has.",
+        effect: 'local',
+        domain: 'developer',
+        actors: AGENT,
+        input: z.object({
+            kind: z.enum(['live', 'postfix']).describe('A live template expands on Tab after its key; a postfix template wraps the expression before a dot'),
+            key: z
+                .string()
+                .min(1)
+                .max(TEMPLATE_LIMITS.key)
+                .describe('What the person types; a live key has no whitespace, a postfix key holds letters, digits, _ and $'),
+            body: z
+                .string()
+                .min(1)
+                .max(TEMPLATE_LIMITS.body)
+                .describe('The text in snippet syntax: $0 and ${1:name} are stops, and $EXPR is the expression of a postfix template'),
+            languages: z
+                .array(z.enum(TEMPLATE_LANGUAGES))
+                .min(1)
+                .describe('The language families it applies to; a postfix template takes javascript, typescript and php only'),
+            description: z.string().max(TEMPLATE_LIMITS.description).nullish().describe('One line shown beside the template in the list'),
+            places: z.array(z.enum(TEMPLATE_PLACES)).nullish().describe('Where a live template applies; code without it'),
+            expression: z.enum(['any', 'statement']).nullish().describe('What a postfix template wraps; any without it')
+        }),
+        output: z.object({ id: z.string(), kind: z.enum(['live', 'postfix']), key: z.string() })
     },
     'provider.catalog': {
         title: 'Read the ACP registry',

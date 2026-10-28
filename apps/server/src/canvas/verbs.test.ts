@@ -634,7 +634,7 @@ describe('help', () => {
         expect(lines.at(-6)).toBe('ids\tIds in this output are for your commands. When you talk to the person, name things by their title, never by id');
         const dryRun = lines.at(-5)!.split('\t');
         expect(dryRun.slice(0, 2)).toEqual(['dry run', '--dry-run']);
-        expect(dryRun[2]!.split(', ').toSorted()).toEqual(['agent', 'node color', 'node new', 'plan new', 'team', 'view drawing']);
+        expect(dryRun[2]!.split(', ').toSorted()).toEqual(['agent', 'node color', 'node new', 'plan new', 'team', 'template new', 'view drawing']);
         expect(dryRun[3]).toBe(
             'same checks, nothing made; a refused call makes nothing either, so it is only a preview and never needed for safety; every other verb refuses the flag'
         );
@@ -2480,6 +2480,7 @@ describe('--dry-run', () => {
             'verb\tnode new\ttakes --dry-run',
             'verb\tplan new\ttakes --dry-run',
             'verb\tteam\ttakes --dry-run',
+            'verb\ttemplate new\ttakes --dry-run',
             'verb\tview drawing\ttakes --dry-run'
         ]);
         expect((await post('link', ['new', '--to', 'note-1', '--dry-run'])).lines[0]).toStartWith('refused\tno-dry-run\t');

@@ -18,6 +18,14 @@ const secret = {
     placeholder: 'sk_test_...',
     wait: 30
 } as const;
+const template: ActionInput<'template.add'> = {
+    kind: 'live',
+    key: 'tdd',
+    body: 'it("$1", () => {\n\t$0\n});',
+    languages: ['typescript'],
+    description: 'A test',
+    places: ['code']
+};
 const routine: ActionInput<'routine.create'> = {
     title: 'Weekly report',
     schedule: { kind: 'weekly', days: [1, 2, 3, 4, 5], time: '09:00' },
@@ -280,6 +288,16 @@ export const cases: WriteCases = {
             'a variable past its limit': { ...secret, variable: 'K'.repeat(SECRET_LIMITS.variable + 1) },
             'a blank reason': { ...secret, reason: ' ' },
             'a wait past what a call holds': { ...secret, wait: 111 }
+        }
+    },
+    'template.add': {
+        actors: ['agent'],
+        input: template,
+        refused: {
+            'a blank key': { ...template, key: '' },
+            'no language': { ...template, languages: [] },
+            'a language it has not': { ...template, languages: ['cobol'] },
+            'a place it has not': { ...template, places: ['margin'] }
         }
     },
     'database.request': {

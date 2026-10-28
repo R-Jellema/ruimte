@@ -20,6 +20,7 @@ import { nodeColorAction } from './color-verb.ts';
 import { nodeEditAction } from './edit-verb.ts';
 import { groupAction } from './group-verb.ts';
 import { LANGUAGE_ACTIONS, LANGUAGE_DETAIL, LANGUAGE_SUMMARY } from './language-verb.ts';
+import { TEMPLATE_ACTIONS, TEMPLATE_DETAIL, TEMPLATE_SUMMARY } from './template-verb.ts';
 import { PROVIDER_ACTIONS, PROVIDER_DETAIL, PROVIDER_SUMMARY } from './provider-verb.ts';
 import { LAUNCHES_ACTIONS, LAUNCHES_DETAIL, LAUNCHES_SUMMARY } from './launch-verb.ts';
 import { linkDeleteAction, linkListAction, linkNewAction } from './link-verb.ts';
@@ -230,6 +231,13 @@ const languageNoun = defineNoun({
     actions: [...LANGUAGE_ACTIONS]
 });
 
+const templateNoun = defineNoun({
+    name: 'template',
+    summary: TEMPLATE_SUMMARY,
+    detail: TEMPLATE_DETAIL,
+    actions: [...TEMPLATE_ACTIONS]
+});
+
 const providerNoun = defineNoun({
     name: 'provider',
     summary: PROVIDER_SUMMARY,
@@ -280,6 +288,7 @@ export const VERBS: readonly VerbEntry[] = [
     projectNoun,
     databaseNoun,
     languageNoun,
+    templateNoun,
     providerNoun,
     computerNoun
 ];

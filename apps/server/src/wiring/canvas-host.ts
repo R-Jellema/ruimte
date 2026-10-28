@@ -26,6 +26,7 @@ import type { ProvidersBundle } from './providers.ts';
 import { chatIsInChats } from './chat-move.ts';
 import type { RemoteBundle } from './remote.ts';
 import type { RoutinesBundle } from './routines.ts';
+import type { TemplatesBundle } from './templates.ts';
 import type { UsageBundle } from './usage.ts';
 
 interface CanvasHostInput {
@@ -43,6 +44,7 @@ interface CanvasHostInput {
     usage: UsageBundle;
     artifacts: ArtifactsBundle;
     routines: RoutinesBundle;
+    templates: TemplatesBundle;
     later: {
         language(): LanguageHost;
         push(): PushService;
@@ -140,7 +142,8 @@ export function wireCanvasHost(input: CanvasHostInput): CanvasHost {
         proposals: { inChats: (chatId) => chatIsInChats(projects, chatId), propose: (ask) => Promise.resolve(agents.proposals.ask(ask)) },
         snoozes: work.snoozes,
         artifacts: input.artifacts.artifacts,
-        routines: agentRoutines(input.routines.routines, (id) => projects.index.titleFor(id))
+        routines: agentRoutines(input.routines.routines, (id) => projects.index.titleFor(id)),
+        templates: input.templates.store
     };
     const forkDeps = chatForkDeps({
         chats,

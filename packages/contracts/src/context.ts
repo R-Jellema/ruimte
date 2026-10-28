@@ -60,6 +60,7 @@ export const CONTEXT_VERBS = [
     'project',
     'database',
     'language',
+    'template',
     'provider',
     'computer'
 ] as const;

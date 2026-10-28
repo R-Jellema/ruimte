@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import {
+    BUILT_IN_LIVE_TEMPLATE_KEYS,
+    BUILT_IN_POSTFIX_TEMPLATE_KEYS,
     LiveTemplateSchema,
     PostfixTemplateSchema,
     TEMPLATES_VERSION,
@@ -14,6 +16,7 @@ import {
     type TemplateAddedBy,
     type TemplateConfigurePayload,
     type TemplateConfigureResult,
+    type TemplateKind,
     type TemplateListResult,
     type TemplateRemovePayload,
     type TemplateRemoveResult,
@@ -58,6 +61,17 @@ export class TemplateError extends CodedError<TemplateErrorCode> {}
 
 /* The templates a save or an agent's add carries, in the shape a client sends them. */
 export type TemplateDraft = { kind: 'live'; template: LiveTemplateInput } | { kind: 'postfix'; template: PostfixTemplateInput };
+
+/* A template an agent can see: where it comes from, and its body unless the daemon does not hold it (a built-in one). */
+export interface AgentTemplateRow {
+    id: string;
+    kind: TemplateKind;
+    key: string;
+    languages: string[];
+    source: 'built-in' | 'personal' | 'project';
+    description: string | null;
+    body: string | null;
+}
 
 interface TemplateProjects {
     folderOf(projectId: string): string | null;
@@ -156,6 +170,18 @@ function fieldsOf(draft: TemplateDraft, id: string, addedBy: TemplateAddedBy | u
 
 function problemInDraft(draft: TemplateDraft): string | null {
     return draft.kind === 'live' ? problemInLiveTemplate(draft.template) : problemInPostfixTemplate(draft.template);
+}
+
+function rowOf(kind: TemplateKind, source: 'personal' | 'project', template: LiveTemplate | PostfixTemplate): AgentTemplateRow {
+    return {
+        id: template.id,
+        kind,
+        key: template.key,
+        languages: template.languages,
+        source,
+        description: template.description ?? null,
+        body: template.body
+    };
 }
 
 function sharesLanguage(left: readonly string[], right: readonly string[]): boolean {
@@ -261,24 +287,29 @@ export class TemplateStore {
         });
     }
 
+    /* Every template in reach of an agent of a project: the enabled built-in ones, the person's own and the project's. */
+    listForAgent(projectId: string): Promise<AgentTemplateRow[]> {
+        return this.writes.run(async () => this.reachOf(await this.fresh(await this.loadPersonal()), projectId));
+    }
+
     /*
      * Adds a template for an agent to the person's own set, marked as the agent's. It never changes or removes
-     * one, and refuses a key a template of the same kind and a shared language already has, so an agent never
-     * shadows what a person relies on.
+     * one, and refuses a key that an enabled template of the same kind and a shared language already has,
+     * among the built-in ones, the person's and the project's, so an agent never shadows what a person relies on.
      */
-    addByAgent(draft: TemplateDraft, chatId: string): Promise<TemplateSaveResult> {
+    addByAgent(draft: TemplateDraft, chatId: string, projectId: string): Promise<TemplateSaveResult> {
         return this.writes.run(async () => {
             const loaded = await this.fresh(await this.loadPersonal());
-            this.refuseAgentAdd(loaded.file, draft);
+            this.refuseAgentAdd(draft, await this.reachOf(loaded, projectId));
 
             return this.put(loaded, draft, { kind: 'agent', chatId, at: this.now() });
         });
     }
 
     /* The checks of `addByAgent` without the write, for a dry run. */
-    checkAgentAdd(draft: TemplateDraft): Promise<void> {
+    checkAgentAdd(draft: TemplateDraft, projectId: string): Promise<void> {
         return this.writes.run(async () => {
-            this.refuseAgentAdd((await this.fresh(await this.loadPersonal())).file, draft);
+            this.refuseAgentAdd(draft, await this.reachOf(await this.fresh(await this.loadPersonal()), projectId));
         });
     }
 
@@ -300,7 +331,38 @@ export class TemplateStore {
         this.personal = null;
     }
 
-    private refuseAgentAdd(file: TemplateFile, draft: TemplateDraft): void {
+    private async reachOf(personal: LoadedPersonal, projectId: string): Promise<AgentTemplateRow[]> {
+        const { document } = personal.file;
+        const project = await this.projectDocumentOf(projectId);
+        const builtIn = (kind: TemplateKind): AgentTemplateRow[] =>
+            (kind === 'live' ? BUILT_IN_LIVE_TEMPLATE_KEYS : BUILT_IN_POSTFIX_TEMPLATE_KEYS)
+                .filter((template) => !document.disabled.includes(template.id))
+                .map((template) => ({ ...template, kind, languages: [...template.languages], source: 'built-in', description: null, body: null }));
+
+        return (['live', 'postfix'] as const).flatMap((kind) => [
+            ...builtIn(kind),
+            ...templatesOf<LiveTemplate | PostfixTemplate>(document[kind]).map((template) => rowOf(kind, 'personal', template)),
+            ...templatesOf<LiveTemplate | PostfixTemplate>(project?.[kind] ?? []).map((template) => rowOf(kind, 'project', template))
+        ]);
+    }
+
+    /* The project's file as it stands on disk now; null when it is from a newer Ruimte, which an agent cannot read around. */
+    private async projectDocumentOf(projectId: string): Promise<TemplateDocument | null> {
+        try {
+            const loaded = await this.loadProject(projectId);
+            await this.takeOutsideEdits(loaded);
+
+            return loaded.file.document;
+        } catch (e) {
+            if (e instanceof TemplateError && e.code === 'templates-too-new') {
+                return null;
+            }
+
+            throw e;
+        }
+    }
+
+    private refuseAgentAdd(draft: TemplateDraft, reach: readonly AgentTemplateRow[]): void {
         if (draft.template.id !== undefined) {
             throw new TemplateError('template-invalid', 'An agent adds new templates and changes none');
         }
@@ -311,12 +373,12 @@ export class TemplateStore {
             throw new TemplateError('template-invalid', problem);
         }
 
-        const taken: readonly { key: string; languages: readonly string[] }[] = templatesOf(file.document[draft.kind]);
+        const taken = reach.find((row) => row.kind === draft.kind && row.key === draft.template.key && sharesLanguage(row.languages, draft.template.languages));
 
-        if (taken.some((template) => template.key === draft.template.key && sharesLanguage(template.languages, draft.template.languages))) {
+        if (taken !== undefined) {
             throw new TemplateError(
                 'template-key-taken',
-                `A ${draft.kind} template with the key ${draft.template.key} already exists for one of those languages`
+                `A ${draft.kind} template with the key ${draft.template.key} already exists for one of those languages (${taken.source})`
             );
         }
     }

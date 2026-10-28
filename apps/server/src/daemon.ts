@@ -151,6 +151,7 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
         usage,
         artifacts,
         routines,
+        templates,
         later: { language: () => language.host, push: () => push }
     });
 

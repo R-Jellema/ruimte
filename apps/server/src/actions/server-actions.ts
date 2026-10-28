@@ -27,6 +27,7 @@ import { routineActions } from './routine-actions.ts';
 import { secretActions } from './secret-actions.ts';
 import { startActions } from './start-actions.ts';
 import { taskActions } from './task-actions.ts';
+import { templateActions } from './template-actions.ts';
 import { viewActions } from './view-actions.ts';
 import { visualActions } from './visual-actions.ts';
 import { voiceActions } from './voice-actions.ts';
@@ -64,12 +65,13 @@ export const serverActions = new ActionRegistry<ServerActionContext>(
         ...projectIgnoredActions,
         ...databaseActions,
         ...languageActions,
+        ...templateActions,
         ...providerActions,
         ...contextActions,
         ...voiceActions
     },
     {
-        previews: ['node.create', 'node.createMany', 'node.setColor', 'plan.create', 'agent.start', 'team.start', 'drawing.edit'],
+        previews: ['node.create', 'node.createMany', 'node.setColor', 'plan.create', 'agent.start', 'team.start', 'drawing.edit', 'template.add'],
         checkRevision: checkProjectRevision,
         // Every refusal the daemon raises is coded, with what to pick instead as its lines.
         refusalOf: (error) => (error instanceof CodedError ? { code: error.code, message: error.message, details: error.lines } : null)

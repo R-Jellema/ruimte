@@ -336,43 +336,93 @@ describe('a person', () => {
 });
 
 describe('an agent', () => {
-    test('adds a template to the person own set with a mark, and never against a taken key', async () => {
-        const added = await store.addByAgent({ kind: 'live', template: log }, 'chat-1');
+    const mine: LiveTemplateInput = { key: 'mine', body: 'console.log($0);', languages: ['javascript'] };
 
-        expect(added.template).toMatchObject({ key: 'log', addedBy: { kind: 'agent', chatId: 'chat-1', at: 1000 } });
-        await expect(store.addByAgent({ kind: 'live', template: { ...log, languages: ['typescript', 'javascript'] } }, 'chat-1')).rejects.toMatchObject({
+    test('adds a template to the person own set with a mark, and never against a taken key', async () => {
+        const added = await store.addByAgent({ kind: 'live', template: mine }, 'chat-1', 'p1');
+
+        expect(added.template).toMatchObject({ key: 'mine', addedBy: { kind: 'agent', chatId: 'chat-1', at: 1000 } });
+        await expect(store.addByAgent({ kind: 'live', template: { ...mine, languages: ['typescript', 'javascript'] } }, 'chat-1', 'p1')).rejects.toMatchObject({
             code: 'template-key-taken'
         });
-        await expect(store.checkAgentAdd({ kind: 'live', template: log })).rejects.toMatchObject({ code: 'template-key-taken' });
+        await expect(store.checkAgentAdd({ kind: 'live', template: mine }, 'p1')).rejects.toMatchObject({ code: 'template-key-taken' });
 
-        await store.addByAgent({ kind: 'live', template: { ...log, languages: ['php'] } }, 'chat-1');
-        await store.addByAgent({ kind: 'postfix', template: { key: 'log', body: 'console.log($EXPR);', languages: ['javascript'] } }, 'chat-1');
+        await store.addByAgent({ kind: 'live', template: { ...mine, languages: ['php'] } }, 'chat-1', 'p1');
+        await store.addByAgent({ kind: 'postfix', template: { key: 'mine', body: 'console.log($EXPR);', languages: ['javascript'] } }, 'chat-1', 'p1');
 
         expect((await store.list('c1', undefined)).personal.live).toHaveLength(2);
         expect((await store.list('c1', undefined)).personal.postfix).toHaveLength(1);
     });
 
     test('adds new templates only', async () => {
-        await expect(store.addByAgent({ kind: 'live', template: { ...log, id: 'existing' } }, 'chat-1')).rejects.toMatchObject({ code: 'template-invalid' });
+        await expect(store.addByAgent({ kind: 'live', template: { ...mine, id: 'existing' } }, 'chat-1', 'p1')).rejects.toMatchObject({
+            code: 'template-invalid'
+        });
     });
 
     test('sees a template a person wrote by hand since the last read', async () => {
         await store.list('c1', undefined);
-        await writeJson(personalPath(), { version: 1, live: [{ id: 'mine', key: 'log', body: 'b', languages: ['javascript'] }] });
+        await writeJson(personalPath(), { version: 1, live: [{ id: 'hand', key: 'mine', body: 'b', languages: ['javascript'] }] });
 
-        await expect(store.addByAgent({ kind: 'live', template: log }, 'chat-1')).rejects.toMatchObject({ code: 'template-key-taken' });
+        await expect(store.addByAgent({ kind: 'live', template: mine }, 'chat-1', 'p1')).rejects.toMatchObject({ code: 'template-key-taken' });
     });
 
     test('keeps a template a person edits afterwards marked as the agent added it', async () => {
-        const added = await store.addByAgent({ kind: 'live', template: log }, 'chat-1');
+        const added = await store.addByAgent({ kind: 'live', template: mine }, 'chat-1', 'p1');
         const { revision } = (await store.list('c1', undefined)).personal;
         const edited = await store.save('c1', {
             scope: 'personal',
             revision,
             kind: 'live',
-            template: { ...log, id: added.template.id, body: 'console.info($0);' }
+            template: { ...mine, id: added.template.id, body: 'console.info($0);' }
         });
 
         expect(edited.template).toMatchObject({ body: 'console.info($0);', addedBy: { chatId: 'chat-1' } });
+    });
+});
+
+describe('the keys an agent cannot take', () => {
+    const postfixLog = { key: 'log', body: '$EXPR.log()', languages: ['php'] };
+
+    test('a built-in key of a language it shares, and a free one of another language', async () => {
+        await expect(store.addByAgent({ kind: 'live', template: log }, 'chat-1', 'p1')).rejects.toMatchObject({ code: 'template-key-taken' });
+        await expect(store.addByAgent({ kind: 'live', template: { ...log, languages: ['css'] } }, 'chat-1', 'p1')).resolves.toBeDefined();
+        await expect(store.addByAgent({ kind: 'postfix', template: { ...postfixLog, languages: ['javascript'] } }, 'chat-1', 'p1')).rejects.toMatchObject({
+            code: 'template-key-taken'
+        });
+        await expect(store.addByAgent({ kind: 'postfix', template: postfixLog }, 'chat-1', 'p1')).resolves.toBeDefined();
+    });
+
+    test('a built-in key the person switched off is free', async () => {
+        const { personal } = await store.list('c1', undefined);
+        await store.configure({ revision: personal.revision, disabled: ['builtin.javascript.log'] });
+
+        await expect(store.addByAgent({ kind: 'live', template: log }, 'chat-1', 'p1')).resolves.toBeDefined();
+    });
+
+    test('a key of the project', async () => {
+        await writeJson(projectPath(), { version: 1, live: [{ id: 'shared', key: 'mine', body: 'b', languages: ['typescript'] }] });
+        const mine = { key: 'mine', body: 'b', languages: ['typescript', 'php'] };
+
+        await expect(store.addByAgent({ kind: 'live', template: mine }, 'chat-1', 'p1')).rejects.toMatchObject({ code: 'template-key-taken' });
+        await expect(store.addByAgent({ kind: 'live', template: { ...mine, languages: ['php'] } }, 'chat-1', 'p1')).resolves.toBeDefined();
+    });
+
+    test('a project file from a newer Ruimte does not stop an agent from adding to the person own set', async () => {
+        await writeJson(projectPath(), { version: 2, live: [] });
+
+        await expect(store.addByAgent({ kind: 'live', template: { key: 'mine', body: 'b', languages: ['php'] } }, 'chat-1', 'p1')).resolves.toBeDefined();
+    });
+
+    test('the list holds the three sources, and leaves out a built-in template that is switched off', async () => {
+        await writeJson(personalPath(), { version: 1, live: [{ id: 'own', key: 'own', body: 'b', languages: ['php'] }], disabled: ['builtin.php.thr'] });
+        await writeJson(projectPath(), { version: 1, postfix: [{ id: 'shared', key: 'shared', body: '$EXPR', languages: ['php'] }] });
+
+        const rows = await store.listForAgent('p1');
+
+        expect(rows.find((row) => row.id === 'builtin.javascript.log')).toMatchObject({ source: 'built-in', body: null, kind: 'live' });
+        expect(rows.find((row) => row.id === 'own')).toMatchObject({ source: 'personal', body: 'b' });
+        expect(rows.find((row) => row.id === 'shared')).toMatchObject({ source: 'project', kind: 'postfix' });
+        expect(rows.some((row) => row.id === 'builtin.php.thr')).toBe(false);
     });
 });

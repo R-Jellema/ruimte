@@ -548,6 +548,7 @@ export * from './language-patterns.ts';
 export * from './stored-path.ts';
 export * from './sql-binding.ts';
 export * from './task.ts';
+export * from './built-in-templates.ts';
 export * from './templates.ts';
 export * from './terminal-prepare.ts';
 export * from './text.ts';
