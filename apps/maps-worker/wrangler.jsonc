@@ -4,6 +4,8 @@
   "main": "src/index.ts",
   "account_id": "5e565cf9fa55b0eae1f8131903da2ca9",
   "compatibility_date": "2026-08-01",
+  // `@sentry/cloudflare` needs Node's AsyncLocalStorage (`src/telemetry.ts`).
+  "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
   "preview_urls": false,
   "routes": [{ "pattern": "maps.ruimte.app", "custom_domain": true }],
