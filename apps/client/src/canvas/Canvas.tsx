@@ -45,6 +45,7 @@ import { GroupHover } from '@/canvas/GroupHover';
 import { PortHints } from '@/canvas/PortHints';
 import { ResizeHandles } from '@/canvas/ResizeHandles';
 import { NodeFrame } from '@/canvas/NodeFrame';
+import { CanvasPets } from '@/canvas/CanvasPets';
 import { DerivedCards } from '@/canvas/DerivedCards';
 import { cardHolds, derivedCardOf, derivedOwnerOf } from '@/canvas/node-body';
 import { TextElementView } from '@/canvas/TextElementView';
@@ -840,6 +841,8 @@ export function Canvas() {
                         {maximizedId === null && <PortHints rootRef={rootRef} />}
                     </div>
                     {maximizedId === null && <GroupHover rootRef={rootRef} />}
+                    {/* Over every node, as the handles are, and before them, so a handle near a pet still takes the press. */}
+                    {maximizedId === null && <CanvasPets z={order.length + 1} />}
                     {/* Over every node, or a press on the handle of a node in a group lands on the group's frame and moves the group. */}
                     {maximizedId === null && (
                         <div className="absolute left-0 top-0" style={{ zIndex: order.length + 1 }}>

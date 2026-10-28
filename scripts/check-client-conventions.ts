@@ -19,8 +19,15 @@ const INTL_OUTSIDE_FORMAT = new Set(['voice/controller.ts']);
 
 // The places a color is written down as paint rather than read from a token: the syntax palettes, the
 // accents a person and an agent pick from (xterm reads them as literals), and scenes drawn in WebGL or a
-// canvas that no theme reaches.
-const COLOR_LITERALS = new Set(['shell/panels/code-themes.ts', 'canvas/accents.ts', 'ui/EclipseStars.tsx', 'ui/galaxy/Galaxy.tsx', 'measure/scene.ts']);
+// canvas that no theme reaches, the pets' pixel art among them.
+const COLOR_LITERALS = new Set([
+    'shell/panels/code-themes.ts',
+    'canvas/accents.ts',
+    'ui/EclipseStars.tsx',
+    'ui/galaxy/Galaxy.tsx',
+    'measure/scene.ts',
+    'canvas/pets/sprite-colors.ts'
+]);
 // A hex color, or a color function given numbers rather than a token, anywhere in a string.
 const COLOR_LITERAL = /(?:^|[\s[(:,'"])#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})(?![0-9a-z])|\b(?:rgba?|hsla?|oklch|oklab|lab|lch)\(\s*[\d.]/i;
 

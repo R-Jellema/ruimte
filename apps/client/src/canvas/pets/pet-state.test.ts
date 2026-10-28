@@ -1,0 +1,135 @@
+import { describe, expect, test } from 'bun:test';
+import type { AgentInfo, AgentStatus } from '@ruimte/contracts';
+import type { ChatState } from '@adecore/agents-react/state';
+import { CLAUDE_BUDDY, CODEX_BUDDY } from '@/canvas/pets/buddies';
+import { FOX_SPRITE, FROG_SPRITE } from '@/canvas/pets/animals';
+import { JUMP_ROWS, PET_POSES } from '@/canvas/pets/pixel';
+import { builtInSprite, PET_HEIGHT, petChoiceOf, petFrame, petPlace, petsOf } from '@/canvas/pets/pet-state';
+import type { CanvasNode } from '@/state/canvas';
+import type { SessionState } from '@/state/sessions';
+import { chatInfoOf } from '../../../testing/chat-info';
+
+function agent(status: AgentStatus, kind = 'claude'): AgentInfo {
+    return { kind, agentSessionId: 'a1', transcriptPath: null, status, live: true, updatedAt: 0 };
+}
+
+function session(info?: AgentInfo): SessionState {
+    return { attached: true, agent: info };
+}
+
+function chat(id: string, status: AgentStatus, provider = 'claude'): ChatState {
+    return { info: chatInfoOf(id, { status, provider }), items: {}, structure: {}, order: [] };
+}
+
+function node(id: string, kind: CanvasNode['kind']): CanvasNode {
+    return { id, kind, x: 0, y: 0, w: 400, h: 300 } as CanvasNode;
+}
+
+const NODES: Record<string, CanvasNode> = {
+    writer: node('writer', 'chat'),
+    shell: node('shell', 'terminal'),
+    agent: node('agent', 'terminal'),
+    plan: node('plan', 'note')
+};
+
+describe('which nodes have a pet', () => {
+    test('a chat and a terminal with an agent in it, and not a bare shell or a note', () => {
+        const pets = petsOf(
+            NODES,
+            new Set(),
+            { 'local:shell': session(), 'local:agent': session(agent('idle', 'codex')) },
+            { 'local:writer': chat('writer', 'idle') },
+            'local',
+            {}
+        );
+        expect(pets.map((pet) => [pet.id, pet.agent])).toEqual([
+            ['writer', 'claude'],
+            ['agent', 'codex']
+        ]);
+    });
+
+    test('none for a node a collapsed group hides', () => {
+        expect(petsOf(NODES, new Set(['writer']), {}, { 'local:writer': chat('writer', 'idle') }, 'local', {})).toEqual([]);
+    });
+});
+
+describe('what a pet shows', () => {
+    test('a question or an approval waiting on you, on a chat and on a terminal alike', () => {
+        const pets = petsOf(NODES, new Set(), { 'local:agent': session(agent('needs-you')) }, { 'local:writer': chat('writer', 'needs-you') }, 'local', {});
+        expect(pets.map((pet) => pet.mood)).toEqual(['waiting', 'waiting']);
+    });
+
+    test('a snoozed wait stays quiet, the way it does in every count', () => {
+        const pets = petsOf(NODES, new Set(), {}, { 'local:writer': chat('writer', 'needs-you') }, 'local', { 'local:writer': 2_000 });
+        expect(pets[0].mood).toBe('idle');
+    });
+
+    test('a turn, a rest and an end that went wrong', () => {
+        const mood = (status: AgentStatus) => petsOf(NODES, new Set(), {}, { 'local:writer': chat('writer', status) }, 'local', {})[0].mood;
+        expect(mood('running')).toBe('working');
+        expect(mood('idle')).toBe('idle');
+        expect(mood('error')).toBe('stopped');
+    });
+
+    test('a waiting pet has a bubble and jumps, and lands again before the next jump', () => {
+        const frames = Array.from({ length: 8 }, (_, tick) => petFrame('waiting', tick, false));
+        expect(frames.every((frame) => frame.bubble && frame.pose === 'wait')).toBe(true);
+        expect(Math.max(...frames.map((frame) => frame.lift))).toBe(JUMP_ROWS);
+        expect(frames[0].lift).toBe(0);
+        expect(frames.at(-1)?.lift).toBe(0);
+    });
+
+    test('with reduced motion a waiting pet keeps its bubble and stands still', () => {
+        const frames = Array.from({ length: 8 }, (_, tick) => petFrame('waiting', tick, true));
+        expect(frames.every((frame) => frame.bubble && frame.lift === 0)).toBe(true);
+    });
+
+    test('no bubble and no jump once the question is answered', () => {
+        for (const mood of ['working', 'idle', 'stopped', 'visiting'] as const) {
+            const frames = Array.from({ length: 8 }, (_, tick) => petFrame(mood, tick, false));
+            expect(frames.some((frame) => frame.bubble || frame.lift !== 0)).toBe(false);
+        }
+    });
+});
+
+describe('the figures', () => {
+    test('Codex has its own, and every other CLI gets the one Claude has', () => {
+        expect(builtInSprite('buddies', 'codex')).toBe(CODEX_BUDDY);
+        expect(builtInSprite('buddies', 'claude')).toBe(CLAUDE_BUDDY);
+        expect(builtInSprite('buddies', 'gemini')).toBe(CLAUDE_BUDDY);
+        expect(builtInSprite('animals', 'codex')).toBe(FROG_SPRITE);
+        expect(builtInSprite('animals', undefined)).toBe(FOX_SPRITE);
+    });
+
+    test('every pose of every figure draws inside its grid', () => {
+        for (const sprite of [CLAUDE_BUDDY, CODEX_BUDDY, FOX_SPRITE, FROG_SPRITE]) {
+            for (const pose of PET_POSES) {
+                for (let frame = 0; frame < 12; frame++) {
+                    const parts = sprite.poses[pose](frame);
+                    for (const part of [...parts.silhouette, ...parts.details, ...parts.props]) {
+                        expect(part.x).toBeGreaterThanOrEqual(0);
+                        expect(part.y).toBeGreaterThanOrEqual(-1);
+                        expect(part.x + part.w).toBeLessThanOrEqual(26);
+                        expect(part.y + part.h).toBeLessThanOrEqual(18);
+                    }
+                }
+            }
+        }
+    });
+
+    test('a custom choice whose sprite is gone falls back to the buddies', () => {
+        expect(petChoiceOf('custom:a1', ['a1'])).toEqual({ kind: 'custom', id: 'a1' });
+        expect(petChoiceOf('custom:gone', ['a1'])).toEqual({ kind: 'built-in', set: 'buddies' });
+        expect(petChoiceOf('animals', [])).toEqual({ kind: 'built-in', set: 'animals' });
+        expect(petChoiceOf('dragons', [])).toEqual({ kind: 'built-in', set: 'buddies' });
+    });
+});
+
+describe('where a pet stands', () => {
+    test('on the top edge of its node, near the right corner, and inside a narrow one', () => {
+        const place = petPlace({ x: 100, y: 200, w: 400 });
+        expect(place.y + PET_HEIGHT).toBe(202);
+        expect(place.x).toBe(100 + 400 - 52 - 24);
+        expect(petPlace({ x: 100, y: 200, w: 40 }).x).toBe(100);
+    });
+});

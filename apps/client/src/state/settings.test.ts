@@ -161,6 +161,28 @@ describe('the map of a canvas', () => {
     });
 });
 
+describe('pets', () => {
+    test('stay away until a person turns them on, and only a stored true does', () => {
+        expect(settingsFrom({}).pets).toBe(false);
+        expect(settingsFrom({ pets: true }).pets).toBe(true);
+        expect(settingsFrom({ pets: 'yes' as unknown as boolean }).pets).toBe(false);
+    });
+
+    test('start as the buddies and keep a custom choice for the pets to look up', () => {
+        expect(settingsFrom({}).petsSprite).toBe('buddies');
+        expect(settingsFrom({ petsSprite: 'animals' }).petsSprite).toBe('animals');
+        expect(settingsFrom({ petsSprite: 'custom:abc' }).petsSprite).toBe('custom:abc');
+        expect(settingsFrom({ petsSprite: '' }).petsSprite).toBe('buddies');
+        expect(settingsFrom({ petsSprite: 3 as unknown as string }).petsSprite).toBe('buddies');
+    });
+
+    test('let the visitor come unless a stored false keeps it away', () => {
+        expect(settingsFrom({}).petsVisitor).toBe(true);
+        expect(settingsFrom({ petsVisitor: false }).petsVisitor).toBe(false);
+        expect(settingsFrom({ petsVisitor: 0 as unknown as boolean }).petsVisitor).toBe(true);
+    });
+});
+
 describe('agent notifications', () => {
     test('makes no sound until somebody asks for one', () => {
         expect(settingsFrom({}).agentsTurnSound).toBe(false);

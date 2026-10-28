@@ -610,7 +610,7 @@
         },
         "views": {
             "label": "Views",
-            "description": "Node sizes, canvas map, drawings and browser pages."
+            "description": "Node sizes, canvas map, pets, drawings and browser pages."
         },
         "files": {
             "label": "Files and Git",
@@ -676,6 +676,40 @@
                     "standard": "Standard",
                     "far": "Far",
                     "unlimited": "Unlimited"
+                }
+            }
+        },
+        "pets": {
+            "title": "Pets",
+            "enabled": {
+                "label": "Pets",
+                "description": "A small figure stands on every chat and every terminal with an agent, and shows what it does. When one waits on you, its pet jumps with a speech bubble until you answer. Click a pet to go to its node."
+            },
+            "sprite": {
+                "label": "Figures",
+                "description": "Claude and Codex each have their own figure; other agents get Claude's. A figure you added stands for every agent.",
+                "sets": {
+                    "buddies": "Buddies",
+                    "animals": "Fox and frog"
+                }
+            },
+            "custom": {
+                "label": "Your own figures",
+                "description": "A PNG or WebP strip of square frames side by side, as high as one frame, played in a loop: up to {{frames}} frames of at most {{size}} pixels, {{kilobytes}} KB at most. It stays in this app.",
+                "add": "Add figure",
+                "remove": "Remove {{name}}",
+                "frames_one": "{{count}} frame, {{size}} px",
+                "frames_other": "{{count}} frames, {{size}} px",
+                "problem": {
+                    "type": "Pick a PNG or WebP image.",
+                    "bytes": "This image is larger than {{kilobytes}} KB.",
+                    "unreadable": "This file could not be read as a PNG or WebP image.",
+                    "frame-small": "A frame is at least {{min}} pixels high.",
+                    "frame-large": "A frame is at most {{max}} pixels high.",
+                    "frames-whole": "The width is not a whole number of square frames as high as the image.",
+                    "frames-many": "A strip has at most {{frames}} frames.",
+                    "full": "You can keep {{limit}} figures at most. Remove one first.",
+                    "storage": "There is no room left to keep this figure."
                 }
             }
         },
