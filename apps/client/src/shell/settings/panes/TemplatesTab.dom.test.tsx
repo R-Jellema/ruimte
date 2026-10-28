@@ -134,6 +134,12 @@ describe('the Templates tab of the editor settings', () => {
         expect(project?.hasAttribute('disabled') || project?.getAttribute('aria-disabled') === 'true').toBe(true);
     });
 
+    test('a project whose templates file cannot be read says it is left alone', async () => {
+        await openTemplates({ personal: EMPTY, project: null, projectInvalid: true });
+
+        await until(() => everything().includes("This project's templates file cannot be read and is left alone."));
+    });
+
     test('a machine without templates is told it needs a newer Ruimte', async () => {
         machine.answersOnly(['project.open']);
         await openTemplates(null);

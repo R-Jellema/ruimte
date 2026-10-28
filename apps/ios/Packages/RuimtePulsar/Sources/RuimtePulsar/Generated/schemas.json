@@ -69877,6 +69877,10 @@
       "projectTooNew": {
         "type": "boolean",
         "const": true
+      },
+      "projectInvalid": {
+        "type": "boolean",
+        "const": true
       }
     },
     "required": [

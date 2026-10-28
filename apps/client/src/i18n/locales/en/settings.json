@@ -388,6 +388,7 @@
             "empty": "No templates of your own yet. Add one, or select code and choose Save as Live Template.",
             "noMatch": "No template matches “{{query}}”.",
             "projectTooNew": "This project's templates come from a newer Ruimte and are left alone.",
+            "projectInvalid": "This project's templates file cannot be read and is left alone. Fix it, or remove it, to use project templates.",
             "search": "Search templates",
             "clearSearch": "Clear search",
             "add": "Add template",

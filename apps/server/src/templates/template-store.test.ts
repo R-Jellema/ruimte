@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { LiveTemplateInput, TemplateChangedEvent } from '@ruimte/contracts';
 import { fileExists } from '@adecore/agents';
@@ -112,6 +112,41 @@ describe('reading', () => {
             code: 'templates-too-new'
         });
         expect(await readFile(projectPath(), 'utf8')).toBe(before);
+    });
+
+    test('a project file that is JSON but breaks the schema is left in place and read as no templates', async () => {
+        await writeJson(projectPath(), { version: 1, live: 'not a list' });
+        const before = await readFile(projectPath(), 'utf8');
+
+        const listed = await store.list('c1', 'p1');
+
+        expect(listed.project).toBeNull();
+        expect(listed.projectInvalid).toBe(true);
+        expect(listed.projectTooNew).toBeUndefined();
+        await expect(store.save('c1', { scope: 'project', projectId: 'p1', revision: 0, kind: 'live', template: log })).rejects.toMatchObject({
+            code: 'templates-invalid'
+        });
+        expect(await readFile(projectPath(), 'utf8')).toBe(before);
+        expect(await readdir(join(folder, '.ruimte'))).toEqual(['templates.json']);
+    });
+
+    test('a personal file that is JSON but breaks the schema is refused and left in place', async () => {
+        await writeJson(personalPath(), { version: 1, disabled: 4 });
+        const before = await readFile(personalPath(), 'utf8');
+
+        await expect(store.list('c1', undefined)).rejects.toMatchObject({ code: 'templates-invalid' });
+        expect(await readFile(personalPath(), 'utf8')).toBe(before);
+        expect(await readdir(home)).toEqual(['editor-templates.json']);
+    });
+
+    test('a file that is not JSON is set aside', async () => {
+        await mkdir(join(folder, '.ruimte'), { recursive: true });
+        await writeFile(projectPath(), '{ nope');
+
+        const listed = await store.list('c1', 'p1');
+
+        expect(listed.project).toMatchObject({ live: [], postfix: [] });
+        expect((await readdir(join(folder, '.ruimte'))).some((name) => name.startsWith('templates.json.corrupt-'))).toBe(true);
     });
 });
 

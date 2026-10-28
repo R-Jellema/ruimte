@@ -388,6 +388,7 @@
             "empty": "Nog geen eigen sjablonen. Voeg er een toe, of selecteer code en kies Opslaan als sjabloon.",
             "noMatch": "Geen sjabloon gevonden voor “{{query}}”.",
             "projectTooNew": "De sjablonen van dit project komen van een nieuwere Ruimte en blijven ongemoeid.",
+            "projectInvalid": "Het sjablonenbestand van dit project is onleesbaar en blijft ongemoeid. Herstel of verwijder het om projectsjablonen te gebruiken.",
             "search": "Zoek sjablonen",
             "clearSearch": "Zoekopdracht wissen",
             "add": "Sjabloon toevoegen",

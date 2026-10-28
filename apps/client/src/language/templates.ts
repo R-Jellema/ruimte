@@ -28,12 +28,14 @@ export type TemplateInput =
 /*
  * What the machine holds of the editor's templates for one project: a person's own, and the project's
  * shared ones. `null` until the machine has answered, and for a machine that does not know templates.
- * `project` is null when the project has none to read, `projectTooNew` when its file is from a newer Ruimte.
+ * `project` is null when the project has none to read, `projectTooNew` when its file is from a newer Ruimte
+ * and `projectInvalid` when it is JSON that breaks the schema.
  */
 export interface TemplatesSnapshot {
     readonly personal: PersonalTemplates;
     readonly project: ProjectTemplates | null;
     readonly projectTooNew: boolean;
+    readonly projectInvalid: boolean;
 }
 
 export function isFamily(value: string): value is TemplateLanguage {
@@ -89,7 +91,7 @@ export class TemplatesTracker extends SnapshotTracker<TemplatesSnapshot | null> 
                 if (event.scope === 'personal') {
                     this.replace({ ...this.snapshot, personal: event.snapshot });
                 } else if (event.projectId === projectId) {
-                    this.replace({ ...this.snapshot, project: event.snapshot, projectTooNew: false });
+                    this.replace({ ...this.snapshot, project: event.snapshot, projectTooNew: false, projectInvalid: false });
                 }
             })
         );
@@ -100,8 +102,8 @@ export class TemplatesTracker extends SnapshotTracker<TemplatesSnapshot | null> 
             return;
         }
 
-        const { personal, project, projectTooNew } = await this.transport.request('template.list', { projectId: this.projectId });
-        this.replace({ personal, project, projectTooNew: projectTooNew === true });
+        const { personal, project, projectTooNew, projectInvalid } = await this.transport.request('template.list', { projectId: this.projectId });
+        this.replace({ personal, project, projectTooNew: projectTooNew === true, projectInvalid: projectInvalid === true });
     }
 
     /* Whether the project has a file to write: it is held and its file is not from a newer Ruimte. */

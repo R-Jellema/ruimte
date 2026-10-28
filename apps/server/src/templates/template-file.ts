@@ -56,8 +56,9 @@ function parseDocument(text: string, schema: { safeParse(value: unknown): { succ
 
     const top = versioned.value;
 
+    // JSON that breaks the schema is a person's or a team's file, so it stays where it is.
     if (!schema.safeParse(top).success || !isRecord(top)) {
-        return { kind: 'unreadable' };
+        return { kind: 'invalid', message: 'The templates file is JSON, but not in the shape of a templates file' };
     }
 
     return {

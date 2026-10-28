@@ -55,7 +55,14 @@ export const PERSONAL_TEMPLATES_FILE = 'editor-templates.json';
 
 const PROJECT_TEMPLATES_FILE = 'templates.json';
 
-type TemplateErrorCode = 'project-not-found' | 'rev-conflict' | 'templates-too-new' | 'template-invalid' | 'template-not-found' | 'template-key-taken';
+type TemplateErrorCode =
+    | 'project-not-found'
+    | 'rev-conflict'
+    | 'templates-too-new'
+    | 'templates-invalid'
+    | 'template-invalid'
+    | 'template-not-found'
+    | 'template-key-taken';
 
 export class TemplateError extends CodedError<TemplateErrorCode> {}
 
@@ -109,12 +116,16 @@ function parserOf(personal: boolean): (text: string) => JsonDocumentParse<Templa
     return personal ? parsePersonalTemplates : parseProjectTemplates;
 }
 
-/* A file from a newer Ruimte is refused, never set aside: a later release reads it. */
+/* A file from a newer Ruimte or one that breaks the schema is refused, never set aside: a later release or a person fixes it. */
 async function readTemplateFile(path: string, personal: boolean, setAside: boolean): Promise<JsonDocumentRead<TemplateDocument>> {
     const read = await readJsonDocument(path, parserOf(personal), { setAside });
 
     if (read.kind === 'too-new') {
         throw new TemplateError('templates-too-new', tooNewMessage('templates file', read.version, TEMPLATES_VERSION));
+    }
+
+    if (read.kind === 'invalid') {
+        throw new TemplateError('templates-invalid', read.message);
     }
 
     if (read.kind === 'corrupt') {
@@ -237,6 +248,10 @@ export class TemplateStore {
                     return { personal: personalPart, project: null, projectTooNew: true };
                 }
 
+                if (e instanceof TemplateError && e.code === 'templates-invalid') {
+                    return { personal: personalPart, project: null, projectInvalid: true };
+                }
+
                 throw e;
             }
         });
@@ -346,7 +361,7 @@ export class TemplateStore {
         ]);
     }
 
-    /* The project's file as it stands on disk now; null when it is from a newer Ruimte, which an agent cannot read around. */
+    /* The project's file as it stands on disk now; null when it is from a newer Ruimte or breaks the schema, which an agent cannot read around. */
     private async projectDocumentOf(projectId: string): Promise<TemplateDocument | null> {
         try {
             const loaded = await this.loadProject(projectId);
@@ -354,7 +369,7 @@ export class TemplateStore {
 
             return loaded.file.document;
         } catch (e) {
-            if (e instanceof TemplateError && e.code === 'templates-too-new') {
+            if (e instanceof TemplateError && (e.code === 'templates-too-new' || e.code === 'templates-invalid')) {
                 return null;
             }
 

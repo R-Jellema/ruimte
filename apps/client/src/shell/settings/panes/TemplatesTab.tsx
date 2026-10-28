@@ -254,6 +254,7 @@ function Templates({ tracker }: { tracker: TemplatesTracker }) {
             >
                 {switchRow('liveInCompletion', 'editor.templates.live', 'live')}
                 {snapshot.projectTooNew && <SettingsRow muted label={t('editor.templates.projectTooNew')} />}
+                {snapshot.projectInvalid && <SettingsRow muted label={t('editor.templates.projectInvalid')} />}
                 {!ownLive && !searching && <SettingsRow muted label={t('editor.templates.empty')} />}
                 {searching && visibleLive.length === 0 && <SettingsRow muted label={noMatch} />}
             </SettingsSection>
