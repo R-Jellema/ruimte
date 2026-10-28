@@ -1,4 +1,4 @@
-import type { AgentKind } from '@ruimte/contracts';
+import { isChatNode, type AgentKind } from '@ruimte/contracts';
 import type { ChatStatuses } from '@adecore/agents-react/state';
 import { CLAUDE_BUDDY, CODEX_BUDDY } from '@/canvas/pets/buddies';
 import { FOX_SPRITE, FROG_SPRITE } from '@/canvas/pets/animals';
@@ -36,18 +36,19 @@ export interface CanvasPet {
 const NO_UNSEEN: Readonly<Record<string, true>> = {};
 
 /*
- * The nodes that may have a pet, a chat or a terminal no collapsed group hides, as one string: it
+ * The nodes that may have a pet, a chat, a design or a terminal no collapsed group hides, as one string: it
  * changes when one comes or goes and not on every frame of a drag, so the pets are not all drawn again.
  */
 export function petNodeKey(s: Pick<CanvasState, 'nodes' | 'hidden'>): string {
     return Object.values(s.nodes)
-        .filter((node) => (node.kind === 'chat' || node.kind === 'terminal') && !s.hidden.has(node.id))
+        .filter((node) => (isChatNode(node) || node.kind === 'terminal') && !s.hidden.has(node.id))
         .map((node) => node.id)
         .join('\n');
 }
 
 /*
- * The pet of a node with an agent in it: a chat, or a terminal whose CLI reported through its hooks.
+ * The pet of a node with an agent in it: a chat, a design (whose status is the chat under its own id,
+ * as everywhere else), or a terminal whose CLI reported through its hooks.
  * Waiting is the same "needs you" every count reads. A wait a person snoozed keeps its bubble until it
  * is answered, since the question is still open, but does not jump.
  */

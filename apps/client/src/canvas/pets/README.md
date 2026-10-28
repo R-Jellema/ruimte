@@ -5,8 +5,9 @@ Off to start with. Everything here is the client's: what a pet shows comes from 
 already holds (`chat.status`, a terminal's `session.status` from the CLI's hooks), and nothing reads
 the file system, the daemon's folders or a project file.
 
-- Which nodes have one: a chat, and a terminal whose CLI reported through its hooks (`petNodeKey`
-  and `petOf` in `pet-state.ts`). A node a collapsed group hides has none.
+- Which nodes have one: a chat, a design (through the chat under its own id, as its status dot), and a
+  terminal whose CLI reported through its hooks (`petNodeKey` and `petOf` in `pet-state.ts`). A node
+  a collapsed group hides has none.
 - What it shows: working, waiting on you, idle or stopped. Waiting is the "needs you" every count
   reads (`groupAttention`). A waiting pet has a black speech bubble with an orange exclamation mark
   and jumps until the question or approval is answered. The bubble stands over its head, or beside it
@@ -21,7 +22,8 @@ the file system, the daemon's folders or a project file.
   covers it at rest and through its jump); the bubble never does. Where that box lies on another node
   (`coversOtherNode`, a group the node stands in aside), or while a line is being aimed, the pet takes
   no press at all, so a press on the bottom of a node standing close above still lands in that node.
-  Its button still takes the keyboard. A text on the canvas is not counted.
+  Its button still takes the keyboard. A text on the canvas is not counted, and neither is a card
+  beside a node, such as a design's pages.
 - One interval for the page drives every pet (`ticker.ts`), only while a pet is mounted, and a pet
   whose node is out of view mounts no canvas (`useNodeInViewport`).
 

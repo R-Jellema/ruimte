@@ -80,6 +80,15 @@ describe('which nodes have a pet', () => {
     test('none for a node a collapsed group hides', () => {
         expect(petsOf(NODES, new Set(['writer']), {}, { 'local:writer': chat('writer', 'idle') }, {})).toEqual([]);
     });
+
+    test('a design, through the chat under its own id, as its status dot reads it', () => {
+        const nodes = { studio: node('studio', 'design') };
+        const pet = (status: AgentStatus) => petsOf(nodes, new Set(), {}, { 'local:studio': chat('studio', status, 'codex') }, {});
+        expect(pet('idle')).toEqual([{ id: 'studio', agent: 'codex', mood: 'idle' }]);
+        expect(pet('running')[0].mood).toBe('working');
+        expect(pet('needs-you')[0].mood).toBe('waiting');
+        expect(petsOf(nodes, new Set(['studio']), {}, { 'local:studio': chat('studio', 'idle') }, {})).toEqual([]);
+    });
 });
 
 describe('what a pet shows', () => {

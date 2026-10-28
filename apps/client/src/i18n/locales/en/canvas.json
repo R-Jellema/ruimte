@@ -114,6 +114,7 @@
     "kinds": {
         "terminal": "Terminal",
         "chat": "Chat",
+        "design": "Design",
         "browser": "Browser",
         "group": "Group",
         "note": "Note",

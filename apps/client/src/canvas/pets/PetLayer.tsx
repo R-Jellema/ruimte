@@ -22,7 +22,7 @@ import {
 import { onPetTick } from '@/canvas/pets/ticker';
 import { usePetLook } from '@/canvas/pets/use-pet-look';
 import { createVisitor, VISIT_MS, visitSpot, type VisitSpot } from '@/canvas/pets/visitor';
-import { maximizedNodeOf, useCanvas, useCanvasStore } from '@/state/canvas';
+import { maximizedNodeOf, useCanvas, useCanvasStore, type CanvasNode } from '@/state/canvas';
 import { useEndpointId } from '@/state/keys';
 import { useSessions } from '@/state/sessions';
 import { useSettings } from '@/state/settings';
@@ -35,6 +35,9 @@ const visitor = createVisitor({
 });
 
 const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
+
+/* What an untitled node with a pet reads as; a chat is the rest, since only these kinds have one. */
+const KIND_LABELS: Partial<Record<CanvasNode['kind'], 'kinds.design' | 'kinds.terminal'>> = { design: 'kinds.design', terminal: 'kinds.terminal' };
 
 function prefersStill(): boolean {
     return typeof matchMedia === 'function' && matchMedia(REDUCED_MOTION).matches;
@@ -103,7 +106,7 @@ function Pet({ id }: { id: string }) {
     const { mood } = pet;
     const place = petPlace(node);
     // A node a person never named reads as its kind, so the label always says which node it leads to.
-    const title = node.title?.trim() || t(node.kind === 'chat' ? 'kinds.chat' : 'kinds.terminal');
+    const title = node.title?.trim() || t(KIND_LABELS[node.kind] ?? 'kinds.chat');
     const label = t(mood === 'waiting' || mood === 'snoozed' ? 'pets.waiting' : 'pets.goTo', { title });
     return (
         <div className="absolute" style={{ left: place.x, top: place.y, width: PET_PAINT_WIDTH, height: PET_HEIGHT }}>
