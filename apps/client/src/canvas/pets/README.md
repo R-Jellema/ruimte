@@ -16,20 +16,22 @@ the file system, the daemon's folders or a project file.
   rest paints once.
 - A click goes to the node (`goToNode`): the camera centers on it and selects it, and Back in the
   camera history returns.
-- Only the figure at rest takes a press (`petHitBox`, 52 by 36 world pixels from its feet up); the
-  bubble and the room to jump above it never do. Where that box lies on another node (`coversOtherNode`,
-  a group aside), or while a line is being aimed, the pet takes no press at all, so a press on the
-  bottom of a node standing close above still lands in that node. Its button still takes the keyboard.
+- Only the figure takes a press (`petHitBox`, 52 by 40 world pixels from its feet up, which covers it
+  at rest and through its jump); the bubble above it never does. Where that box lies on another node
+  (`coversOtherNode`, a group the node stands in aside), or while a line is being aimed, the pet takes
+  no press at all, so a press on the bottom of a node standing close above still lands in that node.
+  Its button still takes the keyboard. A text on the canvas is not counted.
 - One interval for the page drives every pet (`ticker.ts`), only while a pet is mounted, and a pet
   whose node is out of view mounts no canvas (`useNodeInViewport`).
 
 ## The visitor
 
 While Pets is off, a pet now and then stands beside a node on screen for four seconds and fades
-away (`visitor.ts`), never where it would stand on another node. One clock for the page, a first visit 20 to 60 minutes after a canvas opens and
-the next 20 to 60 minutes after that, only while the window is visible and nobody is dragging or has
-a node maximized. It takes no press and has no row in Settings. The setting `petsVisitor` in
-`ruimte.settings` turns it off: set it to `false` in this client's storage.
+away (`visitor.ts`), never where it would stand on another node. One clock for the page, a first
+visit 20 to 60 minutes after a canvas opens and the next 20 to 60 minutes after that, only while the
+window is visible and nobody is dragging or has a node maximized. It takes no press. It is on by
+default and has no row in Settings; the setting `petsVisitor` in `ruimte.settings` turns it off: set
+it to `false` in this client's storage.
 
 ## A figure of your own
 

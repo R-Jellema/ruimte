@@ -3,7 +3,7 @@ import type { AgentInfo, AgentStatus } from '@ruimte/contracts';
 import type { ChatState } from '@adecore/agents-react/state';
 import { CLAUDE_BUDDY, CODEX_BUDDY } from '@/canvas/pets/buddies';
 import { FOX_SPRITE, FROG_SPRITE } from '@/canvas/pets/animals';
-import { JUMP_ROWS, PET_POSES } from '@/canvas/pets/pixel';
+import { BUBBLE_ROWS, JUMP_ROWS, PET_POSES } from '@/canvas/pets/pixel';
 import { builtInSprite, coversOtherNode, PET_HEIGHT, PET_HIT_HEIGHT, petChoiceOf, petFrame, petHitBox, petPlace, petsOf } from '@/canvas/pets/pet-state';
 import type { CanvasNode } from '@/state/canvas';
 import type { SessionState } from '@/state/sessions';
@@ -139,11 +139,16 @@ describe('where a press on a pet lands', () => {
         return { id, kind: 'chat', x: 0, y, w: 480, h: 300 } as CanvasNode;
     }
 
-    test('only on the figure at rest, from its feet on the node up, never on the bubble or the room to jump', () => {
-        const box = petHitBox({ x: 100, y: 200, w: 400 });
+    test('on the figure, from its feet on the node up to the top of its jump, and never on the bubble', () => {
+        const node = { x: 100, y: 200, w: 400 };
+        const box = petHitBox(node);
         expect(box.h).toBe(PET_HIT_HEIGHT);
         expect(box.y + box.h).toBe(202);
-        expect(box.y).toBeGreaterThan(petPlace({ x: 100, y: 200, w: 400 }).y);
+        // At the top of a jump the figure's third row, the first a body fills, is where the box begins.
+        const jumpTop = petPlace(node).y + (BUBBLE_ROWS + JUMP_ROWS - JUMP_ROWS + 2) * 2;
+        expect(box.y).toBe(jumpTop);
+        // The bubble sits in the rows above it.
+        expect(box.y).toBeGreaterThanOrEqual(petPlace(node).y + (BUBBLE_ROWS - 1) * 2);
     });
 
     test('a node 40 pixels under another, the gap new nodes get, keeps its pet off the one above', () => {
@@ -161,6 +166,13 @@ describe('where a press on a pet lands', () => {
         const pets = petsOf(nodes, new Set(), {}, { 'local:upper': chat('upper', 'idle'), 'local:lower': chat('lower', 'needs-you') }, 'local', {});
         expect(pets.find((pet) => pet.id === 'lower')?.blocked).toBe(true);
         expect(pets.find((pet) => pet.id === 'upper')?.blocked).toBe(false);
+    });
+
+    test('the frame of a group the node does not stand in blocks it', () => {
+        const lower = chatAt('lower', 310);
+        const above = { id: 'above', kind: 'group', x: 0, y: 0, w: 600, h: 300 } as CanvasNode;
+        expect(coversOtherNode(petHitBox(lower), 'lower', { lower, above }, new Set())).toBe(true);
+        expect(coversOtherNode(petHitBox(lower), 'lower', { lower, above: { ...above, memberIds: ['lower'] } }, new Set())).toBe(false);
     });
 
     test('a group the node stands in, or a node a collapsed group hides, does not block it', () => {

@@ -102,7 +102,7 @@ describe('pets on a canvas', () => {
         // Forty pixels apart, the gap new nodes get, the figure stands clear of the node above and takes its press.
         expect(pet(spaced.id)?.hasAttribute('data-pet-blocked')).toBe(false);
         expect(pet(spaced.id)?.classList.contains('pointer-events-auto')).toBe(true);
-        expect(pet(spaced.id)?.style.height).toBe('36px');
+        expect(pet(spaced.id)?.style.height).toBe('40px');
     });
 
     test('a click on a pet brings its node to the middle of the view and selects it', async () => {
