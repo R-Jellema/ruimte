@@ -121,6 +121,7 @@
     },
     "canvasMenu": {
         "addHere": "Hier toevoegen",
+        "newNode": "Nieuwe node",
         "file": "Bestand…",
         "routine": "Routine…",
         "routines": "Routine",
@@ -219,7 +220,9 @@
     },
     "note": {
         "placeholder": "Schrijf een notitie. Markdown werkt.",
-        "empty": "Klik om te schrijven"
+        "empty": "Klik om te schrijven",
+        "lockPreview": "Vastzetten op preview",
+        "unlockPreview": "Losmaken om te bewerken"
     },
     "drawing": {
         "gone": "Deze tekening is verwijderd.",

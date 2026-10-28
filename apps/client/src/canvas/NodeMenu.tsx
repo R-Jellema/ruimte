@@ -21,6 +21,7 @@ import {
     Move,
     Palette,
     Pencil,
+    Plus,
     Scaling,
     Shrink,
     Sparkles,
@@ -75,6 +76,8 @@ import { useTransport } from '@/transport/context';
 import { DisabledReason, Icon, Kbd, ContextMenu } from '@adecore/ui';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 import { formatNodeSize, makeDefaultSize } from '@/canvas/default-size';
+import { CanvasCreateItems } from '@/canvas/CanvasMenu';
+import type { Point } from '@/canvas/math';
 
 interface NodeMenuProps {
     id: string;
@@ -83,6 +86,8 @@ interface NodeMenuProps {
     snooze?: ReactNode;
     /* False when a pick moved the keyboard somewhere the menu must not take it back from, such as a rename field. */
     finalFocus?: () => boolean;
+    /* Where the right-click landed on a group on the canvas, so New node puts what it adds there and so in the group. */
+    createAt?: () => Point;
 }
 
 /* A closed canvas is read from the document; only an action that needs its editor opens it. */
@@ -100,7 +105,7 @@ export function NodeMenuPopup(props: NodeMenuProps) {
     );
 }
 
-function NodeMenuContent({ id, viewId: targetViewId, node, onRename, snooze, finalFocus }: NodeMenuProps & { node: CanvasNode | undefined }) {
+function NodeMenuContent({ id, viewId: targetViewId, node, onRename, snooze, finalFocus, createAt }: NodeMenuProps & { node: CanvasNode | undefined }) {
     const { t } = useTranslation('canvas');
     const canvasStore = useCanvasStore();
     const endpointId = useEndpointId();
@@ -240,6 +245,20 @@ function NodeMenuContent({ id, viewId: targetViewId, node, onRename, snooze, fin
     return (
         <ContextMenu.Popup {...(finalFocus === undefined ? {} : { finalFocus })}>
             {snooze}
+            {/* A collapsed group is only its header, with no room to put a node in. */}
+            {createAt && node.kind === 'group' && !node.collapsed && (
+                <>
+                    <ContextMenu.SubmenuRoot>
+                        <ContextMenu.SubmenuTrigger>
+                            <Icon icon={Plus} size={14} /> {t('canvasMenu.newNode')}
+                        </ContextMenu.SubmenuTrigger>
+                        <ContextMenu.Popup>
+                            <CanvasCreateItems at={createAt} />
+                        </ContextMenu.Popup>
+                    </ContextMenu.SubmenuRoot>
+                    <ContextMenu.Separator />
+                </>
+            )}
             <ContextMenu.Item onClick={onRename}>
                 <Icon icon={Pencil} size={14} /> {t('common:action.rename')} <ContextMenu.Hint>{t('menu.doubleClick')}</ContextMenu.Hint>
             </ContextMenu.Item>

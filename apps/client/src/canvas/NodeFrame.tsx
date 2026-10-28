@@ -1,6 +1,6 @@
 import { MAX_TITLE_LENGTH } from '@ruimte/actions';
 import { notePaperOf, type CanvasNodeKind } from '@ruimte/contracts';
-import { memo, useState, type CSSProperties, type ReactNode } from 'react';
+import { memo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronRight, CircleDot, CirclePower, CircleX, Crosshair, Eye, GitBranch, Hand, Link2, Shrink, X, type LucideIcon } from 'lucide-react';
@@ -71,7 +71,8 @@ import { PlanPill } from '@/plan/PlanPill';
 import { useChatPrWatch } from '@/state/pr-watches';
 import { BrowserBody } from '@/nodes/BrowserBody';
 import { DeviceBody, DevicePlate, DeviceToolbar } from '@/devices/DeviceBody';
-import { NoteNode } from '@/canvas/nodes/NoteNode';
+import { NoteNode, NotePreviewLock } from '@/canvas/nodes/NoteNode';
+import type { Point } from '@/canvas/math';
 import { DiagramNode, DiagramPlate } from '@/canvas/nodes/DiagramNode';
 import { DrawingNode } from '@/canvas/nodes/DrawingNode';
 import { FileNode, FilePlate } from '@/canvas/nodes/FileNode';
@@ -356,6 +357,8 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
     const live = useHeldWhileVisible(inViewport || maximized);
     const readable = useReadableZoom() || maximized;
     const [renaming, setRenaming] = useState(false);
+    // Where a right-click landed on a group, in the canvas's own coordinates, for what its menu adds there.
+    const menuPoint = useRef<Point>({ x: 0, y: 0 });
     const subagentTrail = useSubagentTrail(id).trail;
     /* Where a file node's controls go: its own header, so the body draws no second bar under it.
        Every other node hands its body an empty slot, which keeps the canvas out of the window's. */
@@ -436,7 +439,15 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                 }}
                 tabIndex={0}
                 // The node's own menu answers the right-click; the canvas must not open its menu as well.
-                onContextMenu={(e) => e.stopPropagation()}
+                onContextMenu={(e) => {
+                    e.stopPropagation();
+
+                    if (isGroup) {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const zoom = canvasStore.getState().camera.zoom;
+                        menuPoint.current = { x: node.x + (e.clientX - rect.left) / zoom, y: node.y + (e.clientY - rect.top) / zoom };
+                    }
+                }}
                 onKeyDown={(e) => {
                     // Tab reaches the frame; Enter makes it the selection, so a node is usable without a pointer.
                     if (e.key === 'Enter' && e.target === e.currentTarget && !isGroup) {
@@ -552,6 +563,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                     {node.kind === 'routine' && <span ref={setFileControls} className="flex shrink-0 items-center gap-1.5" />}
                     {node.kind === 'device' && <DeviceToolbar id={id} narrow={node.w < MACHINE_PILL_MIN_WIDTH} />}
                     <ButtonGroup className="shrink-0">
+                        {isNote && <NotePreviewLock id={id} />}
                         {maximized ? (
                             <IconButton icon={Shrink} size="sm" label={t('node.restore')} onClick={() => canvasStore.getState().toggleMaximizedNode(id)} />
                         ) : (
@@ -648,6 +660,7 @@ function NodeFrameContent({ id, z }: { id: string; z: number }) {
                 id={id}
                 onRename={() => setRenaming(true)}
                 snooze={<SnoozeMenuItems endpointId={endpointId} nodeId={id} needsYou={status === 'needs-you'} />}
+                {...(isGroup ? { createAt: () => menuPoint.current } : {})}
             />
         </ContextMenu.Root>
     );

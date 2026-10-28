@@ -81,6 +81,7 @@ import { sendFromComposer, stepEffortFromComposer, stepTimelineMessage } from '@
 import { focusedChatId } from '@/chat/focused-chat';
 import { restartChatSession } from '@/chat/restart-session';
 import { COMMANDS, type PaletteCommandId } from '@/shell/command-table';
+import { isNotePreviewLocked, setNotePreviewLocked } from '@/state/note-previews';
 import type { MeasureVariant } from '@/measure/scene';
 
 export interface Command {
@@ -527,6 +528,15 @@ export function appCommands(prRepos: readonly PrRepo[] = prReposOfCurrent()): Co
                                 'node-maximize',
                                 () => focusedCanvas().getState().toggleMaximizedNode(maximizeTarget),
                                 maximizedNodeOf(canvas) === null ? {} : { label: i18next.t('canvas:node.restore') }
+                            )
+                        ]
+                      : []),
+                  ...(maximizeTarget !== null && canvas.nodes[maximizeTarget]?.kind === 'note' && (canvas.nodes[maximizeTarget]?.body ?? '').trim() !== ''
+                      ? [
+                            row(
+                                'note-lock-preview',
+                                () => setNotePreviewLocked(maximizeTarget, !isNotePreviewLocked(maximizeTarget)),
+                                isNotePreviewLocked(maximizeTarget) ? { label: i18next.t('canvas:note.unlockPreview') } : {}
                             )
                         ]
                       : []),

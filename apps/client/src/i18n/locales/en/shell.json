@@ -783,6 +783,7 @@
             "nodeDown": "Select node below",
             "zoomToNode": "Zoom to node",
             "maximizeNode": "Maximize node",
+            "lockNotePreview": "Lock note to preview",
             "usage": "Usage",
             "compareModels": "Compare models",
             "measureScene": "Measure: build the 30-node scene",

@@ -23,13 +23,38 @@ function AddItem({ kind, at }: { kind: keyof typeof ADD_NODE_SHORTCUTS; at: () =
 
 /* Nodes and text land at the right-click; a line starts with the next drag. */
 export function CanvasMenuPopup({ at }: { at: () => Point }) {
-    const { t } = useTranslation(['canvas', 'drawing']);
+    const { t } = useTranslation('canvas');
     const canvasStore = useCanvasStore();
     const hasSelection = useCanvas((s) => s.selection.length > 0);
-    /* A file comes out of the open folder, so a project without one has nothing to pick from. */
-    const hasFolder = useProject((s) => shownFolderOf(s.current) !== null);
+
     return (
         <ContextMenu.Popup>
+            <CanvasCreateItems at={at} />
+            <ContextMenu.Separator />
+            <ContextMenu.Group>
+                <ContextMenu.Item onClick={() => selectAllAction(canvasStore)}>
+                    <Icon icon={Scan} size={14} /> {t('common:action.selectAll')} <Kbd shortcut={CANVAS_SHORTCUTS.selectAll} />
+                </ContextMenu.Item>
+                <ContextMenu.Item disabled={!hasSelection} onClick={() => groupSelectionAction()}>
+                    <Icon icon={SquareDashedMousePointer} size={14} /> {t('canvasMenu.groupSelection')} <Kbd shortcut={CANVAS_SHORTCUTS.group} />
+                </ContextMenu.Item>
+                <ContextMenu.Item onClick={() => fitAction()}>
+                    <Icon icon={Maximize} size={14} /> {t('canvasMenu.zoomToFit')} <Kbd shortcut={CANVAS_SHORTCUTS.fitAll} />
+                </ContextMenu.Item>
+            </ContextMenu.Group>
+        </ContextMenu.Popup>
+    );
+}
+
+/* What a right-click can add at its point: on the empty canvas, and inside a group under New node. */
+export function CanvasCreateItems({ at }: { at: () => Point }) {
+    const { t } = useTranslation(['canvas', 'drawing']);
+    const canvasStore = useCanvasStore();
+    /* A file comes out of the open folder, so a project without one has nothing to pick from. */
+    const hasFolder = useProject((s) => shownFolderOf(s.current) !== null);
+
+    return (
+        <>
             <ContextMenu.Group>
                 <AgentSubmenus onPick={(target, provider, account) => void createNodeAction(target, { provider: provider.kind, account, at: at() })} />
                 {(['terminal', 'chat', 'browser'] as const).map((kind) => (
@@ -54,18 +79,6 @@ export function CanvasMenuPopup({ at }: { at: () => Point }) {
                     <Icon icon={Type} size={14} /> {t('kinds.text')} <ContextMenu.Hint>{t('menu.doubleClick')}</ContextMenu.Hint>
                 </ContextMenu.Item>
             </ContextMenu.Group>
-            <ContextMenu.Separator />
-            <ContextMenu.Group>
-                <ContextMenu.Item onClick={() => selectAllAction(canvasStore)}>
-                    <Icon icon={Scan} size={14} /> {t('common:action.selectAll')} <Kbd shortcut={CANVAS_SHORTCUTS.selectAll} />
-                </ContextMenu.Item>
-                <ContextMenu.Item disabled={!hasSelection} onClick={() => groupSelectionAction()}>
-                    <Icon icon={SquareDashedMousePointer} size={14} /> {t('canvasMenu.groupSelection')} <Kbd shortcut={CANVAS_SHORTCUTS.group} />
-                </ContextMenu.Item>
-                <ContextMenu.Item onClick={() => fitAction()}>
-                    <Icon icon={Maximize} size={14} /> {t('canvasMenu.zoomToFit')} <Kbd shortcut={CANVAS_SHORTCUTS.fitAll} />
-                </ContextMenu.Item>
-            </ContextMenu.Group>
-        </ContextMenu.Popup>
+        </>
     );
 }

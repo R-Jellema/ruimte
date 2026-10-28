@@ -783,6 +783,7 @@
             "nodeDown": "Selecteer node onder",
             "zoomToNode": "Zoom naar node",
             "maximizeNode": "Node maximaliseren",
+            "lockNotePreview": "Notitie vastzetten op preview",
             "usage": "Verbruik",
             "compareModels": "Modellen vergelijken",
             "measureScene": "Meten: scène met 30 nodes bouwen",
