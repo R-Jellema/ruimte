@@ -231,7 +231,13 @@ export class TextDrafts {
         const saving = Promise.resolve()
             .then(() => (reason === 'edit' ? undefined : this.firstParticipant(key)?.(reason).catch(() => undefined)))
             .then(() => this.writeDraft(endpointId, path))
-            .then((written) => (written && this.isUnsaved(endpointId, path) ? this.save(endpointId, path, 'afterDelay') : written));
+            .then((written) => (written && this.isUnsaved(endpointId, path) ? this.save(endpointId, path, 'afterDelay') : written))
+            .finally(() => {
+                // `write` clears it; a tidy that brought the text back to disk writes nothing, and a stale one would chain every later save forever.
+                if (pending.saving === saving) {
+                    pending.saving = null;
+                }
+            });
         pending.saving = saving;
         return saving;
     }

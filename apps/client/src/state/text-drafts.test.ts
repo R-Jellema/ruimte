@@ -504,6 +504,25 @@ describe('the version that moved under unsaved text', () => {
 });
 
 describe('save participants', () => {
+    test('saves again after a tidy brought the text back to what is on disk', async () => {
+        const tidy = drafts.beforeSave(MACHINE, PATH, () => drafts.edit(MACHINE, PATH, 'one'));
+        drafts.edit(MACHINE, PATH, 'one ');
+
+        expect(await drafts.save(MACHINE, PATH)).toBe(true);
+        expect(link.writes).toHaveLength(0);
+
+        tidy();
+        drafts.edit(MACHINE, PATH, 'one two');
+        const saved = drafts.save(MACHINE, PATH);
+        await flush();
+
+        expect(link.writes.map((write) => write.text)).toEqual(['one two']);
+
+        await link.land(2);
+
+        expect(await saved).toBe(true);
+    });
+
     test('awaits a participant before the preparers and the write, and writes what it left in the draft', async () => {
         const order: string[] = [];
         const release = deferred<void>();
