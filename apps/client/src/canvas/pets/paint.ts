@@ -40,10 +40,17 @@ export function drawnFrameKey(look: PetLook, frame: PetFrame): string {
  * What a pet does on each beat: work out its frame and paint it only when the picture changes. A paint
  * that could not finish (a strip that still decodes) says so, and the next beat tries again.
  */
-export function petPainter(look: PetLook, mood: PetMood, still: boolean, paint: (frame: PetFrame) => boolean): (tick: number) => void {
+export function petPainter(
+    look: PetLook,
+    mood: PetMood,
+    still: boolean,
+    paint: (frame: PetFrame) => boolean,
+    walking: () => boolean = () => false
+): (tick: number) => void {
     let painted: string | null = null;
     return (tick) => {
-        const frame = petFrame(mood, tick, still);
+        // Asked on every beat, since a pet along the bottom of the screen starts and stops walking without its mood changing.
+        const frame: PetFrame = !still && walking() ? { pose: 'walk', frame: tick, lift: 0, bubble: false } : petFrame(mood, tick, still);
         const key = drawnFrameKey(look, frame);
         if (key !== painted && paint(frame)) {
             painted = key;

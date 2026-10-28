@@ -96,6 +96,8 @@ function chatStreamingFrom(stored: unknown): ChatStreamingMode {
     return CHAT_STREAMING_MODES.find((mode) => mode === stored) ?? 'words';
 }
 
+export type PetsPlace = 'nodes' | 'screen';
+
 /* When this computer stays awake: never, while an agent works, or all the time. */
 export type KeepAwakeMode = 'off' | 'working' | 'always';
 
@@ -281,6 +283,8 @@ export interface Settings {
     canvasRenderDistance: RenderDistance;
     /* Whether a pet stands on every agent's node and says when it waits on you. Off to start with: a canvas is a place to work. */
     pets: boolean;
+    /* Where the pets are: on their nodes, or along the bottom of the screen, around the dock (`canvas/pets/roam.ts`). */
+    petsPlace: PetsPlace;
     /* Which pets: a built-in set (`PET_SETS`) or `custom:<id>` for a sprite a person added (`canvas/pets/custom-sprites.ts`). */
     petsSprite: string;
     /* Whether, while Pets is off, a pet now and then drops by beside a node for a moment. On to start with. */
@@ -371,6 +375,7 @@ const DEFAULT_SETTINGS: Settings = {
     terminalFont: 'editor',
     canvasRenderDistance: 'standard',
     pets: false,
+    petsPlace: 'nodes',
     petsSprite: 'buddies',
     petsVisitor: true
 };
@@ -483,6 +488,7 @@ export function settingsFrom(stored: Partial<Settings>): Settings {
         canvasRenderDistance: renderDistanceFrom(stored.canvasRenderDistance),
         // Only a stored `true` brings the pets, and only a stored `false` keeps the visitor away.
         pets: stored.pets === true,
+        petsPlace: stored.petsPlace === 'screen' ? 'screen' : 'nodes',
         // Whether a custom sprite is still there is the pets' own question, so a string is kept as it is.
         petsSprite: typeof stored.petsSprite === 'string' && stored.petsSprite !== '' ? stored.petsSprite : DEFAULT_SETTINGS.petsSprite,
         petsVisitor: stored.petsVisitor !== false

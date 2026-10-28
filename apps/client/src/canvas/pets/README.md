@@ -31,6 +31,25 @@ the file system, the daemon's folders or a project file.
 - One interval for the page drives every pet (`ticker.ts`), only while a pet is mounted, and a pet
   whose node is out of view mounts no canvas (`useNodeInViewport`).
 
+## Along the bottom of the screen
+
+Settings, Views, Pets, Where pets are (`petsPlace`) takes the pets off their nodes and puts them along
+the bottom of the canvas, over it in its cell's overlay and under the dock (`PetRoam.tsx`). Nodes
+still have them, so a node a collapsed group hides has none here either.
+
+- `roam.ts` decides where each one is, a beat at a time on the shared clock: it rests a while in its
+  mood's pose, walks (`walk`, the one pose only this place uses) somewhere else on the floor or onto
+  the dock, and rests again. One that waits on you or stopped stays where it is. New ones start
+  spread over the floor.
+- The floor runs between what stands on it: the dock, the minimap and a prompt card low enough to
+  touch a pet (`PET_LEDGE_ATTRIBUTE` and `PET_WALL_ATTRIBUTE` in `attributes.ts`, the prompt stack by
+  its own attribute). A pet hops onto the dock and off again at its ends; the minimap it only walks
+  up to. A dock that hides, or a prompt card that comes up over it, sends the pets on it to the floor
+  beside it.
+- The obstacles are measured on every beat, in whole pixels, so the ground changes only when one moves.
+- With reduced motion they only take their place.
+- A click goes to the node, as on a node; the bubble and the bow are the same.
+
 ## The visitor
 
 While Pets is off, a pet now and then stands beside a node on screen for four seconds and fades

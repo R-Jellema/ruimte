@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { Tooltip } from '@adecore/ui';
@@ -7,7 +7,8 @@ import { nodeColorOf } from '@ruimte/contracts';
 import { accentColor } from '@/canvas/accents';
 import { useNodeInViewport } from '@/canvas/culling';
 import { visibleRect } from '@/canvas/math';
-import { PAINT_SIZE, paintPet, petPainter, type PetLook } from '@/canvas/pets/paint';
+import { petLabel } from '@/canvas/pets/figure-support';
+import { PetFigure } from '@/canvas/pets/PetFigure';
 import {
     PET_HEIGHT,
     PET_HIT_HEIGHT,
@@ -18,14 +19,11 @@ import {
     petCrowded,
     petNodeKey,
     petOf,
-    petPlace,
-    type PetMood
+    petPlace
 } from '@/canvas/pets/pet-state';
-import { bowColors } from '@/canvas/pets/pixel';
-import { onPetTick } from '@/canvas/pets/ticker';
 import { usePetLook } from '@/canvas/pets/use-pet-look';
 import { createVisitor, VISIT_MS, visitSpot, type VisitSpot } from '@/canvas/pets/visitor';
-import { maximizedNodeOf, useCanvas, useCanvasStore, type CanvasNode } from '@/state/canvas';
+import { maximizedNodeOf, useCanvas, useCanvasStore } from '@/state/canvas';
 import { useEndpointId } from '@/state/keys';
 import { useSessions } from '@/state/sessions';
 import { useSettings } from '@/state/settings';
@@ -36,52 +34,6 @@ const visitor = createVisitor({
     clearTimeout: (handle) => window.clearTimeout(handle as number),
     random: Math.random
 });
-
-const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
-
-/* What an untitled node with a pet reads as; a chat is the rest, since only these kinds have one. */
-const KIND_LABELS: Partial<Record<CanvasNode['kind'], 'kinds.design' | 'kinds.terminal'>> = { design: 'kinds.design', terminal: 'kinds.terminal' };
-
-function prefersStill(): boolean {
-    return typeof matchMedia === 'function' && matchMedia(REDUCED_MOTION).matches;
-}
-
-function followMotion(onChange: () => void): () => void {
-    if (typeof matchMedia !== 'function') {
-        return () => {};
-    }
-    const query = matchMedia(REDUCED_MOTION);
-    query.addEventListener('change', onChange);
-    return () => query.removeEventListener('change', onChange);
-}
-
-/*
- * A canvas of its own that repaints on the shared beat, so React renders a pet only when its mood or
- * look changes, and the beat paints only a frame that differs from the one before it.
- */
-function PetFigure({ look, mood, crowded, accent }: { look: PetLook; mood: PetMood; crowded: boolean; accent?: string }) {
-    const ref = useRef<HTMLCanvasElement>(null);
-    // Read again when a person turns reduced motion on or off, so the figures stop or move at once.
-    const still = useSyncExternalStore(followMotion, prefersStill, () => false);
-    useEffect(() => {
-        const context = ref.current?.getContext('2d') ?? null;
-        if (context === null) {
-            return;
-        }
-        const bow = accent === undefined ? null : bowColors(accent);
-        return onPetTick(petPainter(look, mood, still, (frame) => paintPet(context, look, frame, crowded, bow)));
-    }, [look, mood, still, crowded, accent]);
-    return (
-        <canvas
-            ref={ref}
-            width={PAINT_SIZE.w}
-            height={PAINT_SIZE.h}
-            className="block"
-            style={{ width: PET_PAINT_WIDTH, height: PET_HEIGHT, imageRendering: 'pixelated' }}
-            aria-hidden
-        />
-    );
-}
 
 /*
  * A pet on its node, when an agent is in it. Only its figure takes a press, and not even that where the
@@ -109,9 +61,7 @@ function Pet({ id }: { id: string }) {
     }
     const { mood } = pet;
     const place = petPlace(node);
-    // A node a person never named reads as its kind, so the label always says which node it leads to.
-    const title = node.title?.trim() || t(KIND_LABELS[node.kind] ?? 'kinds.chat');
-    const label = t(mood === 'waiting' || mood === 'snoozed' ? 'pets.waiting' : 'pets.goTo', { title });
+    const label = petLabel(t, node, mood);
     return (
         <div className="absolute" style={{ left: place.x, top: place.y, width: PET_PAINT_WIDTH, height: PET_HEIGHT }}>
             {inView && <PetFigure look={look} mood={mood} crowded={crowded} accent={accentColor(nodeColorOf(node))} />}
@@ -194,9 +144,11 @@ function PetVisitor() {
 export function PetLayer({ z }: { z: number }) {
     const pets = useSettings((s) => s.pets);
     const visitorOn = useSettings((s) => s.petsVisitor);
+    // Along the bottom of the screen they are `PetRoam`'s, over the canvas rather than in its world.
+    const onNodes = useSettings((s) => s.petsPlace === 'nodes');
     return (
         <div className="pointer-events-none absolute left-0 top-0" style={{ zIndex: z }}>
-            {pets ? <NodePets /> : visitorOn && <PetVisitor />}
+            {pets ? onNodes && <NodePets /> : visitorOn && <PetVisitor />}
         </div>
     );
 }

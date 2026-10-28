@@ -1,19 +1,21 @@
 import { bow, cell, crossEye, emptyParts, flipped, laptop, snore, type DrawnSprite, type Parts } from '@/canvas/pets/pixel';
 import { FOX, FROG } from '@/canvas/pets/sprite-colors';
 
-type AnimalPose = 'stand' | 'work' | 'wait' | 'sleep' | 'fallen';
+type AnimalPose = 'stand' | 'walk' | 'work' | 'wait' | 'sleep' | 'fallen';
 
 /* A fox from the side, in warm orange: the animal for Claude. */
 function foxParts(pose: AnimalPose, frame: number): Parts {
     const parts = emptyParts();
     const { silhouette, details } = parts;
-    if (pose === 'stand' || pose === 'fallen') {
+    if (pose === 'stand' || pose === 'walk' || pose === 'fallen') {
         silhouette.push(cell(1, 8, 3, 4, FOX.body), cell(2, 11, 3, 2, FOX.body), cell(1, 7, 2, 2, FOX.cream));
         silhouette.push(cell(4, 10, 9, 4, FOX.body));
-        for (const leg of [5, 11]) {
-            silhouette.push(cell(leg, 14, 2, 3, FOX.body));
-            details.push(cell(leg, 16, 2, 1, FOX.sock));
-        }
+        [5, 11].forEach((leg, i) => {
+            // Walking, one leg is up and then the other.
+            const lift = pose === 'walk' && i === frame % 2 ? 1 : 0;
+            silhouette.push(cell(leg, 14, 2, 3 - lift, FOX.body));
+            details.push(cell(leg, 16 - lift, 2, 1, FOX.sock));
+        });
         silhouette.push(cell(12, 5, 6, 5, FOX.body), cell(12, 3, 2, 2, FOX.body), cell(15, 3, 2, 2, FOX.body), cell(17, 8, 2, 2, FOX.cream));
         details.push(cell(14, 8, 3, 2, FOX.cream), cell(6, 12, 6, 2, FOX.cream), cell(13, 4, 1, 1, FOX.pink), cell(16, 4, 1, 1, FOX.pink));
         details.push(cell(18, 8, 1, 1, FOX.ink), cell(4, 10, 1, 1, FOX.shade), cell(12, 9, 1, 1, FOX.shade));
@@ -89,6 +91,11 @@ function frogParts(pose: AnimalPose, frame: number): Parts {
     }
     // Its eyes take the top of its head, so the bow sits on the back of it.
     parts.bow = bow(7, 8);
+    if (pose === 'walk' && frame % 2 === 1) {
+        // A frog hops along rather than walks.
+        const up = <T extends { y: number }>(cells: T[]): T[] => cells.map((part) => ({ ...part, y: part.y - 1 }));
+        return { silhouette: up(parts.silhouette), details: up(parts.details), props: up(parts.props), bow: up(parts.bow) };
+    }
     return parts;
 }
 
@@ -98,6 +105,7 @@ function animal(id: string, outline: string, partsOf: (pose: AnimalPose, frame: 
         outline,
         poses: {
             stand: (frame) => partsOf('stand', frame),
+            walk: (frame) => partsOf('walk', frame),
             work: (frame) => partsOf('work', frame),
             wait: (frame) => partsOf('wait', frame),
             sleep: (frame) => partsOf('sleep', frame),

@@ -45,7 +45,7 @@ import { GroupHover } from '@/canvas/GroupHover';
 import { PortHints } from '@/canvas/PortHints';
 import { ResizeHandles } from '@/canvas/ResizeHandles';
 import { NodeFrame } from '@/canvas/NodeFrame';
-import { CanvasPets } from '@/canvas/CanvasPets';
+import { CanvasPets, CanvasRoamingPets } from '@/canvas/CanvasPets';
 import { DerivedCards } from '@/canvas/DerivedCards';
 import { cardHolds, derivedCardOf, derivedOwnerOf } from '@/canvas/node-body';
 import { TextElementView } from '@/canvas/TextElementView';
@@ -860,6 +860,7 @@ export function Canvas() {
                     )}
                     <TextToolbar />
                     {maximizedId === null && <CanvasLineToolbar />}
+                    {maximizedId === null && <CanvasRoamingPets />}
                     <Minimap />
                     {dropping && <div className="pointer-events-none absolute inset-0 rounded-lg ring-2 ring-accent ring-inset" aria-hidden />}
                     {box && (

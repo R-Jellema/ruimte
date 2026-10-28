@@ -181,6 +181,12 @@ describe('pets', () => {
         expect(settingsFrom({ petsVisitor: false }).petsVisitor).toBe(false);
         expect(settingsFrom({ petsVisitor: 0 as unknown as boolean }).petsVisitor).toBe(true);
     });
+
+    test('keep pets on their nodes unless a stored choice sends them to the bottom of the screen', () => {
+        expect(settingsFrom({}).petsPlace).toBe('nodes');
+        expect(settingsFrom({ petsPlace: 'screen' }).petsPlace).toBe('screen');
+        expect(settingsFrom({ petsPlace: 'ceiling' as unknown as 'screen' }).petsPlace).toBe('nodes');
+    });
 });
 
 describe('agent notifications', () => {

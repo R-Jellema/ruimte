@@ -7,12 +7,15 @@ import { addPetSprite, browserSheetReader, SHEET_LIMITS, SHEET_TYPES, usePetSpri
 import { CUSTOM_PET_PREFIX, PET_SETS, petChoiceOf } from '@/canvas/pets/pet-state';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { SettingSwitchRow } from '@/shell/settings/SettingSwitchRow';
-import { useSettings } from '@/state/settings';
+import { useSettings, type PetsPlace } from '@/state/settings';
+
+const PETS_PLACES: readonly PetsPlace[] = ['nodes', 'screen'];
 
 /* Pets on the canvas: whether they come, which figures, and the strips a person added, which stay in this client. */
 export function PetsSection() {
     const { t } = useTranslation('settings');
     const setting = useSettings((s) => s.petsSprite);
+    const place = useSettings((s) => s.petsPlace);
     const update = useSettings((s) => s.update);
     const sprites = usePetSprites((s) => s.sprites);
     const remove = usePetSprites((s) => s.remove);
@@ -55,6 +58,20 @@ export function PetsSection() {
     return (
         <SettingsSection title={t('views.pets.title')} icon={PawPrint}>
             <SettingSwitchRow id="views.pets.enabled" setting="pets" />
+            <SettingsRow
+                searchId="views.pets.place"
+                label={t('views.pets.place.label')}
+                description={t('views.pets.place.description')}
+                control={
+                    <Select
+                        value={place}
+                        label={t('views.pets.place.label')}
+                        align="end"
+                        items={PETS_PLACES.map((each) => ({ value: each, label: t(`views.pets.place.${each}`) }))}
+                        onValueChange={(next) => update({ petsPlace: next })}
+                    />
+                }
+            />
             <SettingSwitchRow id="views.pets.visitor" setting="petsVisitor" />
             <SettingsRow
                 searchId="views.pets.sprite"

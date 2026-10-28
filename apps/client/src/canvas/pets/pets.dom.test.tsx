@@ -44,7 +44,7 @@ beforeEach(() => {
 afterEach(async () => {
     await act(async () => useUi.getState().setSettings({ open: false }));
     await canvas.close();
-    useSettings.getState().update({ pets: false, petsVisitor: true });
+    useSettings.getState().update({ pets: false, petsPlace: 'nodes', petsVisitor: true });
 });
 
 describe('pets on a canvas', () => {
@@ -128,5 +128,19 @@ describe('pets on a canvas', () => {
         expect(store().getState().selection).toEqual([WRITER.id]);
         expect((VIEWPORT.w / 2 - camera.x) / camera.zoom).toBeCloseTo(WRITER.x + WRITER.w / 2);
         expect((VIEWPORT.h / 2 - camera.y) / camera.zoom).toBeCloseTo(WRITER.y + WRITER.h / 2);
+    });
+
+    test('along the bottom of the screen, a pet leaves its node and still leads to it', async () => {
+        useSettings.getState().update({ pets: true, petsPlace: 'screen' });
+        await open();
+        await act(async () => machine.emit('chat.status', { chatId: WRITER.id, info: chatInfoOf(WRITER.id) }));
+        const roaming = (): HTMLElement | null => document.querySelector(`[data-pet-roam] [data-pet="${WRITER.id}"]`);
+        await until(() => roaming() !== null);
+        expect(document.querySelectorAll(`[data-pet="${WRITER.id}"]`)).toHaveLength(1);
+        expect(roaming()?.getAttribute('aria-label')).toBe('Go to Writer');
+
+        await clickOn(roaming());
+
+        expect(store().getState().selection).toEqual([WRITER.id]);
     });
 });

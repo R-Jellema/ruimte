@@ -38,7 +38,8 @@ export interface BowColors {
     shade: string;
 }
 
-export const PET_POSES = ['stand', 'work', 'wait', 'sleep', 'stopped'] as const;
+/* `walk` only along the bottom of the screen, where a pet goes from one place to another. */
+export const PET_POSES = ['stand', 'walk', 'work', 'wait', 'sleep', 'stopped'] as const;
 
 export type PetPose = (typeof PET_POSES)[number];
 

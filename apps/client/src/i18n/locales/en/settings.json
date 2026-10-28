@@ -685,6 +685,12 @@
                 "label": "Pets",
                 "description": "A small figure stands on every chat and every terminal with an agent, and shows what it does. When one waits on you, its pet jumps with a speech bubble until you answer. Click a pet to go to its node."
             },
+            "place": {
+                "label": "Where pets are",
+                "description": "On their nodes, or along the bottom of the screen, where they wander about and hop onto the dock. A pet wears a bow in its node's color.",
+                "nodes": "On their nodes",
+                "screen": "Bottom of the screen"
+            },
             "visitor": {
                 "label": "Visitor",
                 "description": "While Pets is off, a pet now and then drops by beside a node for a few seconds."

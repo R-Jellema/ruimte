@@ -10,7 +10,7 @@ interface Body extends Parts {
 }
 
 /* A block of twelve by eleven cells with a nub on each side and four legs of one cell. */
-function body(colors: BuddyColors, terminal: boolean, frame: number, pose: 'stand' | 'work' | 'wait' | 'sleep'): Body {
+function body(colors: BuddyColors, terminal: boolean, frame: number, pose: 'stand' | 'walk' | 'work' | 'wait' | 'sleep'): Body {
     const bob = pose === 'work' ? -(frame % 2) : 0;
     const squash = pose === 'sleep' ? 1 + (frame % 2) : 0;
     const top = 3 + bob + squash;
@@ -18,8 +18,9 @@ function body(colors: BuddyColors, terminal: boolean, frame: number, pose: 'stan
     const silhouette = [cell(4, top, 12, height, colors.body), cell(2, top + 5, 2, 2, colors.body), cell(16, top + 5, 2, 2, colors.body)];
     const details = [cell(4, top, 11, 1, colors.light), cell(15, top + 1, 1, height - 1, colors.shade), cell(4, top + height - 1, 11, 1, colors.shade)];
     [5, 8, 11, 14].forEach((x, i) => {
-        // The last leg taps while it waits on you.
-        const lift = pose === 'wait' && i === 3 ? frame % 2 : 0;
+        // The last leg taps while it waits on you; walking, every other leg is up, in turn.
+        const tap = pose === 'wait' && i === 3 ? frame % 2 : 0;
+        const lift = pose === 'walk' && i % 2 === frame % 2 ? 1 : tap;
         details.push(cell(x, 14 + bob, 1, 3 - lift - bob, colors.outline), cell(x, 14 + bob, 1, 2 - lift, colors.body));
     });
     if (terminal) {
@@ -86,6 +87,11 @@ function buddy(id: string, colors: BuddyColors, terminal: boolean): DrawnSprite 
             stand(frame) {
                 const parts = body(colors, terminal, frame, 'stand');
                 face(colors, terminal, parts, frame % 6 === 1 ? 'happy' : 'chill', frame);
+                return parts;
+            },
+            walk(frame) {
+                const parts = body(colors, terminal, frame, 'walk');
+                face(colors, terminal, parts, 'chill', frame);
                 return parts;
             },
             work(frame) {

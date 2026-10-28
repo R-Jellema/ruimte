@@ -685,6 +685,12 @@
                 "label": "Pets",
                 "description": "Op elke chat en elke terminal met een agent staat een klein figuurtje dat laat zien wat die doet. Wacht een agent op jou, dan springt zijn figuurtje met een tekstballon tot je antwoordt. Klik op een figuurtje om naar zijn node te gaan."
             },
+            "place": {
+                "label": "Waar pets staan",
+                "description": "Op hun node, of onderin het scherm, waar ze rondlopen en op de dock springen. Een figuurtje draagt een strikje in de kleur van zijn node.",
+                "nodes": "Op hun node",
+                "screen": "Onderin het scherm"
+            },
             "visitor": {
                 "label": "Bezoeker",
                 "description": "Zolang Pets uit staat, komt er af en toe een figuurtje een paar seconden bij een node langs."
