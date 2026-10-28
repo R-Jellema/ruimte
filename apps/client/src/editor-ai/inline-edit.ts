@@ -96,7 +96,7 @@ export class InlineEditFeature {
         const { editor } = language;
         const offs = [
             editor.onKeyDown((event) => {
-                if (isShortcut(CANVAS_SHORTCUTS.inlineEdit, event)) {
+                if (language.served && isShortcut(CANVAS_SHORTCUTS.inlineEdit, event)) {
                     this.start();
                     return true;
                 }

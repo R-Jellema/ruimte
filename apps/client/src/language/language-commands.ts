@@ -32,8 +32,16 @@ const RUNNERS: Record<LanguageCommandId, (language: EditorLanguage) => void> = {
     'show-inline-edit': (language) => void language.inlineEdit.show(),
     explain: (language) => void language.explain.explainHere(),
     'toggle-rendered-docs': (language) => void language.renderedDocs.toggle(),
-    'suggest-inline': (language) => void language.ghost.request()
+    'suggest-inline': (language) => void language.ghost.request(),
+    'type-hierarchy': (language) => void language.callHierarchy.open(undefined, 'supertypes'),
+    'last-edit-location': (language) => void language.history.lastEdit(),
+    'next-edit-location': (language) => void language.history.nextEdit(),
+    'paste-from-history': (language) => language.pasteHistory.open(),
+    'wrap-with-abbreviation': (language) => language.markup.startWrap()
 };
+
+/* Ghost text, inline edit, explain and the selection to chat wait for a document a language server serves. */
+const SERVED_ONLY = new Set<LanguageCommandId>(['selection-to-chat', 'inline-edit', 'show-inline-edit', 'explain', 'suggest-inline']);
 
 interface LanguageCommandRow {
     id: string;
@@ -51,7 +59,7 @@ export function languageCommandRows(): LanguageCommandRow[] {
         run: () => {
             requestAnimationFrame(() => {
                 const language = languageForCommand();
-                if (language !== null) {
+                if (language !== null && (language.served || !SERVED_ONLY.has(id))) {
                     RUNNERS[id](language);
                 }
             });

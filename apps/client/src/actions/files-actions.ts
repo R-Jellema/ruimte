@@ -3,6 +3,7 @@ import { ActionRefusal, FILE_READ_MAX_LINES, type ActionActorKind, type ActionHa
 import { copyTextOrRefuse } from '@/actions/clipboard';
 import { refusing, type Requester } from '@/actions/refusal';
 import { desktop } from '@/desktop/bridge';
+import { forgetDeletedEdits } from '@/language/ruimte-project-language';
 import { canCopyFilesOn } from '@/shell/panels/file-copy';
 import { absoluteOf, basenameOf, isAbsolutePath, isPathBelow, relativeTo, revealableInFiles } from '@/shell/panels/files-tree';
 import { useFiles } from '@/state/files';
@@ -50,7 +51,15 @@ const LIVE_MACHINE: FilesMachine = {
     isOpen: (path) => useFiles.getState().tabs.some((tab) => tab.key === path),
     open: ({ path, ...position }) => useFiles.getState().open(path, useSettings.getState().filesTabLimit, undefined, position),
     close: (path) => useFiles.getState().close(path),
-    forget: (path) => forgetDeleted(currentEndpointId(), path),
+    forget: (path) => {
+        const endpointId = currentEndpointId();
+        const current = useProject.getState().current;
+        const transport = machineFor(endpointId)?.transport;
+        forgetDeleted(endpointId, path);
+        if (current !== null && transport !== undefined) {
+            forgetDeletedEdits(transport, current.projectId, current.folder, path);
+        }
+    },
     move: async (from, to) => {
         const endpointId = currentEndpointId();
         const transport = machineFor(endpointId)?.transport;

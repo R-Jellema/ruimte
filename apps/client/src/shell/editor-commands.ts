@@ -1,18 +1,28 @@
 import {
     ArrowDownAZ,
+    ArrowDownFromLine,
     ArrowDownToLine,
     ArrowDownUp,
     ArrowRightToLine,
+    ArrowUpFromLine,
     ArrowUpToLine,
     Book,
     BookOpen,
     BoxSelect,
+    Braces,
+    Brackets,
     CaseSensitive,
+    ChevronDown,
+    ChevronUp,
+    ChevronsDown,
     ChevronsDownUp,
+    ChevronsUp,
     ChevronsUpDown,
+    ClipboardType,
     Code,
     Columns3,
     CornerDownLeft,
+    CornerDownRight,
     CornerLeftUp,
     FoldHorizontal,
     FoldVertical,
@@ -29,6 +39,7 @@ import {
     Split,
     TextCursor,
     UnfoldVertical,
+    WholeWord,
     ZoomIn,
     ZoomOut,
     type LucideIcon
@@ -54,8 +65,8 @@ interface EditorCommandSpec {
     readonly group?: EditorCommandGroup;
 }
 
-/* `folding` is the Code menu's submenu, `lines` a group of the Edit menu and `zoom` one of the View menu. */
-export type EditorCommandGroup = 'folding' | 'lines' | 'zoom';
+/* `folding` is the Code menu's submenu, `lines` and `clipboard` are groups of the Edit menu, `navigate` one of the Go menu and `zoom` one of the View menu. */
+export type EditorCommandGroup = 'folding' | 'lines' | 'clipboard' | 'navigate' | 'zoom';
 
 /* A command named as its key in the editor's keymap. */
 function command(icon: LucideIcon, name: EditorRunCommand & KeymapId, group?: EditorCommandGroup): EditorCommandSpec {
@@ -102,6 +113,20 @@ const TABLE = {
     'unique-lines': command(ListX, 'uniqueLines', 'lines'),
     'convert-indents-to-spaces': command(Space, 'convertIndentsToSpaces', 'lines'),
     'convert-indents-to-tabs': command(ArrowRightToLine, 'convertIndentsToTabs', 'lines'),
+    'complete-current-statement': command(CornerDownRight, 'completeCurrentStatement'),
+    'move-statement-up': command(ArrowUpFromLine, 'moveStatementUp', 'lines'),
+    'move-statement-down': command(ArrowDownFromLine, 'moveStatementDown', 'lines'),
+    'paste-as-plain-text': command(ClipboardType, 'pasteAsPlainText', 'clipboard'),
+    'hippie-completion': command(WholeWord, 'hippieCompletion'),
+    'hippie-backward-completion': command(WholeWord, 'hippieBackwardCompletion'),
+    'next-change': command(ChevronsDown, 'nextChange', 'navigate'),
+    'previous-change': command(ChevronsUp, 'previousChange', 'navigate'),
+    'method-up': command(ChevronUp, 'methodUp', 'navigate'),
+    'method-down': command(ChevronDown, 'methodDown', 'navigate'),
+    'code-block-start': command(Braces, 'codeBlockStart', 'navigate'),
+    'code-block-end': command(Braces, 'codeBlockEnd', 'navigate'),
+    'code-block-start-with-selection': command(Brackets, 'codeBlockStartWithSelection', 'navigate'),
+    'code-block-end-with-selection': command(Brackets, 'codeBlockEndWithSelection', 'navigate'),
     'increase-font-size': command(ZoomIn, 'increaseFontSize', 'zoom'),
     'decrease-font-size': command(ZoomOut, 'decreaseFontSize', 'zoom'),
     'reset-font-size': command(RotateCcw, 'resetFontSize', 'zoom')

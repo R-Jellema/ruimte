@@ -1151,7 +1151,7 @@ function languageCommand(id: LanguageCommandId): CommandSpec {
         icon: spec.icon,
         ...(spec.shortcut ? { shortcut: spec.shortcut } : {}),
         palette: true,
-        menu: { menu: spec.menu, group: 'language', order: LANGUAGE_COMMAND_IDS.indexOf(id) }
+        menu: { menu: spec.menu, group: spec.group ?? 'language', order: LANGUAGE_COMMAND_IDS.indexOf(id) }
     };
 }
 
@@ -1173,6 +1173,10 @@ function editorMenuPlace(group: EditorCommandGroup | undefined, order: number): 
             return { menu: 'folding', group: 'folding', order };
         case 'lines':
             return { menu: 'edit', group: 'lines', order };
+        case 'clipboard':
+            return { menu: 'edit', group: 'clipboard', order };
+        case 'navigate':
+            return { menu: 'go', group: 'editor-navigation', order };
         case 'zoom':
             return { menu: 'view', group: 'code-zoom', order };
         default:

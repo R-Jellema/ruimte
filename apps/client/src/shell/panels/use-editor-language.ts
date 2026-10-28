@@ -1,4 +1,4 @@
-import { createHolder, lspLanguageIdOf } from '@adecore/editor-react';
+import { createHolder, lspLanguageIdOf, realTimers } from '@adecore/editor-react';
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { storedPathOf } from '@ruimte/contracts';
 import { pathToFileUri } from '@adecore/lsp';
@@ -42,9 +42,10 @@ function useOwnLanguageId(enabled: boolean, path: string, language: string | und
 }
 
 /*
- * The language servers' side of an open editor, or null where there is none: no project to run a
- * server in, or a file whose language no server here serves. The document stays open on the
- * daemon exactly as long as the editor lives.
+ * The language side of an open editor, or null where there is none: no project to run a server in.
+ * A file whose language no server here serves still gets one, unserved (`served`), for the features
+ * that need no server. The document stays open on the daemon exactly as long as the editor lives
+ * and a server serves it.
  */
 export function useEditorLanguage(editor: Editor | null, path: string, language: string | undefined): EditorLanguage | null {
     const transport = useTransport();
@@ -54,21 +55,23 @@ export function useEditorLanguage(editor: Editor | null, path: string, language:
     const holder = useMemo(() => createHolder<EditorLanguage>(), []);
     const builtIn = lspLanguageIdOf(language);
     const ownId = useOwnLanguageId(editor !== null && builtIn === null, path, language);
-    const languageId = builtIn ?? ownId;
+    const serverLanguageId = builtIn ?? ownId;
+    const serve = serverLanguageId !== null;
+    const languageId = serverLanguageId ?? language ?? 'plaintext';
 
     useEffect(() => {
-        if (editor === null || projectId === null || folder === null || languageId === null) {
+        if (editor === null || projectId === null || folder === null) {
             return;
         }
         const held = acquireProjectLanguage(transport, projectId, folder, draftFiles(endpointId, transport, projectId));
-        const editorLanguage = new EditorLanguage(held.language, editor, pathToFileUri(path), languageId);
+        const editorLanguage = new EditorLanguage(held.language, editor, pathToFileUri(path), languageId, realTimers, { serve });
         holder.set(editorLanguage);
         return () => {
             holder.set(null);
             editorLanguage.dispose();
             held.release();
         };
-    }, [transport, endpointId, editor, projectId, folder, path, languageId, holder]);
+    }, [transport, endpointId, editor, projectId, folder, path, languageId, serve, holder]);
 
     return useSyncExternalStore(holder.subscribe, holder.get);
 }

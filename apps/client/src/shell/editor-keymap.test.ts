@@ -118,6 +118,56 @@ describe('the zoom keys of the code', () => {
     }
 });
 
+describe('the keys of the statement, clipboard, word, change and navigation commands', () => {
+    const chords: readonly (readonly [KeymapId, string | null, string | null])[] = [
+        ['completeCurrentStatement', 'Mod+Alt+Shift+Enter', 'Mod+Alt+Shift+Enter'],
+        ['moveStatementUp', 'Mod+Shift+ArrowUp', 'Mod+Shift+ArrowUp'],
+        ['moveStatementDown', 'Mod+Shift+ArrowDown', 'Mod+Shift+ArrowDown'],
+        ['pasteFromHistory', 'Mod+Shift+V', 'Mod+Shift+V'],
+        ['pasteAsPlainText', 'Mod+Alt+Shift+V', 'Mod+Alt+Shift+V'],
+        ['hippieCompletion', 'Alt+/', 'Alt+/'],
+        ['hippieBackwardCompletion', 'Alt+Shift+/', 'Alt+Shift+/'],
+        ['lastEditLocation', 'Mod+Shift+Backspace', 'Mod+Shift+Backspace'],
+        ['nextEditLocation', null, null],
+        ['nextChange', 'Ctrl+Alt+Shift+ArrowDown', 'Ctrl+Alt+Shift+ArrowDown'],
+        ['previousChange', 'Ctrl+Alt+Shift+ArrowUp', 'Ctrl+Alt+Shift+ArrowUp'],
+        ['methodUp', 'Ctrl+Shift+ArrowUp', 'Ctrl+ArrowUp'],
+        ['methodDown', 'Ctrl+Shift+ArrowDown', 'Ctrl+ArrowDown'],
+        ['codeBlockStart', 'Ctrl+Alt+[', 'Alt+Shift+['],
+        ['codeBlockEnd', 'Ctrl+Alt+]', 'Alt+Shift+]'],
+        ['codeBlockStartWithSelection', 'Mod+Alt+Shift+[', 'Ctrl+Alt+Shift+['],
+        ['codeBlockEndWithSelection', 'Mod+Alt+Shift+]', 'Ctrl+Alt+Shift+]'],
+        ['shrinkSelection', 'Alt+ArrowDown', 'Alt+ArrowDown'],
+        ['wrapWithAbbreviation', 'Mod+Alt+J', 'Mod+Alt+J'],
+        ['typeHierarchy', 'Ctrl+H', 'Ctrl+H']
+    ];
+
+    for (const apple of [true, false]) {
+        const platform = apple ? 'macOS' : 'the other platforms';
+
+        for (const [id, mac, other] of chords) {
+            const expected = apple ? mac : other;
+            test(`${id} is ${expected ?? 'unbound'} on ${platform}`, () => {
+                const found = shortcutFor(id, apple);
+                expect(found === undefined ? null : signature(found, apple)).toBe(expected === null ? null : signature(shortcut(expected), apple));
+            });
+        }
+
+        test(`no two editor commands share a key on ${platform}`, () => {
+            const seen = new Map<string, string>();
+            for (const id of KEYMAP_IDS) {
+                const found = shortcutFor(id, apple);
+                if (found === undefined) {
+                    continue;
+                }
+                const key = signature(found, apple);
+                expect(seen.get(key), `${id} shares ${key} with ${seen.get(key)}`).toBeUndefined();
+                seen.set(key, id);
+            }
+        });
+    }
+});
+
 function eventOf(target: Shortcut, apple: boolean): Pick<KeyboardEvent, 'key' | 'code' | 'ctrlKey' | 'metaKey' | 'altKey' | 'shiftKey'> {
     const letter = /^[A-Z]$/.test(target.key);
     const code: Record<string, string> = { '[': 'BracketLeft', ']': 'BracketRight', '\\': 'Backslash' };

@@ -7,8 +7,11 @@ import {
     AtSign,
     Blocks,
     BookOpen,
+    ClipboardList,
+    CodeXml,
     Cpu,
     FileSearch,
+    GitFork,
     History,
     Info,
     Lightbulb,
@@ -19,17 +22,20 @@ import {
     MessageSquarePlus,
     Network,
     Parentheses,
+    Redo2,
     Rows3,
     ScanSearch,
     Sparkles,
     TextCursorInput,
     Type,
+    Undo2,
     Wand2,
     WandSparkles,
     type LucideIcon
 } from 'lucide-react';
 import type { Shortcut } from '@adecore/ui';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
+import { editorShortcut } from '@/shell/editor-keymap';
 import { RENDERED_DOC_COMMENTS } from '@/features';
 
 /*
@@ -39,7 +45,9 @@ import { RENDERED_DOC_COMMENTS } from '@/features';
  * table (`shell/command-table.ts`) takes them in.
  */
 interface LanguageCommandSpec {
-    readonly menu: 'code' | 'go';
+    readonly menu: 'code' | 'go' | 'edit';
+    /* The group of the menu the command sits in; the menu's group for language commands without one. */
+    readonly group?: string;
     readonly key: string;
     readonly icon: LucideIcon;
     readonly shortcut?: Shortcut;
@@ -72,7 +80,12 @@ const TABLE = {
     'go-to-implementation': { icon: Blocks, menu: 'go', key: 'goToImplementation', shortcut: CANVAS_SHORTCUTS.goToImplementation },
     'history-back': { icon: ArrowLeft, menu: 'go', key: 'historyBack', shortcut: CANVAS_SHORTCUTS.historyBack },
     'history-forward': { icon: ArrowRight, menu: 'go', key: 'historyForward', shortcut: CANVAS_SHORTCUTS.historyForward },
-    'recent-locations': { icon: History, menu: 'go', key: 'recentLocations', shortcut: CANVAS_SHORTCUTS.recentLocations }
+    'recent-locations': { icon: History, menu: 'go', key: 'recentLocations', shortcut: CANVAS_SHORTCUTS.recentLocations },
+    'type-hierarchy': { icon: GitFork, menu: 'go', key: 'typeHierarchy', shortcut: CANVAS_SHORTCUTS.typeHierarchy },
+    'last-edit-location': { icon: Undo2, menu: 'go', key: 'lastEditLocation', shortcut: CANVAS_SHORTCUTS.lastEditLocation },
+    'next-edit-location': { icon: Redo2, menu: 'go', key: 'nextEditLocation', shortcut: editorShortcut('nextEditLocation') },
+    'paste-from-history': { icon: ClipboardList, menu: 'edit', group: 'clipboard', key: 'pasteFromHistory', shortcut: CANVAS_SHORTCUTS.pasteFromHistory },
+    'wrap-with-abbreviation': { icon: CodeXml, menu: 'code', key: 'wrapWithAbbreviation', shortcut: CANVAS_SHORTCUTS.wrapWithAbbreviation }
 } satisfies Record<string, LanguageCommandSpec>;
 
 export type LanguageCommandId = keyof typeof TABLE;

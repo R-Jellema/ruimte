@@ -17,6 +17,51 @@ export const RUIMTE_EDITOR_KEYMAP = resolveKeymap({
             by: 'Voice control'
         }
     },
+    shrinkSelection: {
+        other: 'Alt+ArrowDown'
+    },
+    completeCurrentStatement: {
+        mac: 'Mod+Alt+Shift+Enter',
+        other: 'Mod+Alt+Shift+Enter',
+        takenMac: {
+            platform: 'Mod+Shift+Enter',
+            by: 'Maximize cell'
+        },
+        takenOther: {
+            platform: 'Mod+Shift+Enter',
+            by: 'Maximize cell'
+        }
+    },
+    // Off macOS the IntelliJ keys for the next method are Alt with the arrows, which expand and shrink the selection here.
+    methodUp: {
+        other: 'Ctrl+ArrowUp'
+    },
+    methodDown: {
+        other: 'Ctrl+ArrowDown'
+    },
+    // Off macOS the IntelliJ keys for the code block are Ctrl with a bracket, which History Back and Previous View hold in Ruimte.
+    codeBlockStart: {
+        mac: 'Ctrl+Alt+[',
+        other: 'Alt+Shift+[',
+        takenMac: {
+            platform: 'Mod+Alt+[',
+            by: 'Camera back'
+        }
+    },
+    codeBlockEnd: {
+        mac: 'Ctrl+Alt+]',
+        other: 'Alt+Shift+]',
+        takenMac: {
+            platform: 'Mod+Alt+]',
+            by: 'Camera forward'
+        }
+    },
+    codeBlockStartWithSelection: {
+        other: 'Ctrl+Alt+Shift+['
+    },
+    codeBlockEndWithSelection: {
+        other: 'Ctrl+Alt+Shift+]'
+    },
     selectionToChat: {
         mac: 'Mod+Alt+K',
         other: 'Mod+Alt+K'

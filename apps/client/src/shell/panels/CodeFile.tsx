@@ -291,9 +291,11 @@ export function CodeFile({ path, read, toolbarExtra, onEditor, frame }: CodeFile
         return editor === null || element === null ? undefined : registerFocusedEditor(editor, element);
     }, [editor]);
     const editorLanguage = useEditorLanguage(editor, path, plain ? undefined : read.language);
-    useCodeVision(editorLanguage);
-    useRenderedDocs(editorLanguage);
-    useGitBlame(editorLanguage, path, read.text);
+    // What a server gives (code vision, rendered docs, the status) waits for a document one serves.
+    const servedLanguage = editorLanguage?.served === true ? editorLanguage : null;
+    useCodeVision(servedLanguage);
+    useRenderedDocs(servedLanguage);
+    useGitBlame(servedLanguage, path, read.text);
     useEffect(() => {
         const element = surface.current;
         return editorLanguage === null || element === null ? undefined : registerFocusedLanguage(editorLanguage, element);
@@ -444,7 +446,7 @@ export function CodeFile({ path, read, toolbarExtra, onEditor, frame }: CodeFile
             {editor !== null && (
                 <EditorStatusBar
                     editor={editor}
-                    language={editorLanguage}
+                    language={servedLanguage}
                     path={path}
                     languageId={plain ? undefined : read.language}
                     indentation={editing.indentation}

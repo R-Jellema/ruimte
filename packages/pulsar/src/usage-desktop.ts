@@ -229,7 +229,26 @@ export const USAGE_DESKTOP_COMMANDS = [
     'convertIndentsToTabs',
     'increaseFontSize',
     'decreaseFontSize',
-    'resetFontSize'
+    'resetFontSize',
+    'typeHierarchy',
+    'lastEditLocation',
+    'nextEditLocation',
+    'pasteFromHistory',
+    'wrapWithAbbreviation',
+    'completeCurrentStatement',
+    'moveStatementUp',
+    'moveStatementDown',
+    'pasteAsPlainText',
+    'hippieCompletion',
+    'hippieBackwardCompletion',
+    'nextChange',
+    'previousChange',
+    'methodUp',
+    'methodDown',
+    'codeBlockStart',
+    'codeBlockEnd',
+    'codeBlockStartWithSelection',
+    'codeBlockEndWithSelection'
 ] as const;
 
 export const USAGE_DESKTOP_GENERATED_COMMANDS = [

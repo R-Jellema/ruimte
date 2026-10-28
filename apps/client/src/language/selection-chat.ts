@@ -25,7 +25,7 @@ export class SelectionChatFeature {
     constructor(language: EditorLanguage) {
         this.language = language;
         const off = language.editor.onKeyDown((event) => {
-            if (!isShortcut(CANVAS_SHORTCUTS.selectionToChat, event)) {
+            if (!language.served || !isShortcut(CANVAS_SHORTCUTS.selectionToChat, event)) {
                 return false;
             }
             this.choose();

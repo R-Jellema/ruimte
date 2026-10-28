@@ -358,7 +358,8 @@ const LAYOUT: Record<MenuContainer, readonly MenuGroup[]> = {
         { id: 'focus', when: inWorkspace },
         { id: 'nodes', when: (context) => context.workspace && context.view === 'canvas' },
         { id: 'prompts', when: inWorkspace },
-        { id: 'language', when: (context) => context.workspace && !context.settingsOpen }
+        { id: 'language', when: (context) => context.workspace && !context.settingsOpen },
+        { id: 'editor-navigation', when: (context) => context.workspace && !context.settingsOpen }
     ],
     kind: [
         {

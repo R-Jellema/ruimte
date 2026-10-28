@@ -85,6 +85,23 @@ describe('two editors on one file', () => {
     });
 });
 
+describe('an unserved document', () => {
+    test('counts as open and sends nothing, and a served editor of the same file opens it then', async () => {
+        const { transport, language, editor, engine } = setup('notes');
+        const unserved = language.acquire(uri, 'plaintext', editor, { serve: false });
+        await unserved.ready;
+        editor.type('more notes');
+        await settle();
+        expect(language.openEditors().map((open) => open.uri)).toEqual([uri]);
+        expect(transport.callsOf('language.document.open')).toHaveLength(0);
+        expect(transport.callsOf('language.document.change')).toHaveLength(0);
+
+        const served = language.acquire(uri, 'typescript', engine.mount({} as HTMLElement, { text: 'more notes', theme: 'light' }));
+        await served.ready;
+        expect(transport.callsOf('language.document.open')).toHaveLength(1);
+    });
+});
+
 describe('acquireProjectLanguage', () => {
     test('is one per project on a machine and ends with its last release', async () => {
         const transport = new FakeLanguageTransport();

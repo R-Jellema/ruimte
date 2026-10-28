@@ -64,7 +64,7 @@ export class ExplainFeature {
     }
 
     private get enabled(): boolean {
-        return useSettings.getState().aiOnDeviceHelp;
+        return this.language.served && useSettings.getState().aiOnDeviceHelp;
     }
 
     private reset(): void {

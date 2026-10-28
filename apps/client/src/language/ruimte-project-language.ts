@@ -1,10 +1,12 @@
 import { createSnippetTransformWorker } from './snippet-transform-worker';
 import i18next from 'i18next';
 import {
+    ClipboardHistory,
     lspLanguageIdOf,
     ProjectLanguage as SharedProjectLanguage,
     shikiLanguageOf,
     shikiLanguageOfPath,
+    type AcquireOptions,
     type LanguageDocumentHandle,
     type ProjectFiles,
     type RenameSuggestionsRequest
@@ -31,7 +33,7 @@ export class ProjectLanguage extends SharedProjectLanguage {
     readonly transport: Transport;
     readonly status: LanguageStatusTracker;
     // The wire resynchronizes from the sending editor without starting a second document owner.
-    private readonly openEditors: Map<string, Editor[]>;
+    private readonly editorsByUri: Map<string, Editor[]>;
     private readonly stopDrafts: () => void;
 
     constructor(
@@ -41,13 +43,13 @@ export class ProjectLanguage extends SharedProjectLanguage {
         files: ProjectFiles | DraftProjectFiles | null = null,
         openFile: (folder: string, path: string, line: number) => void = (root, path, line) => void openFileLink(root, { path, line, directory: false })
     ) {
-        const openEditors = new Map<string, Editor[]>();
+        const editorsByUri = new Map<string, Editor[]>();
         let applyEdit: WireLanguageServiceOptions['applyEdit'];
         const service = new WireLanguageService({
             transport,
             projectId,
             folder,
-            textOf: (uri) => openEditors.get(uri)?.[0]?.getText(),
+            textOf: (uri) => editorsByUri.get(uri)?.[0]?.getText(),
             applyEdit: (params) => applyEdit?.(params) ?? Promise.resolve({ applied: false, failureReason: 'The project language is not ready' })
         });
         const panelBodyHeight = readPanelHeight();
@@ -57,6 +59,8 @@ export class ProjectLanguage extends SharedProjectLanguage {
             ...(files === null ? {} : { files }),
             apple: isApplePlatform(),
             keymap: RUIMTE_EDITOR_KEYMAP,
+            // Per project and for this session only: what Paste from History lists is never written to disk.
+            clipboard: new ClipboardHistory({ limit: 100 }),
             snippetTransformWorker: createSnippetTransformWorker,
             ...(panelBodyHeight === undefined ? {} : { panelBodyHeight }),
             onPanelResize: writePanelHeight,
@@ -78,7 +82,7 @@ export class ProjectLanguage extends SharedProjectLanguage {
             notify: (notification) => useToasts.getState().show(notification),
             suggestNames: (request, signal) => suggestNames(transport, request, signal)
         });
-        this.openEditors = openEditors;
+        this.editorsByUri = editorsByUri;
         applyEdit = (params) => this.applyWorkspaceEdit(params.edit);
         this.transport = transport;
         this.status = new LanguageStatusTracker(transport, projectId);
@@ -86,19 +90,19 @@ export class ProjectLanguage extends SharedProjectLanguage {
         this.stopDrafts = files !== null && 'watchUnsaved' in files ? holdUnsavedTexts(service, folder, files) : () => undefined;
     }
 
-    override acquire(uri: string, languageId: string, editor: Editor): LanguageDocumentHandle {
-        const editors = this.openEditors.get(uri) ?? [];
+    override acquire(uri: string, languageId: string, editor: Editor, options?: AcquireOptions): LanguageDocumentHandle {
+        const editors = this.editorsByUri.get(uri) ?? [];
         editors.push(editor);
-        this.openEditors.set(uri, editors);
+        this.editorsByUri.set(uri, editors);
         const forget = (): void => {
             editors.splice(editors.indexOf(editor), 1);
             if (editors.length === 0) {
-                this.openEditors.delete(uri);
+                this.editorsByUri.delete(uri);
             }
         };
         let held: LanguageDocumentHandle;
         try {
-            held = super.acquire(uri, languageId, editor);
+            held = super.acquire(uri, languageId, editor, options);
         } catch (error) {
             forget();
             throw error;
@@ -124,7 +128,7 @@ export class ProjectLanguage extends SharedProjectLanguage {
     override dispose(): void {
         this.stopDrafts();
         super.dispose();
-        this.openEditors.clear();
+        this.editorsByUri.clear();
         this.service.dispose();
         this.status.dispose();
     }
@@ -209,4 +213,13 @@ export function acquireProjectLanguage(
             }
         }
     };
+}
+
+/* Drops the edit locations in a file or folder that was deleted, for the project language the machine holds open. */
+export function forgetDeletedEdits(transport: Transport, projectId: string, folder: string, path: string): void {
+    const uri = pathToFileUri(path);
+    entries
+        .get(transport)
+        ?.get(`${projectId}\0${folder}`)
+        ?.language.edits.forget((edited) => edited === uri || edited.startsWith(`${uri}/`));
 }
