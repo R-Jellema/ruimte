@@ -40,7 +40,8 @@ still have them, so a node a collapsed group hides has none here either.
 - `roam.ts` decides where each one is, a beat at a time on the shared clock: it rests a while in its
   mood's pose, walks (`walk`, the one pose only this place uses) somewhere else on the floor or onto
   the dock, and rests again. One that waits on you or stopped stays where it is. New ones start
-  spread over the floor.
+  spread over the floor. A pet whose way runs past another jumps over it; one already in the air
+  passes under.
 - The floor runs between what stands on it: the dock, the minimap and a prompt card low enough to
   touch a pet (`PET_LEDGE_ATTRIBUTE` and `PET_WALL_ATTRIBUTE` in `attributes.ts`, the prompt stack by
   its own attribute). A pet hops onto the dock and off again at its ends; the minimap it only walks

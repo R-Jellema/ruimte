@@ -48,6 +48,10 @@ const LEDGE_INSET = 6;
 const WALK_STEP = 4;
 const HOP_TICKS = 5;
 const HOP_ARC = 12;
+/* How close another pet comes before one jumps over it, and how high and long that jump is: clear over its head. */
+const LEAP_REACH = 36;
+const LEAP_TICKS = 6;
+const LEAP_ARC = FIGURE.h + 8;
 /* Beats a pet rests between two walks, about three to ten seconds. */
 const REST_TICKS = { min: 20, max: 60 } as const;
 const LEDGE_CHANCE = 0.3;
@@ -112,6 +116,8 @@ interface Hop {
     to: { x: number; y: number };
     on: 'floor' | 'ledge';
     tick: number;
+    ticks: number;
+    arc: number;
 }
 
 interface Roamer {
@@ -183,9 +189,9 @@ export class Roam {
             return null;
         }
         if (roamer.hop !== null) {
-            const { from, to, tick } = roamer.hop;
-            const progress = tick / HOP_TICKS;
-            const arc = 4 * HOP_ARC * progress * (1 - progress);
+            const { from, to, tick, ticks } = roamer.hop;
+            const progress = tick / ticks;
+            const arc = 4 * roamer.hop.arc * progress * (1 - progress);
             return {
                 x: Math.round(from.x + (to.x - from.x) * progress),
                 y: Math.round(from.y + (to.y - from.y) * progress + arc),
@@ -277,12 +283,14 @@ export class Roam {
         return best === null ? null : { on: 'floor', x: best };
     }
 
-    #startHop(roamer: Roamer, on: 'floor' | 'ledge', x: number): void {
+    #startHop(roamer: Roamer, on: 'floor' | 'ledge', x: number, leap = false): void {
         roamer.hop = {
             from: { x: roamer.x, y: this.#levelOf(roamer.on) },
             to: { x, y: on === 'ledge' && this.#ground.ledge !== null ? this.#ground.ledge.level : FLOOR_LEVEL },
             on,
-            tick: 0
+            tick: 0,
+            ticks: leap ? LEAP_TICKS : HOP_TICKS,
+            arc: leap ? LEAP_ARC : HOP_ARC
         };
         if (x !== roamer.x) {
             roamer.facing = x > roamer.x ? 1 : -1;
@@ -292,7 +300,7 @@ export class Roam {
     #move(roamer: Roamer): void {
         if (roamer.hop !== null) {
             roamer.hop.tick += 1;
-            if (roamer.hop.tick >= HOP_TICKS) {
+            if (roamer.hop.tick >= roamer.hop.ticks) {
                 roamer.on = roamer.hop.on;
                 roamer.x = roamer.hop.to.x;
                 roamer.hop = null;
@@ -321,12 +329,39 @@ export class Roam {
         }
         const distance = next.x - roamer.x;
         roamer.facing = distance >= 0 ? 1 : -1;
+        const leap = this.#leapOver(roamer, Math.abs(distance));
+        if (leap !== null) {
+            this.#startHop(roamer, roamer.on, leap, true);
+            return;
+        }
         if (Math.abs(distance) <= WALK_STEP) {
             roamer.x = next.x;
             roamer.route.shift();
             return;
         }
         roamer.x += WALK_STEP * roamer.facing;
+    }
+
+    /*
+     * Where a pet lands when another stands just ahead of it on the same ground: right past it, so they
+     * pass over one another instead of through. Null when nobody is in the way, when it stops before the
+     * one ahead (`togo`), when that one is already in the air (it passes under), or when the landing
+     * would be off the end of the ground.
+     */
+    #leapOver(roamer: Roamer, togo: number): number | null {
+        const blocker = [...this.#roamers.values()].find((other) => {
+            if (other === roamer || !other.placed || other.hop !== null || other.on !== roamer.on) {
+                return false;
+            }
+            const ahead = (other.x - roamer.x) * roamer.facing;
+            return ahead > 0 && ahead <= LEAP_REACH && togo > ahead;
+        });
+        if (blocker === undefined) {
+            return null;
+        }
+        const x = blocker.x + roamer.facing * LEAP_REACH;
+        const span = roamer.on === 'ledge' ? this.#ground.ledge : this.#ground.floors.find((floor) => inSpan(floor, roamer.x));
+        return span !== null && span !== undefined && inSpan(span, x) ? x : null;
     }
 
     /* A walk to somewhere it can reach, over the dock when that is the way. */

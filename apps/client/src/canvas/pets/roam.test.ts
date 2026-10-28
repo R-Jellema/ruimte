@@ -69,6 +69,27 @@ describe('pets along the bottom of the screen', () => {
         expect(onDock).toBe(true);
     });
 
+    test('jump over one another rather than walk through', () => {
+        const roam = new Roam(seeded(11));
+        const ground = groundOf(WIDTH, []);
+        roam.join('waiting', 'waiting');
+        roam.join('walker', 'working');
+        let crossings = 0;
+        let side: number | null = null;
+        for (let i = 0; i < 6000; i++) {
+            roam.step(ground, false);
+            const walker = roam.spot('walker')!;
+            const now = Math.sign(walker.x - roam.spot('waiting')!.x);
+            if (side !== null && now !== 0 && now !== side) {
+                crossings += 1;
+                // Over its head, not through it.
+                expect(walker.y).toBeGreaterThan(FLOOR_LEVEL + FIGURE.h / 2);
+            }
+            side = now === 0 ? side : now;
+        }
+        expect(crossings).toBeGreaterThan(0);
+    });
+
     test('one that waits on you stays where it is', () => {
         const roam = new Roam(seeded(3));
         const ground = groundOf(WIDTH, [DOCK]);
