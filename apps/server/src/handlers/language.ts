@@ -45,6 +45,11 @@ export function registerLanguageHandlers(dispatcher: Dispatcher, host: LanguageH
 
     dispatcher.register('language.request', (payload) => host.request(payload));
 
+    dispatcher.register('language.willSave', async (payload) => {
+        await host.willSave(payload);
+        return {};
+    });
+
     dispatcher.register('language.command', (payload, client) => host.command(client.id, payload));
 
     dispatcher.register('language.edit.answer', async (payload, client) => {

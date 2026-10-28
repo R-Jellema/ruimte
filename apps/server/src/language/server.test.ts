@@ -993,6 +993,53 @@ describe('the features a server answers beyond the first ones', () => {
     });
 });
 
+describe('a save of a document', () => {
+    async function started(textDocumentSync: ServerCapabilities['textDocumentSync']) {
+        const { server, spawner } = rig('css', fakeSpawner({ css: { textDocumentSync } }));
+        const main = document('/work/a.css', 'css', 'a {}');
+        server.attach(main);
+        await settle();
+
+        return { server, main, fake: spawner.processes[0]!.server };
+    }
+
+    it('tells a server that asked about willSave with the reason, and one that did not nothing', async () => {
+        const asking = await started({ change: 2, willSave: true });
+        await asking.server.willSave(asking.main, 2);
+        await settle();
+
+        expect(asking.fake.paramsOf('textDocument/willSave')).toEqual([{ textDocument: { uri: 'file:///work/a.css' }, reason: 2 }]);
+
+        const plain = await started(2);
+        await plain.server.willSave(plain.main, 1);
+        await settle();
+
+        expect(plain.fake.paramsOf('textDocument/willSave')).toEqual([]);
+    });
+
+    it('sends didSave with the text only to a server that asked for it', async () => {
+        const withText = await started({ change: 2, save: { includeText: true } });
+        await withText.server.saved(withText.main);
+        await settle();
+
+        expect(withText.fake.paramsOf('textDocument/didSave')).toEqual([{ textDocument: { uri: 'file:///work/a.css' }, text: 'a {}' }]);
+
+        const plain = await started(2);
+        await plain.server.saved(plain.main);
+        await settle();
+
+        expect(plain.fake.paramsOf('textDocument/didSave')).toEqual([]);
+    });
+
+    it('sends nothing while the server is not up', async () => {
+        const { server } = rig('css');
+        const main = document('/work/a.css', 'css', 'a {}');
+
+        await expect(server.willSave(main, 1)).resolves.toBeUndefined();
+        await expect(server.saved(main)).resolves.toBeUndefined();
+    });
+});
+
 describe('the storage a server may read', () => {
     it('waits for beforeSpawn before it spawns anything, and is live meanwhile', async () => {
         let release!: () => void;

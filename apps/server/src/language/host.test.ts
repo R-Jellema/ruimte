@@ -308,6 +308,50 @@ describe('a project that uses Vue', () => {
     });
 });
 
+describe('a save', () => {
+    const saving = { textDocumentSync: { change: 2, willSave: true, save: { includeText: true } } } as const;
+
+    it('sends willSave with the reason of the client to the servers of the document', async () => {
+        const spawner = fakeSpawner({ typescript: saving });
+        const { host } = await installed(['typescript'], { spawner });
+        await openReady(host);
+
+        await host.willSave({ projectId: 'p1', path: 'src/a.ts', reason: 3 });
+        await settle();
+
+        expect(spawner.processes[0]!.server.paramsOf('textDocument/willSave')).toEqual([{ textDocument: { uri: uri('src/a.ts') }, reason: 3 }]);
+    });
+
+    it('refuses willSave for a document that is not open', async () => {
+        const { host } = await installed();
+
+        await expect(host.willSave({ projectId: 'p1', path: 'src/a.ts', reason: 1 })).rejects.toMatchObject({ code: LANGUAGE_ERROR_CODES.documentNotOpen });
+    });
+
+    it('sends didSave when the written text is the text the servers hold', async () => {
+        const spawner = fakeSpawner({ typescript: saving });
+        const { host } = await installed(['typescript'], { spawner });
+        await openReady(host);
+
+        await host.saved(join(WORK, 'src/a.ts'), 'let a = 1;\n');
+        await settle();
+
+        expect(spawner.processes[0]!.server.paramsOf('textDocument/didSave')).toEqual([{ textDocument: { uri: uri('src/a.ts') }, text: 'let a = 1;\n' }]);
+    });
+
+    it('sends nothing for a write of other text, or of a file that is no document', async () => {
+        const spawner = fakeSpawner({ typescript: saving });
+        const { host } = await installed(['typescript'], { spawner });
+        await openReady(host);
+
+        await host.saved(join(WORK, 'src/a.ts'), 'let a = 2;\n');
+        await host.saved(join(WORK, 'src/other.ts'), 'let a = 1;\n');
+        await settle();
+
+        expect(spawner.processes[0]!.server.paramsOf('textDocument/didSave')).toEqual([]);
+    });
+});
+
 describe('documents', () => {
     it('opens a document at version 1 and brings the server up for it', async () => {
         const { host, spawner } = await installed();

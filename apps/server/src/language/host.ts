@@ -27,7 +27,8 @@ import type {
     LanguageDocumentOpenPayload,
     LanguageDocumentTargetPayload,
     LanguageEditAnswerPayload,
-    LanguageRequestPayload
+    LanguageRequestPayload,
+    LanguageWillSavePayload
 } from '@ruimte/contracts';
 import { CodedError, fileExists, type WatchSeams } from '@adecore/agents';
 import {
@@ -483,6 +484,33 @@ export class LanguageHost {
             }
         }
         return { version: document.version, servers: [...document.kinds], providers: this.providersOf(project, document) };
+    }
+
+    /* A save is about to write the document; the servers that asked hear it, and a failure is theirs to log. */
+    async willSave(payload: LanguageWillSavePayload): Promise<void> {
+        const { project, document } = this.documentOf(payload);
+
+        await Promise.all(this.servingServers(project, document).map((server) => server.willSave(document, payload.reason)));
+    }
+
+    /*
+     * A file was written. The servers hear `didSave` only when the text is the one they hold for that
+     * document; any other write is not their document's, so nothing is sent.
+     */
+    async saved(absolutePath: string, text: string): Promise<void> {
+        const path = resolve(absolutePath);
+
+        await Promise.all(
+            [...this.projects.values()].flatMap((project) => {
+                const document = project.documents.get(path);
+
+                if (document === undefined || document.mirror.text !== text) {
+                    return [];
+                }
+
+                return this.serversOf(project, document).map((server) => server.saved(document));
+            })
+        );
     }
 
     async change(payload: LanguageDocumentChangePayload): Promise<{ version: number }> {

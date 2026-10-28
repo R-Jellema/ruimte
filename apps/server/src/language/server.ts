@@ -424,6 +424,40 @@ export class LanguageServer {
         );
     }
 
+    /* Tells each ready process that has the document open a save is coming; `open.willSave` sends only to a server that asked. */
+    async willSave(document: SharedDocument, reason: TextDocumentSaveReason): Promise<void> {
+        await this.eachOpen(document, `a save of ${document.storedPath}`, (open) => open.willSave(reason));
+    }
+
+    /* Tells them the file is on disk with the text they hold; `open.save` sends only to a server that asked. */
+    async saved(document: SharedDocument): Promise<void> {
+        await this.eachOpen(document, `the save of ${document.storedPath}`, (open) => open.save());
+    }
+
+    private async eachOpen(document: SharedDocument, what: string, run: (open: LspDocument) => Promise<void>): Promise<void> {
+        if (this.phase !== 'ready') {
+            return;
+        }
+
+        await Promise.all(
+            this.components
+                .filter((component) => component.profile.sidecar !== true)
+                .map(async (component) => {
+                    const open = component.documents.get(document.absolutePath);
+
+                    if (!open) {
+                        return;
+                    }
+
+                    try {
+                        await run(open);
+                    } catch (error) {
+                        this.log.push('host', `Could not tell ${titleOf(component.profile)} about ${what}: ${errorText(error)}`);
+                    }
+                })
+        );
+    }
+
     /* Whether a process of this server could answer `method` for the document right now. */
     canAnswer(document: SharedDocument, method: string, params?: object, hint?: string): boolean {
         if (this.phase !== 'ready') {

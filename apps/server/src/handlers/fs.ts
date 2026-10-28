@@ -42,7 +42,7 @@ export function registerFsHandlers(
     watcher: FolderWatcher,
     boundaryOf: (clientId: string) => Promise<WriteBoundary>,
     machineHome: MachineHome,
-    language?: Pick<LanguageHost, 'renameFiles' | 'createFiles' | 'deleteFiles'>
+    language?: Pick<LanguageHost, 'renameFiles' | 'createFiles' | 'deleteFiles' | 'saved'>
 ): void {
     dispatcher.register('fs.browse', (payload) => browseDirectories(payload.partialPath, payload.cwd, { hidden: payload.hidden }));
 
@@ -80,7 +80,12 @@ export function registerFsHandlers(
 
     dispatcher.register('fs.write', async (payload, client) => {
         await machineHome.refuse(payload.path);
-        return writeTextFile(payload.path, payload.text, payload.expectedMtime, await boundaryOf(client.id));
+        const written = await writeTextFile(payload.path, payload.text, payload.expectedMtime, await boundaryOf(client.id));
+
+        // The reply never waits on the servers.
+        void language?.saved(payload.path, payload.text).catch(() => undefined);
+
+        return written;
     });
 
     dispatcher.register('fs.create', async (payload, client) => {

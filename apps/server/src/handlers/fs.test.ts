@@ -141,6 +141,9 @@ describe('files that go past the language servers', () => {
                 expect(await Bun.file(path).exists()).toBe(true);
                 await file.move();
                 return [];
+            },
+            saved: async (path: string, text: string) => {
+                calls.push(`saved ${path} ${text}`);
             }
         };
         dispatcher = new Dispatcher();
@@ -170,6 +173,23 @@ describe('files that go past the language servers', () => {
         expect(calls).toEqual([]);
         await request('fs.create', { path: join(root, 'quiet.ts'), kind: 'file', projectId: 'p1', edits: false });
         expect(edits).toEqual([false]);
+    });
+
+    test('tells the servers a file was written with the text it was written with', async () => {
+        const { calls } = withLanguage();
+        const path = join(root, 'saved.ts');
+        await writeFile(path, 'old');
+        const { mtimeMs } = await stat(path);
+
+        expect(await request('fs.write', { path, text: 'new', expectedMtime: Math.round(mtimeMs) })).toMatchObject({ ok: true });
+        expect(calls).toEqual([`saved ${path} new`]);
+    });
+
+    test('does not tell the servers about a write that is refused', async () => {
+        const { calls } = withLanguage();
+
+        expect(await request('fs.write', { path: join(home, 'command-approvals', 'approval.json'), text: 'x', expectedMtime: 0 })).toMatchObject({ ok: false });
+        expect(calls).toEqual([]);
     });
 
     test('does not ask the servers about a delete that is refused', async () => {

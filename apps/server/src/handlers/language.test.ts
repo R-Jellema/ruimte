@@ -73,6 +73,17 @@ describe('language handlers', () => {
         });
     });
 
+    test('a save notice for a document that is open is accepted, and for one that is not refused', async () => {
+        const target = { projectId: 'p1', path: 'a.md' };
+
+        expect(await call('language.willSave', { ...target, reason: 1 })).toMatchObject({ ok: false, error: { code: 'document-not-open' } });
+
+        await call('language.document.open', { ...target, languageId: 'markdown', text: 'x' });
+
+        expect(await call('language.willSave', { ...target, reason: 1 })).toMatchObject({ ok: false, error: { code: 'language-unavailable' } });
+        expect(await call('language.willSave', { ...target, reason: 7 })).toMatchObject({ ok: false, error: { code: 'bad-request' } });
+    });
+
     test('a method outside the list is refused before it reaches a server', async () => {
         expect(await call('language.request', { projectId: 'p1', path: 'a.ts', method: 'workspace/executeCommand', params: {} })).toMatchObject({
             ok: false,
