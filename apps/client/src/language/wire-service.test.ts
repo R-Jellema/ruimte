@@ -284,7 +284,7 @@ describe('requests', () => {
 describe('newer language methods', () => {
     const range = { start: origin, end: { line: 0, character: 3 } };
     const formatting = { tabSize: 4, insertSpaces: true };
-    const item = { name: 'Base', kind: 5, uri, range, selectionRange: range, data: { id: 7 } };
+    const item = { name: 'Base', kind: 5 as const, uri, range, selectionRange: range, data: { id: 7 } };
 
     test('sends each method with the params the daemon routes', async () => {
         const { transport, language } = await opened();

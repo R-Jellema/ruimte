@@ -18,7 +18,7 @@ function option(name: string): HTMLElement | null {
 beforeEach(async () => {
     machine = new FakeMachine();
     machine.answer('language.status', () => ({ servers: [STATUS] }));
-    machine.answer('language.log', () => ({ lines: [{ at: 1, stream: 'server', text: 'starting', level: 'info', source: 'log' }] }));
+    machine.answer('language.log', () => ({ lines: [{ at: 1, stream: 'server' as const, text: 'starting', level: 'info', source: 'log' }] }));
     machine.answer('language.trace', ({ value }) => ({ status: { ...STATUS, trace: value } }));
     tracker = new LanguageStatusTracker(machine, 'project-atlas');
     await tracker.refresh();
