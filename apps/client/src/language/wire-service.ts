@@ -102,7 +102,7 @@ function isOutOfStep(error: unknown): boolean {
 }
 
 /* The wire has no cancellation, so an aborted request is only no longer waited for; a reply that comes later is dropped. */
-function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+export function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
     return new Promise<T>((resolve, reject) => {
         const abort = (): void => reject(new LspError('Request cancelled', ErrorCodes.RequestCancelled));
         if (signal.aborted) {

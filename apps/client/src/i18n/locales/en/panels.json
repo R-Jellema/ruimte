@@ -1022,6 +1022,9 @@
         "info_one": "{{formatted}} message",
         "info_other": "{{formatted}} messages",
         "empty": "No problems in open files.",
+        "emptyProject": "No problems in the project.",
+        "workspace": "Check whole project",
+        "workspaceHint": "Asks the language servers for the problems of every file, also those that are not open",
         "filter": "Filter",
         "nothingMatches": "No problem matches the filter"
     },

@@ -1,10 +1,10 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CircleCheck, CircleX, Info, Search, TriangleAlert } from 'lucide-react';
-import { resolveStoredPath } from '@ruimte/contracts';
+import { CircleCheck, CircleX, Info, ScanSearch, Search, TriangleAlert } from 'lucide-react';
+import { resolveStoredPath, type LanguageServerStatus } from '@ruimte/contracts';
 import type { EditorPosition } from '@adecore/editor';
 import { pathToFileUri } from '@adecore/lsp';
-import { ButtonGroup, Icon, PanelEmpty } from '@adecore/ui';
+import { ButtonGroup, Icon, IconButton, PanelEmpty } from '@adecore/ui';
 import { formatNumber } from '@adecore/ui/format';
 import { PanelHeaderActions, PanelHeaderSlot } from '@/shell/PanelHeaderSlot';
 import { countsOf, createHolder, type ProblemFile } from '@adecore/editor-react';
@@ -12,9 +12,12 @@ import { basenameOf } from '@/shell/panels/files-tree';
 import { useEndpointId } from '@/state/keys';
 import { useProject } from '@/state/project';
 import { useTransport } from '@/transport/context';
+import { useMachineAnswers } from '@/transport/features';
 import { codeLabelOf, severityOf } from '@adecore/editor-react/models';
 import { draftFiles } from './project-files';
 import { acquireProjectLanguage, type ProjectLanguage } from './ruimte-project-language';
+import { report } from './server-status';
+import { offersWorkspaceProblems } from './status-view';
 
 const SEVERITIES = ['error', 'warning', 'info'] as const;
 type Severity = (typeof SEVERITIES)[number];
@@ -47,16 +50,27 @@ function useProjectLanguage(): ProjectLanguage | null {
 
 const NONE: readonly ProblemFile[] = [];
 
+const NO_STATUSES: readonly LanguageServerStatus[] = [];
+
 /*
  * The problems every language server reports for the files of the project that are open, a file at a time,
- * worst first. A server reports only for a document it was given, so a file nobody has open is not here.
- * A press on a problem opens its file at the line.
+ * worst first. Files nobody has open appear after a whole-project check, which a person asks for and which
+ * only servers that report for the whole project answer. A press on a problem opens its file at the line.
  */
 export function ProblemsPanel() {
     const { t } = useTranslation('panels');
+    const endpointId = useEndpointId();
     const folder = useProject((state) => state.current?.folder ?? null);
     const language = useProjectLanguage();
     const files = useSyncExternalStore(language?.problems.subscribe ?? (() => () => undefined), language?.problems.getSnapshot ?? (() => NONE));
+    const tracker = language?.status ?? null;
+    const statuses = useSyncExternalStore(
+        (listener) => tracker?.subscribe(listener) ?? (() => undefined),
+        () => tracker?.getSnapshot() ?? NO_STATUSES
+    );
+    const canCheckProject = useMachineAnswers(endpointId, 'language.workspaceProblems') && offersWorkspaceProblems(statuses);
+    const [checking, setChecking] = useState(false);
+    const [checked, setChecked] = useState(false);
     const [filter, setFilter] = useState('');
     const [hidden, setHidden] = useState<ReadonlySet<Severity>>(new Set());
     const counts = countsOf(files);
@@ -81,6 +95,23 @@ export function ProblemsPanel() {
         setHidden(next);
     }
 
+    async function checkProject(): Promise<void> {
+        if (language === null || checking) {
+            return;
+        }
+
+        setChecking(true);
+
+        try {
+            await language.pullWorkspaceProblems('');
+            setChecked(true);
+        } catch (error) {
+            report(error, t);
+        } finally {
+            setChecking(false);
+        }
+    }
+
     function open(path: string, position: EditorPosition): void {
         const absolute = folder === null ? null : resolveStoredPath(folder, path);
         if (absolute !== null) {
@@ -92,6 +123,18 @@ export function ProblemsPanel() {
         <>
             <PanelHeaderSlot>
                 <PanelHeaderActions>
+                    {canCheckProject && (
+                        <ButtonGroup>
+                            <IconButton
+                                icon={ScanSearch}
+                                size="xs"
+                                busy={checking}
+                                label={t('problems.workspace')}
+                                tooltip={t('problems.workspaceHint')}
+                                onClick={() => void checkProject()}
+                            />
+                        </ButtonGroup>
+                    )}
                     <ButtonGroup>
                         {SEVERITIES.map((severity) => (
                             <button
@@ -111,7 +154,7 @@ export function ProblemsPanel() {
                 </PanelHeaderActions>
             </PanelHeaderSlot>
             {files.length === 0 ? (
-                <PanelEmpty icon={CircleCheck}>{t('problems.empty')}</PanelEmpty>
+                <PanelEmpty icon={CircleCheck}>{checked ? t('problems.emptyProject') : t('problems.empty')}</PanelEmpty>
             ) : (
                 <div className="flex min-h-0 grow flex-col">
                     <div className="relative shrink-0 border-b border-border p-2">

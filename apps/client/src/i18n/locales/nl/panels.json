@@ -1022,6 +1022,9 @@
         "info_one": "{{formatted}} melding",
         "info_other": "{{formatted}} meldingen",
         "empty": "Geen problemen in geopende bestanden.",
+        "emptyProject": "Geen problemen in het project.",
+        "workspace": "Hele project controleren",
+        "workspaceHint": "Vraagt de language servers om de problemen van elk bestand, ook die niet open zijn",
         "filter": "Filter",
         "nothingMatches": "Geen probleem past bij het filter"
     },

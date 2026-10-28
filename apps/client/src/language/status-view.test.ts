@@ -1,6 +1,18 @@
 import { describe, expect, test } from 'bun:test';
 import type { LanguageServerStatus } from '@ruimte/contracts';
-import { actionsOf, alternativeTo, chipServer, groupedStatuses, isOwn, listedServers, logLineText, nameOf, packageOf, toneOf } from './status-view';
+import {
+    actionsOf,
+    alternativeTo,
+    chipServer,
+    groupedStatuses,
+    isOwn,
+    listedServers,
+    logLineText,
+    nameOf,
+    offersWorkspaceProblems,
+    packageOf,
+    toneOf
+} from './status-view';
 
 function status(server: string, state: LanguageServerStatus['state'], extra: Partial<LanguageServerStatus> = {}): LanguageServerStatus {
     return { server, state, version: '1.0.0', documents: 0, ...extra };
@@ -118,5 +130,16 @@ describe('logLineText', () => {
         expect(logLineText(line)).toBe('indexed');
         expect(logLineText({ ...line, level: 'warning' })).toBe('[warning] indexed');
         expect(logLineText({ ...line, source: 'trace' })).toBe('[trace] indexed');
+    });
+});
+
+describe('offersWorkspaceProblems', () => {
+    test('is true only when some server says it reports for the whole project', () => {
+        const capable = status('typescript', 'ready', { capabilities: { diagnosticProvider: { workspaceDiagnostics: true } } });
+        const pushOnly = status('css', 'ready', { capabilities: { diagnosticProvider: { workspaceDiagnostics: false }, hoverProvider: true } });
+
+        expect(offersWorkspaceProblems([])).toBe(false);
+        expect(offersWorkspaceProblems([pushOnly, status('php', 'ready'), status('vue', 'ready', { capabilities: { diagnosticProvider: true } })])).toBe(false);
+        expect(offersWorkspaceProblems([pushOnly, capable])).toBe(true);
     });
 });

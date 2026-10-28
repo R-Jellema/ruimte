@@ -129,3 +129,12 @@ export function logLineText(line: LanguageLogLine): string {
 
     return line.level === undefined ? line.text : `[${line.level}] ${line.text}`;
 }
+
+/* Whether a running server can report the problems of files nobody has open, which is what the whole-project check asks for. */
+export function offersWorkspaceProblems(statuses: readonly LanguageServerStatus[]): boolean {
+    return statuses.some((status) => {
+        const provider = status.capabilities?.diagnosticProvider;
+
+        return typeof provider === 'object' && provider !== null && 'workspaceDiagnostics' in provider && provider.workspaceDiagnostics === true;
+    });
+}

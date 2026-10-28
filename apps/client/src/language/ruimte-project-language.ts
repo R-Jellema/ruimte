@@ -21,9 +21,10 @@ import { RUIMTE_EDITOR_KEYMAP } from '@/shell/editor-keymap';
 import { isApplePlatform, openInSystemBrowser } from '@/desktop/bridge';
 import { useSettings } from '@/state/settings';
 import { useToasts } from '@/state/toasts';
+import { machineAnswers } from '@/transport/features';
 import type { Transport } from '@/transport/transport';
 import { LanguageStatusTracker } from './status';
-import { WireLanguageService, type WireLanguageServiceOptions } from './wire-service';
+import { abortable, WireLanguageService, type WireLanguageServiceOptions } from './wire-service';
 import { readPanelHeight, writePanelHeight } from './panel-height';
 import type { DraftProjectFiles } from './project-files';
 import { isPathBelow } from '@/shell/panels/files-tree';
@@ -32,6 +33,7 @@ export class ProjectLanguage extends SharedProjectLanguage {
     declare readonly service: WireLanguageService;
     readonly transport: Transport;
     readonly status: LanguageStatusTracker;
+    private readonly projectId: string;
     // The wire resynchronizes from the sending editor without starting a second document owner.
     private readonly editorsByUri: Map<string, Editor[]>;
     private readonly stopDrafts: () => void;
@@ -87,6 +89,7 @@ export class ProjectLanguage extends SharedProjectLanguage {
         this.editorsByUri = editorsByUri;
         applyEdit = (params) => this.applyWorkspaceEdit(params.edit);
         this.transport = transport;
+        this.projectId = projectId;
         this.status = new LanguageStatusTracker(transport, projectId);
         void this.status.refresh().catch(() => undefined);
         this.stopDrafts = files !== null && 'watchUnsaved' in files ? holdUnsavedTexts(service, folder, files) : () => undefined;
@@ -125,6 +128,21 @@ export class ProjectLanguage extends SharedProjectLanguage {
                 held.release();
             }
         };
+    }
+
+    /*
+     * Asks the machine for the problems of every file its servers know. The reports come in as `language.diagnostics`
+     * events, through `problemSource`, so nothing is read from the answer but whether a server took part.
+     */
+    override async pullWorkspaceProblems(_uri: string, options: { readonly signal?: AbortSignal } = {}): Promise<boolean> {
+        if (!machineAnswers(this.transport.connection, 'language.workspaceProblems')) {
+            return false;
+        }
+
+        const request = this.transport.request('language.workspaceProblems', { projectId: this.projectId });
+        const { servers } = options.signal === undefined ? await request : await abortable(request, options.signal);
+
+        return servers.length > 0;
     }
 
     override dispose(): void {
