@@ -4485,12 +4485,12 @@ export const ACTION_DEFINITIONS = {
     'language.problems': {
         title: 'Read the problems of the whole project',
         description:
-            "Reads the problems the project's running language servers find in every file, also files nobody has open, for the servers that report for the whole project.",
+            "Reads what the last whole-project check of the project's running language servers found in every file, also files nobody has open. It starts no check; a person does from the Problems panel.",
         effect: 'read',
         domain: 'developer',
         actors: AGENT,
         input: z.object({
-            path: languagePath.nullable().describe('A file whose servers are started first; without it only servers already running are asked')
+            path: languagePath.nullable().describe('A file whose servers are started first; without it only servers already running are read')
         }),
         output: z.object({
             servers: z.array(z.object({ kind: z.string(), process: z.string() })),
@@ -4505,7 +4505,8 @@ export const ACTION_DEFINITIONS = {
                 })
             ),
             truncated: z.boolean(),
-            withheld: z.number().int()
+            withheld: z.number().int(),
+            pulled: z.boolean().optional().describe('False while no whole-project pull ran yet, which only a person starts')
         })
     },
     'language.supertypes': {

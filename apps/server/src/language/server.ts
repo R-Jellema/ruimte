@@ -165,6 +165,8 @@ interface Component {
     pulls: Map<string, () => void>;
     /* What a whole-project pull heard per file nobody has open, so the next pull can ask for what changed. */
     workspace: Map<string, { resultId?: string; diagnostics: Diagnostic[] }>;
+    /* Whether a whole-project pull ever ended for this process, since a pull that found nothing leaves `workspace` empty too. */
+    workspacePulled: boolean;
     /* The pull under way, which a second asker joins. */
     workspacePull: Promise<WorkspacePull> | undefined;
 }
@@ -564,6 +566,35 @@ export class LanguageServer {
         return { servers, files, reports };
     }
 
+    /*
+     * What the last whole-project pull of each ready process left, without asking anything. `pulled` is
+     * false while a process that offers workspace diagnostics never had a pull, which a person starts.
+     */
+    cachedWorkspaceProblems(): { servers: string[]; pulled: boolean; reports: WorkspaceProblemsReport[] } {
+        const servers: string[] = [];
+        const reports: WorkspaceProblemsReport[] = [];
+        let pulled = true;
+
+        if (this.phase !== 'ready') {
+            return { servers, pulled: false, reports };
+        }
+
+        for (const component of this.components) {
+            if (component.profile.sidecar === true || !component.session.supports('workspace/diagnostic')) {
+                continue;
+            }
+
+            servers.push(component.profile.name);
+            pulled &&= component.workspacePulled;
+
+            for (const [uri, entry] of component.workspace) {
+                reports.push({ server: component.profile.name, uri, diagnostics: entry.diagnostics, fresh: false });
+            }
+        }
+
+        return { servers, pulled, reports };
+    }
+
     private async pullWorkspace(component: Component): Promise<WorkspacePull> {
         const touched = new Map<string, 'full' | 'unchanged'>();
         const name = component.profile.name;
@@ -600,6 +631,7 @@ export class LanguageServer {
         });
 
         report.items.forEach(handle);
+        component.workspacePulled = true;
 
         return { files: [...touched.values()].filter((kind) => kind === 'full').length, touched };
     }
@@ -1101,6 +1133,7 @@ export class LanguageServer {
             subscriptions: [],
             pulls: new Map(),
             workspace: new Map(),
+            workspacePulled: false,
             workspacePull: undefined
         };
         child.onStderr((text) => this.log.push('server', text, { source: 'stderr' }));
@@ -1332,6 +1365,7 @@ export class LanguageServer {
         }
 
         component.workspace.clear();
+        component.workspacePulled = false;
 
         for (const path of component.documents.keys()) {
             const document = this.documents.get(path);

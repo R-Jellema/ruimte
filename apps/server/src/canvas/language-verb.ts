@@ -204,9 +204,10 @@ const problemsAction = defineActionVerb('language', {
     params: [{ syntax: '<path>', need: 'optional', field: 'path' }, JSON_PARAM],
     detail: [
         'prints\tserver\tkind\tprocess\tone line per running language server that reports problems for the whole project',
+        'pull\tReads what the last whole-project check left and starts none; before a person ran one from the Problems panel a note says so',
         'prints\tdiagnostic\tpath:line:column\tseverity\tsource/code\tmessage\tone line per problem, by path, line and column, at most 500',
-        'files\tAlso files nobody has open, for the servers that report for the whole project; a server that is not running is not asked',
-        'path\tWith a path that file opens first, so its servers start; without it only servers that already run are asked',
+        'files\tAlso files nobody has open, for the servers that report for the whole project; a server that is not running is not read',
+        'path\tWith a path that file opens first, so its servers start; without it only servers that already run are read',
         'sql\tA file whose SQL is read against a connection a person turned off for agents is left out and counted in a note',
         PLACE_LINE,
         `refusals\t${SERVER_REFUSALS}\tno-workspace-diagnostics\tthe codes this action refuses with`
@@ -224,6 +225,7 @@ const problemsAction = defineActionVerb('language', {
         }
         return [
             ...answer.servers.map((server) => `server\t${server.kind}\t${server.process}`),
+            ...(answer.pulled === false ? ['note\tNo whole-project check ran yet; a person starts one from the Problems panel'] : []),
             ...orNote(
                 answer.diagnostics.map((diagnostic) =>
                     [

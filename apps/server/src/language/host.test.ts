@@ -2284,6 +2284,21 @@ describe('the problems of the whole project', () => {
         expect(reportsOf(events['client-2'])).toEqual([]);
     });
 
+    it('reads the cached reports without asking the server, and says whether a pull ran', async () => {
+        const { host, fake } = await pull();
+        fake.handle('workspace/diagnostic', () => ({ items: [{ kind: 'full', uri: uri('src/b.ts'), version: null, items: [problem('bad')] }] }));
+
+        expect(host.cachedWorkspaceProblems('p1')).toMatchObject({ servers: ['typescript'], pulled: false, reports: [] });
+        expect(fake.paramsOf('workspace/diagnostic')).toEqual([]);
+
+        await host.workspaceProblems(null, 'p1');
+        const cached = host.cachedWorkspaceProblems('p1');
+
+        expect(cached.pulled).toBe(true);
+        expect(cached.reports.map((report) => report.path)).toEqual(['src/b.ts']);
+        expect(fake.paramsOf('workspace/diagnostic')).toHaveLength(1);
+    });
+
     it('takes the reports streamed while the server works, and asks for what changed with the result ids it heard', async () => {
         const { host, fake, events } = await pull();
         fake.handle('workspace/diagnostic', async (params) => {

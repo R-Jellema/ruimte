@@ -67,7 +67,7 @@ interface RigOptions {
     context?: Partial<SqlFileContext>;
     text?: string;
     program?: string;
-    workspace?: Awaited<ReturnType<LanguageHost['workspaceProblems']>>;
+    workspace?: ReturnType<LanguageHost['cachedWorkspaceProblems']>;
 }
 
 function rig(options: RigOptions = {}): Rig {
@@ -99,7 +99,7 @@ function rig(options: RigOptions = {}): Rig {
                     ]
                 }) as never,
             programOf: () => options.program ?? null,
-            workspaceProblems: async () => options.workspace ?? { servers: [], files: 0, reports: [] }
+            cachedWorkspaceProblems: () => options.workspace ?? { servers: [], pulled: true, files: 0, reports: [] }
         },
         sql: { fileContext: async () => context },
         readText: async () => text
@@ -222,6 +222,7 @@ describe('the problems of the whole project', () => {
             text: 'abc\ndef\n',
             workspace: {
                 servers: ['typescript', 'vue'],
+                pulled: true,
                 files: 2,
                 reports: [report('src/b.ts', 'typescript', problem('second', 1), problem('first')), report('src/a.vue', 'vue', problem('vue one'))]
             }
@@ -245,7 +246,7 @@ describe('the problems of the whole project', () => {
         const many = Array.from({ length: 501 }, (_, index) => problem(`m${index}`, index));
         const { agent } = rig({
             text: 'x\n'.repeat(600),
-            workspace: { servers: ['typescript'], files: 1, reports: [report('src/a.ts', 'typescript', ...many)] }
+            workspace: { servers: ['typescript'], pulled: true, files: 1, reports: [report('src/a.ts', 'typescript', ...many)] }
         });
         const answer = await agent.problems(PLACE, 'chat-1', null);
 
@@ -258,6 +259,7 @@ describe('the problems of the whole project', () => {
             context: { access: 'off' },
             workspace: {
                 servers: ['sql-native', 'typescript'],
+                pulled: true,
                 files: 2,
                 reports: [report('db/a.sql', 'sql-native', problem('sql one'), problem('sql two')), report('src/a.ts', 'typescript', problem('ts one'))]
             }
@@ -268,12 +270,23 @@ describe('the problems of the whole project', () => {
         expect(answer.withheld).toBe(1);
     });
 
+    test('says no pull ran yet and still lists what it has', async () => {
+        const { agent } = rig({
+            text: 'abc\n',
+            workspace: { servers: ['typescript'], pulled: false, files: 1, reports: [report('src/a.ts', 'typescript', problem('seen'))] }
+        });
+        const answer = await agent.problems(PLACE, 'chat-1', null);
+
+        expect(answer.pulled).toBe(false);
+        expect(answer.diagnostics.map((diagnostic) => diagnostic.message)).toEqual(['seen']);
+    });
+
     test('refuses when no running server reports for the whole project', async () => {
         await expect(rig().agent.problems(PLACE, 'chat-1', null)).rejects.toMatchObject({ code: 'no-workspace-diagnostics' });
     });
 
     test('opens the file it is given first, and is refused as that file would be', async () => {
-        const workspace = { servers: ['typescript'], files: 1, reports: [report('src/a.ts', 'typescript', problem('one'))] };
+        const workspace = { servers: ['typescript'], pulled: true, files: 1, reports: [report('src/a.ts', 'typescript', problem('one'))] };
 
         expect(
             (await rig({ servers: [{ kind: 'typescript', state: 'ready' }], workspace }).agent.problems(PLACE, 'chat-1', '/work/src/a.ts')).diagnostics

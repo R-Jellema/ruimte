@@ -1325,6 +1325,35 @@ export class LanguageHost {
         return { servers, files, reports };
     }
 
+    /* What the last whole-project pull left, for a caller that may not start one. `pulled` is false while a server that offers it never had a pull. */
+    cachedWorkspaceProblems(projectId: string): { servers: string[]; pulled: boolean; files: number; reports: WorkspaceProblems[] } {
+        const project = this.projects.get(projectId);
+        const servers: string[] = [];
+        const reports: WorkspaceProblems[] = [];
+        let pulled = true;
+
+        if (project === undefined) {
+            return { servers, pulled, files: 0, reports };
+        }
+
+        for (const server of project.servers.values()) {
+            const answer = server.cachedWorkspaceProblems();
+
+            servers.push(...answer.servers);
+            pulled &&= answer.pulled;
+
+            for (const report of answer.reports) {
+                const path = fileUriToPath(report.uri);
+
+                if (path !== null && report.diagnostics.length > 0) {
+                    reports.push({ server: report.server, path: storedPathOf(project.folder, path), absolutePath: path, diagnostics: report.diagnostics });
+                }
+            }
+        }
+
+        return { servers, pulled, files: new Set(reports.map((report) => report.absolutePath)).size, reports };
+    }
+
     /* Switches the trace of a server of the project; any client may, since it only costs log lines. */
     async trace(projectId: string, id: LanguageServerId, value: LanguageTraceValue): Promise<LanguageServerStatus> {
         const project = this.projects.get(projectId) ?? null;

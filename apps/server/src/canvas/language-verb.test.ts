@@ -11,6 +11,7 @@ const noun = verbNamed('language') as Noun;
 let root = '';
 let folder = '';
 let asked: { action: string; path: string; position?: { line: number; column: number } }[] = [];
+let pulled = true;
 let host: CanvasHost;
 
 const SERVERS = [{ kind: 'sql-native', state: 'ready' }];
@@ -23,6 +24,7 @@ beforeEach(async () => {
     await writeFile(join(root, 'outside.sql'), 'SELECT 1;\n');
     await symlink(join(root, 'outside.sql'), join(folder, 'db', 'linked.sql'));
     asked = [];
+    pulled = true;
     const language: LanguageAgentHost = {
         diagnostics: async (_place, _caller, path) => {
             asked.push({ action: 'diagnostics', path });
@@ -89,7 +91,8 @@ beforeEach(async () => {
                     }
                 ],
                 truncated: true,
-                withheld: 2
+                withheld: 2,
+                pulled
             };
         },
         supertypes: async (_place, _caller, path, position) => {
@@ -185,6 +188,13 @@ describe('ruimte-context language', () => {
 
         expect(asked.at(-1)).toEqual({ action: 'problems', path: join(folder, 'db', 'report.sql') });
         expect(JSON.parse((await run(['problems', '--json']))[0]!)).toMatchObject({ files: 3, truncated: true, withheld: 2 });
+    });
+
+    test('notes that no whole-project check ran yet, and still prints what it has', async () => {
+        pulled = false;
+
+        expect(await run(['problems'])).toContain('note\tNo whole-project check ran yet; a person starts one from the Problems panel');
+        expect(await run(['problems'])).toContain('diagnostic\tsrc/a.ts:2:5\twarning\tts/6133\tunused');
     });
 
     test('prints the type at a place and one location per supertype or subtype', async () => {

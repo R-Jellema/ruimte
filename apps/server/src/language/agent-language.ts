@@ -71,6 +71,8 @@ interface AgentProblems {
     truncated: boolean;
     /* Files left out because their SQL is read against a connection turned off for agents. */
     withheld: number;
+    /* False while no whole-project pull ran yet, which only a person starts. */
+    pulled: boolean;
 }
 
 interface AgentSymbol {
@@ -270,7 +272,7 @@ function kindOfProcess(process: string): string {
 }
 
 interface AgentLanguageOptions {
-    host: Pick<LanguageHost, 'forAgent' | 'programOf' | 'workspaceProblems'>;
+    host: Pick<LanguageHost, 'forAgent' | 'programOf' | 'cachedWorkspaceProblems'>;
     sql: Pick<SqlAnalysis, 'fileContext'>;
     /* The text of a file on disk, or null when it cannot be read. */
     readText?: (path: string) => Promise<string | null>;
@@ -336,8 +338,8 @@ export class AgentLanguage {
     }
 
     /*
-     * The problems the servers that report for the whole project last found, in every file, also those nobody has
-     * open. With a path that file opens first, so its servers start and the same refusals apply as for `diagnostics`.
+     * The problems the servers that report for the whole project found in the last pull, in every file, also those
+     * nobody has open. It starts no pull, since only a person's press does. With a path that file opens first, so its servers start and the same refusals apply as for `diagnostics`.
      */
     async problems(place: AgentLanguagePlace, caller: string, path: string | null): Promise<AgentProblems> {
         if (path === null) {
@@ -395,7 +397,7 @@ export class AgentLanguage {
     }
 
     private async workspaceProblems(place: AgentLanguagePlace): Promise<AgentProblems> {
-        const { servers, files, reports } = await this.options.host.workspaceProblems(null, place.projectId);
+        const { servers, pulled, files, reports } = this.options.host.cachedWorkspaceProblems(place.projectId);
 
         if (servers.length === 0) {
             throw new VerbRefusal(
@@ -445,7 +447,8 @@ export class AgentLanguage {
             files,
             diagnostics: found.slice(0, PROBLEMS_LIMIT),
             truncated: found.length > PROBLEMS_LIMIT,
-            withheld: withheld.size
+            withheld: withheld.size,
+            pulled
         };
     }
 
