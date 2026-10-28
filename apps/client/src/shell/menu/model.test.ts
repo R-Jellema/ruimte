@@ -5,7 +5,7 @@ import type { MenuNode, MenuSpec } from '@ruimte/desktop-bridge';
 import { CANVAS_SHORTCUTS, ADD_NODE_SHORTCUTS } from '@/canvas/shortcuts';
 import { menuIconOf } from './icons';
 import { LANGUAGE_COMMAND_IDS } from '@/language/command-table';
-import { COMMAND_IDS, COMMANDS, isCommandId } from '@/shell/command-table';
+import { COMMAND_IDS, COMMANDS, isCommandId, menuPlacesOf } from '@/shell/command-table';
 import { languageCommandRows } from '@/language/language-commands';
 import { EDITOR_COMMAND_IDS, editorCommandRows } from '@/shell/editor-commands';
 import { AFTER_SETTLE_PREFIX, CHAT_MOVE_PREFIX, GO_VIEW_PREFIX, isPaletteId, LAUNCH_CHOOSE_PREFIX } from './ids';
@@ -646,5 +646,38 @@ describe('accelerators', () => {
         expect(toAccelerator(ADD_NODE_SHORTCUTS.terminal, true)).toBeUndefined();
         expect(toAccelerator(CANVAS_SHORTCUTS.fitAll, true)).toBeUndefined();
         expect(toAccelerator(ADD_NODE_SHORTCUTS.terminal, false)).toBe('Alt+T');
+    });
+
+    test('every row of the command table with a chord yields a whole accelerator, ending in a key Electron knows', () => {
+        const electronKey = /^(?:.|Backspace|Delete|Enter|Tab|Escape|Space|Up|Down|Left|Right|Home|End|PageUp|PageDown|Insert|F\d{1,2}|Plus)$/;
+        const checked: string[] = [];
+
+        for (const id of COMMAND_IDS) {
+            const chord = COMMANDS[id].shortcut;
+
+            if (chord === undefined || menuPlacesOf(id).length === 0) {
+                continue;
+            }
+
+            for (const apple of [true, false]) {
+                const accelerator = toAccelerator(chord, apple);
+                const bound = chord.mod || chord.ctrl || chord.meta;
+
+                if (apple && !bound) {
+                    expect(accelerator, `${id} on macOS`).toBeUndefined();
+
+                    continue;
+                }
+
+                expect(accelerator, `${id} (apple ${apple})`).toBeDefined();
+                expect(accelerator!.split('+').at(-1) ?? '', `${id} (apple ${apple}) names its key`).toMatch(electronKey);
+                checked.push(id);
+            }
+        }
+
+        expect(checked).toContain('last-edit-location');
+        expect(checked).toContain('move-statement-up');
+        expect(checked).toContain('complete-current-statement');
+        expect(checked).toContain('method-up');
     });
 });
