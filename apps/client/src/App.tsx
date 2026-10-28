@@ -61,6 +61,12 @@ const ProviderCommandDialog = lazyDialog(
     useUi,
     (s) => s.providerCommand !== null
 );
+const TemplateRequestDialog = lazyDialog(
+    () => import('@/language/TemplateDialog'),
+    'TemplateRequestDialog',
+    useUi,
+    (s) => s.templateRequest !== null
+);
 const OnboardingDialog = lazyDialog(
     () => import('@/onboarding/OnboardingDialog'),
     'OnboardingDialog',
@@ -200,6 +206,9 @@ export function App() {
                     </Floating>
                     <Floating surface="providerCommand">
                         <ProviderCommandDialog />
+                    </Floating>
+                    <Floating surface="templateRequest">
+                        <TemplateRequestDialog />
                     </Floating>
                     <Floating surface="shortcutHints">
                         <ShortcutHints />

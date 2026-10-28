@@ -9,37 +9,13 @@ import { draftOf, emptyDraft, type CustomDraft } from '@/language/custom-draft';
 import { CustomServersTracker, useCustomServers } from '@/language/custom-servers';
 import { Dot, LogDialog, ServerActionButtons } from '@/language/ServerParts';
 import { report, serverDetail, sidecarDetails, useStatuses } from '@/language/server-status';
-import { draftFiles } from '@/language/project-files';
-import { acquireProjectLanguage, type ProjectLanguage } from '@/language/ruimte-project-language';
+import type { ProjectLanguage } from '@/language/ruimte-project-language';
 import { actionsOf, groupedStatuses, isOwn, kindOf, nameOf, packageOf, toneOf } from '@/language/status-view';
 import type { LanguageStatusTracker } from '@/language/status';
 import { createHolder } from '@adecore/editor-react';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
-import { useProject } from '@/state/project';
+import { useWindowProjectLanguage } from '@/shell/settings/panes/window-project-language';
 import { useWindow, workspaceOf } from '@/state/window';
-
-/* The language side of the project this window shows, for as long as the tab is up. Null on the start screen, where no project runs a server. */
-function useWindowProjectLanguage(): ProjectLanguage | null {
-    const workspace = useWindow((s) => workspaceOf(s.content));
-    const projectId = useProject((s) => s.current?.projectId ?? null);
-    const folder = useProject((s) => s.current?.folder ?? null);
-    const [holder] = useState(() => createHolder<ProjectLanguage>());
-
-    useEffect(() => {
-        if (workspace === null || projectId === null || folder === null) {
-            return;
-        }
-        const { transport, endpointId } = workspace.connection;
-        const held = acquireProjectLanguage(transport, projectId, folder, draftFiles(endpointId, transport, projectId));
-        holder.set(held.language);
-        return () => {
-            holder.set(null);
-            held.release();
-        };
-    }, [workspace, projectId, folder, holder]);
-
-    return useSyncExternalStore(holder.subscribe, holder.get);
-}
 
 /* The servers a person added on the machine of this window, for as long as the tab is up. */
 function useWindowCustomServers(): { tracker: CustomServersTracker; endpointId: string } | null {

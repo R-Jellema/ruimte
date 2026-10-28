@@ -118,6 +118,7 @@
             "colors": "Colors",
             "folding": "Code folding",
             "smartKeys": "Smart keys",
+            "templates": "Templates",
             "ai": "AI",
             "languageServers": "Language servers"
         },
@@ -372,6 +373,116 @@
             "smartArrow": {
                 "label": "Smart arrow",
                 "description": "In PHP, a minus typed right after a variable becomes ->."
+            }
+        },
+        "templates": {
+            "title": "Templates",
+            "failed": "Could not show the templates",
+            "needsProject": "Open a project to manage its templates.",
+            "loading": "Loading templates",
+            "tooOld": "This machine needs a newer Ruimte for templates.",
+            "empty": "No templates of your own yet. Add one, or select code and choose Save as Live Template.",
+            "noMatch": "No template matches “{{query}}”.",
+            "projectTooNew": "This project's templates come from a newer Ruimte and are left alone.",
+            "search": "Search templates",
+            "clearSearch": "Clear search",
+            "add": "Add template",
+            "addPostfix": "Add postfix template",
+            "edit": "Edit",
+            "duplicate": "Duplicate as yours",
+            "remove": "Remove",
+            "removeTitle": "Remove {{key}}?",
+            "removeDescription": "The template is deleted for good.",
+            "enable": "Use {{key}}",
+            "saveFailed": "Could not change the templates",
+            "conflict": {
+                "title": "Templates changed elsewhere",
+                "description": "The list is up to date again."
+            },
+            "live": {
+                "label": "Show live templates in suggestions",
+                "description": "Lists the templates whose key you are typing next to the suggestions. Tab expands them either way."
+            },
+            "postfix": {
+                "label": "Postfix completion",
+                "description": "Tab after a dot and a key wraps the expression before the dot, as in x.if."
+            },
+            "postfixInCompletion": {
+                "label": "Show postfix templates in suggestions",
+                "description": "Lists the postfix templates after a dot, next to the suggestions."
+            },
+            "sections": {
+                "live": {
+                    "title": "Live templates",
+                    "description": "Short keys that expand into code when you press Tab."
+                },
+                "postfix": {
+                    "title": "Postfix completion",
+                    "description": "Templates that wrap what you typed before a dot."
+                },
+                "postfixList": {
+                    "title": "Postfix templates"
+                },
+                "groups": {
+                    "script": "JavaScript and TypeScript",
+                    "php": "PHP",
+                    "css": "CSS",
+                    "html": "HTML",
+                    "xml": "XML",
+                    "other": "Other"
+                }
+            },
+            "origin": {
+                "builtIn": "Built in",
+                "personal": "Yours",
+                "project": "This project",
+                "agent": "Added by an agent"
+            },
+            "languages": {
+                "javascript": "JavaScript",
+                "typescript": "TypeScript",
+                "php": "PHP",
+                "css": "CSS",
+                "html": "HTML",
+                "xml": "XML",
+                "other": "Other"
+            },
+            "dialog": {
+                "titleAddLive": "Add live template",
+                "titleEditLive": "Edit live template",
+                "titleAddPostfix": "Add postfix template",
+                "titleEditPostfix": "Edit postfix template",
+                "description": "A template only inserts text. Nothing in it runs.",
+                "key": "Abbreviation",
+                "keyPostfix": "Key after the dot",
+                "descriptionLabel": "Description",
+                "body": "Template text",
+                "bodyHint": "Use $1 and ${1:name} for places to fill in, and $0 for where the caret ends.",
+                "insertVariable": "Insert variable",
+                "variables": {
+                    "expression": "Expression",
+                    "selection": "Selection",
+                    "clipboard": "Clipboard",
+                    "fileName": "File name",
+                    "date": "Current date"
+                },
+                "languages": "Languages",
+                "places": "Applies in",
+                "place": {
+                    "code": "Code",
+                    "comment": "Comments",
+                    "string": "Strings"
+                },
+                "expression": "Expression",
+                "expressionAny": "Any expression",
+                "expressionStatement": "A whole statement",
+                "where": "Where",
+                "wherePersonal": "Yours",
+                "whereProject": "This project",
+                "whereNoProject": "This project has no file for templates that can be written.",
+                "cancel": "Cancel",
+                "save": "Save",
+                "failed": "Could not save the template"
             }
         },
         "servers": {

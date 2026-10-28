@@ -4,7 +4,9 @@ import { typeInto } from '@adecore/editor/testing';
 import type { Shortcut } from '@adecore/ui';
 import { CANVAS_SHORTCUTS } from '@/canvas/shortcuts';
 import { isApplePlatform } from '@/desktop/bridge';
+import { useUi } from '@/state/ui';
 import { eventOf } from './key-events';
+import { languageCommandRows } from './language-commands';
 import { FakeMachine } from '../../testing/fake-machine';
 import { openFakeWorkspace, type FakeWorkspace } from '../../testing/fake-workspace';
 import { mount, pressKey, until, type Mounted } from '../../testing/dom';
@@ -63,6 +65,8 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+    // The store outlives the page, and the next file would open on this form.
+    useUi.getState().setTemplateRequest(null);
     await page.unmount();
     workspace.close();
 });
@@ -116,5 +120,21 @@ describe('templates in an editor no language server serves', () => {
 
         expect(await savedText()).toContain('if (');
         expect((await savedText())!).toContain('run();');
+    });
+});
+
+describe('Save as Live Template', () => {
+    test('opens the template form with the selection as its text', async () => {
+        text = 'run();';
+        await openEditor();
+        await pressKey(input()!, 'a', MOD);
+
+        languageCommandRows()
+            .find((row) => row.id === 'save-as-live-template')!
+            .run();
+
+        await until(() => document.querySelector('[role="dialog"] textarea') !== null);
+        expect(document.querySelector('[role="dialog"]')!.textContent).toContain('Add live template');
+        expect(document.querySelector<HTMLTextAreaElement>('[role="dialog"] textarea')!.value).toBe('run();');
     });
 });

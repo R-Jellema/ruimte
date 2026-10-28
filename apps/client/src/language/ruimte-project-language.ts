@@ -26,6 +26,7 @@ import { useToasts } from '@/state/toasts';
 import { machineAnswers } from '@/transport/features';
 import type { Transport } from '@/transport/transport';
 import { LanguageStatusTracker } from './status';
+import { draftOfSelection } from './template-draft';
 import { TemplatesTracker } from './templates';
 import { abortable, WireLanguageService, type WireLanguageServiceOptions } from './wire-service';
 import { readPanelHeight, writePanelHeight } from './panel-height';
@@ -61,10 +62,17 @@ export class ProjectLanguage extends SharedProjectLanguage {
         });
         const panelBodyHeight = readPanelHeight();
         const templates = new TemplateRegistry();
+        // The hooks of the host are called long after the constructor, so they may read what is made below.
+        let templateSync: TemplatesTracker | undefined;
         super(service, {
             templates,
             openTemplateSettings: () => useUi.getState().setSettings({ open: true, section: 'editor', target: 'editor.templates.live' }),
-            // `saveAsLiveTemplate` waits for the template dialog, so Save as Live Template does nothing yet.
+            saveAsLiveTemplate: (draft) => {
+                // A machine that does not know templates has nowhere to keep one.
+                if (templateSync !== undefined && templateSync.getSnapshot() !== null) {
+                    useUi.getState().setTemplateRequest({ tracker: templateSync, draft: draftOfSelection(draft) });
+                }
+            },
             i18n: i18next,
             folder,
             ...(files === null ? {} : { files }),
@@ -101,7 +109,7 @@ export class ProjectLanguage extends SharedProjectLanguage {
         this.projectId = projectId;
         this.status = new LanguageStatusTracker(transport, projectId);
         void this.status.refresh().catch(() => undefined);
-        this.templateSync = new TemplatesTracker(transport, projectId, templates);
+        this.templateSync = templateSync = new TemplatesTracker(transport, projectId, templates);
         void this.templateSync.refresh().catch(() => undefined);
         this.stopDrafts = files !== null && 'watchUnsaved' in files ? holdUnsavedTexts(service, folder, files) : () => undefined;
     }

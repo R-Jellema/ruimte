@@ -8,10 +8,11 @@ import { EditorFoldingTab } from '@/shell/settings/panes/EditorFoldingTab';
 import { EditorGeneralTab } from '@/shell/settings/panes/EditorGeneralTab';
 import { LanguageServersTab } from '@/shell/settings/panes/LanguageServersTab';
 import { SmartKeysSection } from '@/shell/settings/panes/SmartKeysSection';
+import { TemplatesTab } from '@/shell/settings/panes/TemplatesTab';
 
-type EditorTab = 'general' | 'colors' | 'folding' | 'smartKeys' | 'ai' | 'languageServers';
+type EditorTab = 'general' | 'colors' | 'folding' | 'smartKeys' | 'templates' | 'ai' | 'languageServers';
 
-const TABS: readonly EditorTab[] = ['general', 'colors', 'folding', 'smartKeys', 'ai', 'languageServers'];
+const TABS: readonly EditorTab[] = ['general', 'colors', 'folding', 'smartKeys', 'templates', 'ai', 'languageServers'];
 
 /* The tab that holds the row a search result names, by the prefix of its id. */
 function tabOfTarget(target: string | null): EditorTab | null {
@@ -29,6 +30,9 @@ function tabOfTarget(target: string | null): EditorTab | null {
     }
     if (target.startsWith('editor.smartKeys.')) {
         return 'smartKeys';
+    }
+    if (target.startsWith('editor.templates.')) {
+        return 'templates';
     }
     if (target.startsWith('editor.ai.')) {
         return 'ai';
@@ -64,6 +68,11 @@ export function EditorPane() {
             {tab === 'colors' && <CodeSection />}
             {tab === 'folding' && <EditorFoldingTab />}
             {tab === 'smartKeys' && <SmartKeysSection />}
+            {tab === 'templates' && (
+                <ErrorBoundary label={t('editor.templates.failed')} compact className="rounded-xl border border-border">
+                    <TemplatesTab />
+                </ErrorBoundary>
+            )}
             {tab === 'ai' && <EditorAiTab />}
             {tab === 'languageServers' && (
                 <ErrorBoundary label={t('editor.servers.failed')} compact className="rounded-xl border border-border">

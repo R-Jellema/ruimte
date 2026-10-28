@@ -118,6 +118,7 @@
             "colors": "Kleuren",
             "folding": "Invouwen",
             "smartKeys": "Slimme toetsen",
+            "templates": "Sjablonen",
             "ai": "AI",
             "languageServers": "Language servers"
         },
@@ -372,6 +373,116 @@
             "smartArrow": {
                 "label": "Slimme pijl",
                 "description": "In PHP wordt een min die je direct na een variabele typt ->."
+            }
+        },
+        "templates": {
+            "title": "Sjablonen",
+            "failed": "De sjablonen konden niet worden getoond",
+            "needsProject": "Open een project om de sjablonen te beheren.",
+            "loading": "Sjablonen laden",
+            "tooOld": "Deze machine heeft een nieuwere Ruimte nodig voor sjablonen.",
+            "empty": "Nog geen eigen sjablonen. Voeg er een toe, of selecteer code en kies Opslaan als sjabloon.",
+            "noMatch": "Geen sjabloon gevonden voor “{{query}}”.",
+            "projectTooNew": "De sjablonen van dit project komen van een nieuwere Ruimte en blijven ongemoeid.",
+            "search": "Zoek sjablonen",
+            "clearSearch": "Zoekopdracht wissen",
+            "add": "Sjabloon toevoegen",
+            "addPostfix": "Postfix-sjabloon toevoegen",
+            "edit": "Bewerken",
+            "duplicate": "Dupliceren als eigen sjabloon",
+            "remove": "Verwijderen",
+            "removeTitle": "{{key}} verwijderen?",
+            "removeDescription": "Het sjabloon wordt definitief verwijderd.",
+            "enable": "{{key}} gebruiken",
+            "saveFailed": "De sjablonen konden niet worden aangepast",
+            "conflict": {
+                "title": "Sjablonen elders gewijzigd",
+                "description": "De lijst is weer bijgewerkt."
+            },
+            "live": {
+                "label": "Live-sjablonen tonen in suggesties",
+                "description": "Toont de sjablonen waarvan je de sleutel typt naast de suggesties. Tab vouwt ze in beide gevallen uit."
+            },
+            "postfix": {
+                "label": "Postfix-aanvulling",
+                "description": "Tab na een punt en een sleutel omsluit de expressie voor de punt, zoals in x.if."
+            },
+            "postfixInCompletion": {
+                "label": "Postfix-sjablonen tonen in suggesties",
+                "description": "Toont de postfix-sjablonen na een punt, naast de suggesties."
+            },
+            "sections": {
+                "live": {
+                    "title": "Live-sjablonen",
+                    "description": "Korte sleutels die met Tab uitklappen tot code."
+                },
+                "postfix": {
+                    "title": "Postfix-aanvulling",
+                    "description": "Sjablonen die omsluiten wat je voor een punt typte."
+                },
+                "postfixList": {
+                    "title": "Postfix-sjablonen"
+                },
+                "groups": {
+                    "script": "JavaScript en TypeScript",
+                    "php": "PHP",
+                    "css": "CSS",
+                    "html": "HTML",
+                    "xml": "XML",
+                    "other": "Overig"
+                }
+            },
+            "origin": {
+                "builtIn": "Ingebouwd",
+                "personal": "Van jou",
+                "project": "Dit project",
+                "agent": "Toegevoegd door een agent"
+            },
+            "languages": {
+                "javascript": "JavaScript",
+                "typescript": "TypeScript",
+                "php": "PHP",
+                "css": "CSS",
+                "html": "HTML",
+                "xml": "XML",
+                "other": "Overig"
+            },
+            "dialog": {
+                "titleAddLive": "Live-sjabloon toevoegen",
+                "titleEditLive": "Live-sjabloon bewerken",
+                "titleAddPostfix": "Postfix-sjabloon toevoegen",
+                "titleEditPostfix": "Postfix-sjabloon bewerken",
+                "description": "Een sjabloon voegt alleen tekst in. Er draait niets in.",
+                "key": "Afkorting",
+                "keyPostfix": "Sleutel na de punt",
+                "descriptionLabel": "Beschrijving",
+                "body": "Sjabloontekst",
+                "bodyHint": "Gebruik $1 en ${1:naam} voor plekken om in te vullen, en $0 voor waar de cursor eindigt.",
+                "insertVariable": "Variabele invoegen",
+                "variables": {
+                    "expression": "Expressie",
+                    "selection": "Selectie",
+                    "clipboard": "Klembord",
+                    "fileName": "Bestandsnaam",
+                    "date": "Huidige datum"
+                },
+                "languages": "Talen",
+                "places": "Geldt in",
+                "place": {
+                    "code": "Code",
+                    "comment": "Commentaar",
+                    "string": "Strings"
+                },
+                "expression": "Expressie",
+                "expressionAny": "Elke expressie",
+                "expressionStatement": "Een hele statement",
+                "where": "Waar",
+                "wherePersonal": "Van jou",
+                "whereProject": "Dit project",
+                "whereNoProject": "Dit project heeft geen schrijfbaar bestand voor sjablonen.",
+                "cancel": "Annuleren",
+                "save": "Opslaan",
+                "failed": "Het sjabloon kon niet worden opgeslagen"
             }
         },
         "servers": {
