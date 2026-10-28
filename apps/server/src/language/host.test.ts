@@ -791,22 +791,16 @@ describe('several servers on one document', () => {
         await open(host);
         await ready(host);
         await ready(host, 'eslint');
-        let answerLate: (items: unknown[]) => void = () => undefined;
+        const late = Promise.withResolvers<unknown[]>();
         spawner.of('typescript')[0]!.server.handle('textDocument/completion', () => [{ label: 'toFixed' }]);
-        spawner.of('eslint')[0]!.server.handle(
-            'textDocument/completion',
-            () =>
-                new Promise((resolve) => {
-                    answerLate = resolve;
-                })
-        );
+        spawner.of('eslint')[0]!.server.handle('textDocument/completion', () => late.promise);
         const asked = host.request({ projectId: 'p1', path: 'src/a.ts', method: 'textDocument/completion', params: { position: { line: 0, character: 0 } } });
         await settle();
         clock.fire();
         const answer = await asked;
         expect(answer.result).toEqual({ isIncomplete: false, items: [{ label: 'toFixed' }] });
         expect(answer.itemServers).toEqual(['typescript']);
-        answerLate([{ label: 'late' }]);
+        late.resolve([{ label: 'late' }]);
         await settle();
         expect((await host.log('p1', 'eslint')).some((line) => line.text.includes('Left out of a textDocument/completion'))).toBe(true);
     });
@@ -820,20 +814,14 @@ describe('several servers on one document', () => {
         await open(host);
         await ready(host);
         await ready(host, 'eslint');
-        let answerSlowly: (hover: unknown) => void = () => undefined;
-        spawner.of('typescript')[0]!.server.handle(
-            'textDocument/hover',
-            () =>
-                new Promise((resolve) => {
-                    answerSlowly = resolve;
-                })
-        );
+        const slow = Promise.withResolvers<unknown>();
+        spawner.of('typescript')[0]!.server.handle('textDocument/hover', () => slow.promise);
         spawner.of('eslint')[0]!.server.handle('textDocument/hover', () => ({ contents: { kind: 'markdown', value: 'rule docs' } }));
         const asked = host.request({ projectId: 'p1', path: 'src/a.ts', method: 'textDocument/hover', params: {} });
         await settle();
         clock.fire();
         await settle();
-        answerSlowly({ contents: { kind: 'markdown', value: 'types' } });
+        slow.resolve({ contents: { kind: 'markdown', value: 'types' } });
         expect((await asked).result).toEqual({ contents: ['types', 'rule docs'] });
     });
 
