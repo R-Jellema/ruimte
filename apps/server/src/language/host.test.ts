@@ -2228,3 +2228,130 @@ describe('what a server says to a person', () => {
         });
     });
 });
+
+describe('the problems of the whole project', () => {
+    const pulling = { textDocumentSync: 2 as const, diagnosticProvider: { interFileDependencies: true, workspaceDiagnostics: true } };
+    const problem = (message: string) => ({ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } }, message });
+
+    async function pull() {
+        const spawner = fakeSpawner({ typescript: pulling });
+        const result = await installed(['typescript'], { spawner });
+        await openReady(result.host);
+
+        return { ...result, fake: spawner.processes[0]!.server };
+    }
+
+    const reportsOf = (events: SessionEvent[]) =>
+        kinds(events, 'language.diagnostics').map(
+            (event) => (event as { payload: { projectId: string; path: string; server: string; diagnostics: unknown[]; version?: number } }).payload
+        );
+
+    it('sends a full report to the holders under the stored path and without a version, and counts the files', async () => {
+        const { host, fake, events } = await pull();
+        fake.handle('workspace/diagnostic', () => ({
+            items: [
+                { kind: 'full', uri: uri('src/b.ts'), version: null, resultId: 'r1', items: [problem('bad')] },
+                { kind: 'full', uri: uri('src/c.ts'), version: null, items: [] }
+            ]
+        }));
+
+        const answer = await host.workspaceProblems('client-2', 'p1');
+
+        expect(answer).toMatchObject({ servers: ['typescript'], files: 2 });
+        expect(answer.reports.map((report) => [report.path, report.server])).toEqual([['src/b.ts', 'typescript']]);
+        expect(reportsOf(events['client-1']).filter((report) => report.path === 'src/b.ts')).toEqual([
+            { projectId: 'p1', path: 'src/b.ts', server: 'typescript', diagnostics: [problem('bad')] }
+        ]);
+        expect(reportsOf(events['client-2'])).toEqual([]);
+    });
+
+    it('takes the reports streamed while the server works, and asks for what changed with the result ids it heard', async () => {
+        const { host, fake, events } = await pull();
+        fake.handle('workspace/diagnostic', async (params) => {
+            const { partialResultToken } = params as { partialResultToken: string };
+            await fake.notify('$/progress', {
+                token: partialResultToken,
+                value: { items: [{ kind: 'full', uri: uri('src/b.ts'), version: null, resultId: 'r1', items: [problem('bad')] }] }
+            });
+
+            return { items: [] };
+        });
+
+        await host.workspaceProblems(null, 'p1');
+        await host.workspaceProblems(null, 'p1');
+
+        expect(reportsOf(events['client-1']).filter((report) => report.path === 'src/b.ts')).toHaveLength(2);
+        expect((fake.paramsOf('workspace/diagnostic')[1] as { previousResultIds: unknown }).previousResultIds).toEqual([{ uri: uri('src/b.ts'), value: 'r1' }]);
+    });
+
+    it('sends a report the server found unchanged again to the asking client only', async () => {
+        const { host, fake, events } = await pull();
+        let items: unknown[] = [{ kind: 'full', uri: uri('src/b.ts'), version: null, resultId: 'r1', items: [problem('bad')] }];
+        fake.handle('workspace/diagnostic', () => ({ items }));
+        await host.workspaceProblems(null, 'p1');
+        items = [{ kind: 'unchanged', uri: uri('src/b.ts'), version: null, resultId: 'r1' }];
+        const before = reportsOf(events['client-1']).length;
+
+        const answer = await host.workspaceProblems('client-2', 'p1');
+
+        expect(reportsOf(events['client-1'])).toHaveLength(before);
+        expect(reportsOf(events['client-2'])).toEqual([{ projectId: 'p1', path: 'src/b.ts', server: 'typescript', diagnostics: [problem('bad')] }]);
+        expect(answer).toMatchObject({ files: 0, reports: [{ path: 'src/b.ts' }] });
+    });
+
+    it('skips a file the server has open as a document', async () => {
+        const { host, fake, events } = await pull();
+        fake.handle('workspace/diagnostic', () => ({
+            items: [{ kind: 'full', uri: uri('src/a.ts'), version: null, resultId: 'r1', items: [problem('bad')] }]
+        }));
+        const before = reportsOf(events['client-1']).length;
+
+        const answer = await host.workspaceProblems(null, 'p1');
+
+        expect(answer).toMatchObject({ files: 0, reports: [] });
+        expect(reportsOf(events['client-1'])).toHaveLength(before);
+    });
+
+    it('asks a process once when two callers pull at the same time, and both hear the files', async () => {
+        const { host, fake } = await pull();
+        const release = Promise.withResolvers<void>();
+        fake.handle('workspace/diagnostic', async () => {
+            await release.promise;
+
+            return { items: [{ kind: 'full', uri: uri('src/b.ts'), version: null, resultId: 'r1', items: [problem('bad')] }] };
+        });
+
+        const first = host.workspaceProblems('client-1', 'p1');
+        const second = host.workspaceProblems('client-2', 'p1');
+        await settle();
+        release.resolve();
+
+        expect((await first).files).toBe(1);
+        expect((await second).files).toBe(1);
+        expect(fake.paramsOf('workspace/diagnostic')).toHaveLength(1);
+    });
+
+    it('asks no server that does not offer workspace diagnostics', async () => {
+        const { host } = await installed();
+        await openReady(host);
+
+        expect(await host.workspaceProblems(null, 'p1')).toEqual({ servers: [], files: 0, reports: [] });
+    });
+
+    it('takes back what the pull reported when the server crashes', async () => {
+        const { host, fake, events, spawner } = await pull();
+        fake.handle('workspace/diagnostic', () => ({
+            items: [{ kind: 'full', uri: uri('src/b.ts'), version: null, resultId: 'r1', items: [problem('bad')] }]
+        }));
+        await host.workspaceProblems(null, 'p1');
+
+        await spawner.processes[0]!.crash();
+        await settle();
+
+        expect(
+            reportsOf(events['client-1'])
+                .filter((report) => report.path === 'src/b.ts')
+                .at(-1)
+        ).toMatchObject({ diagnostics: [] });
+    });
+});

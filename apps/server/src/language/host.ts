@@ -213,6 +213,14 @@ interface PendingEdit {
     settle(result: ApplyWorkspaceEditResult): void;
 }
 
+/* The problems a server holds for one file of the project, as a whole-project pull left them. */
+export interface WorkspaceProblems {
+    server: string;
+    path: string;
+    absolutePath: string;
+    diagnostics: Diagnostic[];
+}
+
 /* A `window/showMessageRequest` that waits for a person to pick one of its actions. */
 interface PendingMessage {
     projectId: string;
@@ -300,6 +308,21 @@ export class LanguageHost {
             }
 
             this.wake();
+        },
+        workspaceReport: (server, component, uri, diagnostics) => {
+            const project = this.projects.get(server.projectId);
+            const path = fileUriToPath(uri);
+
+            if (project !== undefined && path !== null) {
+                const payload: LanguageDiagnosticsEvent = {
+                    projectId: server.projectId,
+                    path: storedPathOf(project.folder, path),
+                    server: component,
+                    diagnostics
+                };
+
+                this.toHolders(server.projectId, { event: 'language.diagnostics', payload });
+            }
         },
         message: (server, profile, params, request) => this.receiveMessage(server, profile, params, request),
         showDocument: (server, profile, params) => this.showDocumentOf(server, profile, params),
@@ -1249,6 +1272,49 @@ export class LanguageHost {
         this.sinks.to(clientId, { event: 'language.show', payload });
 
         return { success: true };
+    }
+
+    /*
+     * Pulls the problems of every file of the project from the servers that offer them. New reports go to
+     * every holder as `language.diagnostics`; files a server found unchanged are sent again only to the
+     * asking client, which may not have heard them. `reports` carries both, for a caller that reads them.
+     */
+    async workspaceProblems(clientId: string | null, projectId: string): Promise<{ servers: string[]; files: number; reports: WorkspaceProblems[] }> {
+        const project = this.projects.get(projectId);
+        const servers: string[] = [];
+        const reports: WorkspaceProblems[] = [];
+        let files = 0;
+
+        if (project === undefined) {
+            return { servers, files, reports };
+        }
+
+        const answers = await Promise.all([...project.servers.values()].map((server) => server.workspaceProblems()));
+
+        for (const answer of answers) {
+            servers.push(...answer.servers);
+            files += answer.files;
+
+            for (const report of answer.reports) {
+                const path = fileUriToPath(report.uri);
+
+                if (path === null || report.diagnostics.length === 0) {
+                    continue;
+                }
+
+                const stored = storedPathOf(project.folder, path);
+
+                reports.push({ server: report.server, path: stored, absolutePath: path, diagnostics: report.diagnostics });
+
+                if (!report.fresh && clientId !== null) {
+                    const payload: LanguageDiagnosticsEvent = { projectId, path: stored, server: report.server, diagnostics: report.diagnostics };
+
+                    this.sinks.to(clientId, { event: 'language.diagnostics', payload });
+                }
+            }
+        }
+
+        return { servers, files, reports };
     }
 
     /* Switches the trace of a server of the project; any client may, since it only costs log lines. */

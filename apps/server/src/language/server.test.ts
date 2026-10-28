@@ -59,6 +59,7 @@ function rig(kind: LanguageServerKind, spawner = fakeSpawner(), overrides: Parti
 
             return request ? (params.actions?.[0] ?? null) : null;
         },
+        workspaceReport: () => undefined,
         showDocument: async (_server, _profile, params) => {
             shown.push(params);
 

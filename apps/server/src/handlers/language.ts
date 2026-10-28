@@ -50,6 +50,12 @@ export function registerLanguageHandlers(dispatcher: Dispatcher, host: LanguageH
         return {};
     });
 
+    dispatcher.register('language.workspaceProblems', async (payload, client) => {
+        const { servers, files } = await host.workspaceProblems(client.id, payload.projectId);
+
+        return { servers, files };
+    });
+
     dispatcher.register('language.messageAnswer', async (payload) => {
         host.answerMessage(payload);
         return {};

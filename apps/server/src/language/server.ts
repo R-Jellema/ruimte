@@ -34,6 +34,8 @@ import {
     type TextMirror,
     type TraceValue,
     type TypeHierarchyItem,
+    type WorkspaceDiagnosticReport,
+    type WorkspaceDocumentDiagnosticReport,
     type WorkspaceEdit
 } from '@adecore/lsp';
 import { errorText } from '../error-text.ts';
@@ -117,6 +119,8 @@ export interface LanguageServerHooks {
     applyEdit(server: LanguageServer, params: ApplyWorkspaceEditParams): Promise<ApplyWorkspaceEditResult>;
     /* A message of a process for a person. A notification resolves null at once; a request resolves with the action chosen, or null. */
     message(server: LanguageServer, profile: ComponentProfile, params: ShowMessageRequestParams, request: boolean): Promise<MessageActionItem | null>;
+    /* A whole-project pull found the problems of a file that is no document: a report replaces the earlier one of the process for the file. */
+    workspaceReport(server: LanguageServer, component: string, uri: string, diagnostics: Diagnostic[]): void;
     /* A process asks to have a document or an address shown; the answer says whether it was. */
     showDocument(server: LanguageServer, profile: ComponentProfile, params: ShowDocumentParams): Promise<ShowDocumentResult>;
 }
@@ -159,6 +163,24 @@ interface Component {
     subscriptions: Disposable[];
     /* The diagnostics requests waiting for typing to pause, by document. */
     pulls: Map<string, () => void>;
+    /* What a whole-project pull heard per file nobody has open, so the next pull can ask for what changed. */
+    workspace: Map<string, { resultId?: string; diagnostics: Diagnostic[] }>;
+    /* The pull under way, which a second asker joins. */
+    workspacePull: Promise<WorkspacePull> | undefined;
+}
+
+/* How one whole-project pull of a process ended: the files it reported in full, and every file it reported or found unchanged. */
+interface WorkspacePull {
+    files: number;
+    touched: Map<string, 'full' | 'unchanged'>;
+}
+
+/* The problems a process holds for a file, as a whole-project pull left them. `fresh` is false for a file the process found unchanged. */
+export interface WorkspaceProblemsReport {
+    server: string;
+    uri: string;
+    diagnostics: Diagnostic[];
+    fresh: boolean;
 }
 
 /* A merged answer: items of several processes, each with the one that made it. */
@@ -495,6 +517,91 @@ export class LanguageServer {
                     }
                 })
         );
+    }
+
+    /*
+     * Asks each ready process that offers workspace diagnostics for the problems of every file. Full
+     * reports of files nobody has open go out through `workspaceReport` as they come in; what the
+     * asker gets back is everything the pull touched, including files the process found unchanged.
+     */
+    async workspaceProblems(): Promise<{ servers: string[]; files: number; reports: WorkspaceProblemsReport[] }> {
+        const servers: string[] = [];
+        const reports: WorkspaceProblemsReport[] = [];
+        let files = 0;
+
+        if (this.phase !== 'ready') {
+            return { servers, files, reports };
+        }
+
+        await Promise.all(
+            this.components
+                .filter((component) => component.profile.sidecar !== true && component.session.supports('workspace/diagnostic'))
+                .map(async (component) => {
+                    try {
+                        component.workspacePull ??= this.pullWorkspace(component).finally(() => {
+                            component.workspacePull = undefined;
+                        });
+
+                        const pull = await component.workspacePull;
+
+                        servers.push(component.profile.name);
+                        files += pull.files;
+
+                        for (const [uri, kind] of pull.touched) {
+                            reports.push({
+                                server: component.profile.name,
+                                uri,
+                                diagnostics: component.workspace.get(uri)?.diagnostics ?? [],
+                                fresh: kind === 'full'
+                            });
+                        }
+                    } catch (error) {
+                        this.log.push('host', `${titleOf(component.profile)} could not report the problems of the project: ${errorText(error)}`);
+                    }
+                })
+        );
+
+        return { servers, files, reports };
+    }
+
+    private async pullWorkspace(component: Component): Promise<WorkspacePull> {
+        const touched = new Map<string, 'full' | 'unchanged'>();
+        const name = component.profile.name;
+        const handle = (item: WorkspaceDocumentDiagnosticReport): void => {
+            const document = this.documentByUri(item.uri);
+
+            // A document of the process has its own push or pull, which is newer.
+            if (document !== undefined && component.documents.has(document.absolutePath)) {
+                return;
+            }
+
+            if (item.kind === 'unchanged') {
+                if (component.workspace.has(item.uri)) {
+                    touched.set(item.uri, 'unchanged');
+                }
+
+                return;
+            }
+
+            const had = (component.workspace.get(item.uri)?.diagnostics.length ?? 0) > 0;
+
+            component.workspace.set(item.uri, { ...(item.resultId === undefined ? {} : { resultId: item.resultId }), diagnostics: item.items });
+            touched.set(item.uri, 'full');
+
+            // An empty report is only news when it takes problems away.
+            if (item.items.length > 0 || had) {
+                this.options.hooks.workspaceReport(this, name, item.uri, item.items);
+            }
+        };
+        const previous = [...component.workspace].flatMap(([uri, entry]) => (entry.resultId === undefined ? [] : [{ uri, value: entry.resultId }]));
+        const report = await component.session.workspaceDiagnostics(previous, undefined, {
+            timeoutMs: 0,
+            onPartialResult: (value) => (value as WorkspaceDiagnosticReport).items?.forEach(handle)
+        });
+
+        report.items.forEach(handle);
+
+        return { files: [...touched.values()].filter((kind) => kind === 'full').length, touched };
     }
 
     /* Whether a process of this server could answer `method` for the document right now. */
@@ -985,7 +1092,17 @@ export class LanguageServer {
             onShowDocument: (params) => this.options.hooks.showDocument(this, profile, params),
             timeoutMs: 0
         });
-        const component: Component = { profile, child, session, documents: new Map(), progress: new Set(), subscriptions: [], pulls: new Map() };
+        const component: Component = {
+            profile,
+            child,
+            session,
+            documents: new Map(),
+            progress: new Set(),
+            subscriptions: [],
+            pulls: new Map(),
+            workspace: new Map(),
+            workspacePull: undefined
+        };
         child.onStderr((text) => this.log.push('server', text, { source: 'stderr' }));
         component.subscriptions.push(
             session.onError((error) => this.log.push('host', errorText(error))),
@@ -1208,6 +1325,14 @@ export class LanguageServer {
 
     /* What a process reported goes with it, so a crashed or stopped server leaves no problems behind in the clients. */
     private clearReports(component: Component): void {
+        for (const [uri, entry] of component.workspace) {
+            if (entry.diagnostics.length > 0) {
+                this.options.hooks.workspaceReport(this, component.profile.name, uri, []);
+            }
+        }
+
+        component.workspace.clear();
+
         for (const path of component.documents.keys()) {
             const document = this.documents.get(path);
             if (document) {

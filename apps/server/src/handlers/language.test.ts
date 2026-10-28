@@ -96,6 +96,10 @@ describe('language handlers', () => {
         });
     });
 
+    test('a whole-project check of a project without a running server answers that nothing answered', async () => {
+        expect(await call('language.workspaceProblems', { projectId: 'p1' })).toMatchObject({ ok: true, result: { servers: [], files: 0 } });
+    });
+
     test('a method outside the list is refused before it reaches a server', async () => {
         expect(await call('language.request', { projectId: 'p1', path: 'a.ts', method: 'workspace/executeCommand', params: {} })).toMatchObject({
             ok: false,
