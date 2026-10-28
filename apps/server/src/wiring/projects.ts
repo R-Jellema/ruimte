@@ -12,6 +12,7 @@ import type { AgentWorkBundle } from './agent-work.ts';
 import type { DatabasesBundle } from './databases.ts';
 import type { LanguageBundle } from './language.ts';
 import type { LaunchesBundle } from './launches.ts';
+import type { TemplatesBundle } from './templates.ts';
 
 /* The projects of this machine and the drawing and diagram files beside them. */
 export interface ProjectsBundle {
@@ -39,6 +40,7 @@ interface ProjectsInput {
         work(): AgentWorkBundle;
         databases(): DatabasesBundle;
         language(): LanguageBundle;
+        templates(): TemplatesBundle;
     };
 }
 
@@ -86,6 +88,7 @@ export async function wireProjects({ home, machineId, stores, agents, computer, 
             },
             forgetProject: (projectId) => later.databases().snapshots.forgetProject(projectId)
         },
+        templates: { closeProject: (projectId) => later.templates().store.closeProject(projectId) },
         bindings: {
             machineId,
             started: async (nodeId) => sessions.get(nodeId) !== undefined || stores.lineage.madeBy(nodeId) !== null || (await chats.readChat(nodeId)) !== null

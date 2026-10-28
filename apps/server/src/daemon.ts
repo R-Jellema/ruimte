@@ -15,6 +15,8 @@ import { loadAgentStores, wireAgents } from './wiring/agents.ts';
 import { wireArtifacts } from './wiring/artifacts.ts';
 import { wireRoutines } from './wiring/routines.ts';
 import { registerRoutineHandlers } from './handlers/routine.ts';
+import { wireTemplates } from './wiring/templates.ts';
+import { registerTemplateHandlers } from './handlers/template.ts';
 import { wireAgentWork } from './wiring/agent-work.ts';
 import { wireCanvasHost } from './wiring/canvas-host.ts';
 import { repairChatMoves } from './wiring/chat-move.ts';
@@ -92,8 +94,9 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
         stores,
         agents,
         computer,
-        later: { launches: () => launches, work: () => work, databases: () => databases, language: () => language }
+        later: { launches: () => launches, work: () => work, databases: () => databases, language: () => language, templates: () => templates }
     });
+    const templates = wireTemplates(home, projects);
     watchProjects(projects.store);
     const artifacts = await wireArtifacts({
         home,
@@ -194,6 +197,7 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
     });
     registerVoiceHandlers(dispatcher, voice);
     registerRoutineHandlers(dispatcher, routines);
+    registerTemplateHandlers(dispatcher, templates.store);
     const language = await wireLanguage({
         home,
         compiled,
@@ -269,7 +273,8 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
         secrets: launches.secrets,
         proposals: agents.proposals,
         artifacts: artifacts.artifacts,
-        routines: routines.watchers
+        routines: routines.watchers,
+        templates: templates.store
     });
     // Before the socket answers, so no client attaches to or writes in a chat that is half moved; the outbox starts after.
     await repairChatMoves({
@@ -369,6 +374,7 @@ export async function startDaemon(config: ServerConfig, launcher: Launcher = 'st
         launches.runner.close();
         launches.store.closeAll();
         databases.connections.closeAll();
+        templates.store.closeAll();
         databases.agents.close();
         await step('Stopping the database helper', () => databases.service.dispose());
         await step('Stopping language servers', () => language.host.close());

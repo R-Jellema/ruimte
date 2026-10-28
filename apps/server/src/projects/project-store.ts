@@ -135,6 +135,11 @@ interface ProjectDatabases {
     forgetProject(projectId: string): Promise<void>;
 }
 
+/* What the store needs of the shared templates: they let go of a project when it does. */
+interface ProjectTemplates {
+    closeProject(projectId: string): void;
+}
+
 /* What the store needs of the provenance records: they go with the project. */
 interface ProjectProvenance {
     forget(projectId: string): Promise<void>;
@@ -218,6 +223,7 @@ export interface ProjectLinks {
     language: ProjectLanguage;
     provenance: ProjectProvenance;
     databases: ProjectDatabases;
+    templates: ProjectTemplates;
     bindings: ProjectBindings;
     /* The stores of drawing and diagram files, which are made from this one and so are asked for when a write or a release reaches them. */
     viewFiles(): readonly ProjectViewFiles[];
@@ -966,6 +972,7 @@ export class ProjectStore {
             files.closeProject(projectId);
         }
         this.links.databases.closeProject(projectId);
+        this.links.templates.closeProject(projectId);
         state.watcher?.close();
         state.cancelSettle?.();
         this.open.delete(projectId);

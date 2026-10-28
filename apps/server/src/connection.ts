@@ -108,6 +108,8 @@ export interface ConnectionServices {
     artifacts?: Subscribable;
     /* The routines of this machine, which only a client that asked with `routine.watch` hears change. */
     routines?: Subscribable;
+    /* A person's templates, which every client hears change, and a project's, which the clients that hold it hear. */
+    templates?: Subscribable;
 }
 
 export interface OpenConnection {
@@ -155,7 +157,8 @@ function subscribeClient(services: ConnectionServices, client: ClientConnection,
         services.remote,
         services.voicePreferences,
         services.artifacts,
-        services.routines
+        services.routines,
+        services.templates
     ];
     const none = (): void => undefined;
 
