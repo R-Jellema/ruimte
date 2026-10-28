@@ -59,9 +59,14 @@ describe('what a pet shows', () => {
         expect(pets.map((pet) => pet.mood)).toEqual(['waiting', 'waiting']);
     });
 
-    test('a snoozed wait stays quiet, the way it does in every count', () => {
-        const pets = petsOf(NODES, new Set(), {}, { 'local:writer': chat('writer', 'needs-you') }, 'local', { 'local:writer': 2_000 });
-        expect(pets[0].mood).toBe('idle');
+    test('a snoozed wait keeps its bubble until it is answered, and does not jump', () => {
+        const snoozes = { 'local:writer': 2_000 };
+        const pets = petsOf(NODES, new Set(), {}, { 'local:writer': chat('writer', 'needs-you') }, 'local', snoozes);
+        expect(pets[0].mood).toBe('snoozed');
+        const frames = Array.from({ length: 8 }, (_, tick) => petFrame('snoozed', tick, false));
+        expect(frames.every((frame) => frame.bubble && frame.pose === 'wait' && frame.lift === 0)).toBe(true);
+        // Answered, the snooze has nothing left to hold, and the pet rests.
+        expect(petsOf(NODES, new Set(), {}, { 'local:writer': chat('writer', 'idle') }, 'local', snoozes)[0].mood).toBe('idle');
     });
 
     test('a turn, a rest and an end that went wrong', () => {

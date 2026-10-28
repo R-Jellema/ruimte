@@ -42,6 +42,9 @@ export const JUMP_ROWS = 4;
 export const PAINT_COLUMNS = SPRITE_COLUMNS;
 export const PAINT_ROWS = BUBBLE_ROWS + JUMP_ROWS + SPRITE_ROWS;
 
+/* Every pose of a built-in figure repeats after this many frames (its steps are 2, 3, 4 and 6 long), so a frame and the one this far on look the same. */
+export const DRAWN_CYCLE = 12;
+
 export function cell(x: number, y: number, w: number, h: number, color: string): Cell {
     return { x, y, w, h, color };
 }

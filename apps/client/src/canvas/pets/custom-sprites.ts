@@ -36,32 +36,92 @@ const SpriteSchema = z.object({
     frames: z.number().int().min(1).max(SHEET_LIMITS.maxFrames)
 });
 
-// One sprite that no longer fits drops out alone, and the others stay.
-const storedSprites = storedJson<CustomPetSprite[]>(
-    PET_SPRITES_STORAGE_KEY,
-    z.array(z.unknown()).transform((entries) => entries.flatMap((entry) => SpriteSchema.safeParse(entry).data ?? []))
-);
+/* What the bytes of an image say about it, read from its own header rather than from its name or what was stored beside it. */
+export interface ImageFacts {
+    type: 'png' | 'webp';
+    bytes: number;
+    width: number;
+    height: number;
+}
+
+// The header of a PNG ends its size at byte 24, of a WebP at byte 30: forty characters of base64 hold both.
+const HEAD_CHARACTERS = 40;
+
+function little(head: string, at: number, length: number): number {
+    let value = 0;
+    for (let i = length - 1; i >= 0; i--) {
+        value = value * 256 + head.charCodeAt(at + i);
+    }
+    return value;
+}
+
+function big(head: string, at: number): number {
+    return little([...head.slice(at, at + 4)].reverse().join(''), 0, 4);
+}
 
 /*
- * Whether the bytes are the PNG or WebP their type says, read from the signature at the start rather
- * than from the file name, so a renamed SVG or HTML file never gets in.
+ * The type, length and size of the image in a data URL, from its signature and its header, so a renamed
+ * SVG or HTML file never gets in and a stored size cannot claim what the bytes are not. Null for
+ * anything that is not a PNG or a WebP whose header reads.
  */
-export function hasImageSignature(dataUrl: string): boolean {
+export function imageFacts(dataUrl: string): ImageFacts | null {
     const match = DATA_URL.exec(dataUrl);
     if (match === null) {
-        return false;
+        return null;
     }
+    const payload = dataUrl.slice(dataUrl.indexOf(',') + 1);
+    const bytes = (payload.length / 4) * 3 - (payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0);
     let head: string;
     try {
-        head = atob(dataUrl.slice(dataUrl.indexOf(',') + 1, dataUrl.indexOf(',') + 1 + 16));
+        head = atob(payload.slice(0, Math.min(payload.length, HEAD_CHARACTERS)));
     } catch {
-        return false;
+        return null;
     }
     if (match[1] === 'png') {
-        return head.startsWith('\x89PNG\r\n\x1a\n');
+        if (!head.startsWith('\x89PNG\r\n\x1a\n') || head.slice(12, 16) !== 'IHDR' || head.length < 24) {
+            return null;
+        }
+        return { type: 'png', bytes, width: big(head, 16), height: big(head, 20) };
     }
-    return head.startsWith('RIFF') && head.slice(8, 12) === 'WEBP';
+    if (!head.startsWith('RIFF') || head.slice(8, 12) !== 'WEBP' || head.length < 30) {
+        return null;
+    }
+    const chunk = head.slice(12, 16);
+    if (chunk === 'VP8X') {
+        return { type: 'webp', bytes, width: little(head, 24, 3) + 1, height: little(head, 27, 3) + 1 };
+    }
+    if (chunk === 'VP8L' && head.charCodeAt(20) === 0x2f) {
+        const bits = little(head, 21, 4);
+        return { type: 'webp', bytes, width: (bits & 0x3fff) + 1, height: ((bits >>> 14) & 0x3fff) + 1 };
+    }
+    if (chunk === 'VP8 ' && head.slice(23, 26) === '\x9d\x01\x2a') {
+        return { type: 'webp', bytes, width: little(head, 26, 2) & 0x3fff, height: little(head, 28, 2) & 0x3fff };
+    }
+    return null;
 }
+
+/*
+ * A stored sprite only when it is one an import would take now: a PNG or a WebP by its bytes, within the
+ * byte limit, and cut the way it says it is. A hand-edited key gets nothing past this to an `<img>`.
+ */
+export function storedSpriteOf(entry: unknown): CustomPetSprite | null {
+    const sprite = SpriteSchema.safeParse(entry).data;
+    const facts = sprite === undefined ? null : imageFacts(sprite.image);
+    if (sprite === undefined || facts === null || facts.bytes > SHEET_LIMITS.bytes) {
+        return null;
+    }
+    const layout = sheetLayout(facts.width, facts.height);
+    if ('problem' in layout || layout.frameSize !== sprite.frameSize || layout.frames !== sprite.frames) {
+        return null;
+    }
+    return sprite;
+}
+
+// One sprite that no longer passes drops out alone, and the others stay.
+const storedSprites = storedJson<CustomPetSprite[]>(
+    PET_SPRITES_STORAGE_KEY,
+    z.array(z.unknown()).transform((entries) => entries.flatMap((entry) => storedSpriteOf(entry) ?? []))
+);
 
 /* How a sheet of this size is cut: square frames as high as the image, as many as fit across it. */
 export function sheetLayout(width: number, height: number): { frameSize: number; frames: number } | { problem: SheetProblem } {
@@ -109,10 +169,13 @@ export const usePetSprites = create<PetSpritesStore>((set, get) => ({
     remove(id) {
         const next = get().sprites.filter((sprite) => sprite.id !== id);
         storedSprites.write(next);
+        forgetImages(next);
         set({ sprites: next });
     },
     reload() {
-        set({ sprites: storedSprites.read() ?? [] });
+        const next = storedSprites.read() ?? [];
+        forgetImages(next);
+        set({ sprites: next });
     }
 }));
 
@@ -146,17 +209,25 @@ export async function addPetSprite(
         return { problem: 'full' };
     }
     let image: string;
-    let size: { width: number; height: number };
+    let facts: ImageFacts | null;
     try {
         image = await reader.dataUrl(file);
-        if (!hasImageSignature(image)) {
+        facts = imageFacts(image);
+        if (facts === null) {
             return { problem: 'unreadable' };
         }
-        size = await reader.size(image);
+        // The browser decodes it too, so a header that lies about the rest of the file is caught here.
+        const decoded = await reader.size(image);
+        if (decoded.width !== facts.width || decoded.height !== facts.height) {
+            return { problem: 'unreadable' };
+        }
     } catch {
         return { problem: 'unreadable' };
     }
-    const layout = sheetLayout(size.width, size.height);
+    if (facts.bytes > SHEET_LIMITS.bytes) {
+        return { problem: 'bytes' };
+    }
+    const layout = sheetLayout(facts.width, facts.height);
     if ('problem' in layout) {
         return layout;
     }
@@ -184,16 +255,29 @@ export const browserSheetReader: SheetReader = {
 
 const images = new Map<string, HTMLImageElement>();
 
-/* The decoded image of a sprite, once per page; null while it still decodes or when the page has no images. */
+/* Lets go of the images of sprites that went, and of one whose image another window replaced. */
+function forgetImages(kept: readonly CustomPetSprite[]): void {
+    for (const [id, image] of images) {
+        if (!kept.some((sprite) => sprite.id === id && sprite.image === image.src)) {
+            images.delete(id);
+        }
+    }
+}
+
+/*
+ * The decoded image of a sprite, once per page for each image it had; null while it still decodes, when
+ * what decoded is not the size the sprite says, or when the page has no images.
+ */
 export function spriteImage(sprite: CustomPetSprite): HTMLImageElement | null {
     if (typeof Image === 'undefined') {
         return null;
     }
     let image = images.get(sprite.id);
-    if (image === undefined) {
+    if (image === undefined || image.src !== sprite.image) {
         image = new Image();
         image.src = sprite.image;
         images.set(sprite.id, image);
     }
-    return image.complete && image.naturalWidth > 0 ? image : null;
+    const fits = image.naturalWidth === sprite.frameSize * sprite.frames && image.naturalHeight === sprite.frameSize;
+    return image.complete && fits ? image : null;
 }

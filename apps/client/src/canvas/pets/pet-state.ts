@@ -10,8 +10,8 @@ import { endpointKey, endpointOfNode } from '@/state/keys';
 import { nodeProvider, nodeStatus, type SessionsByKey } from '@/state/sessions';
 import type { Snoozes } from '@/state/snooze';
 
-/* What a pet shows of its node's agent, or that it only drops by. */
-export type PetMood = 'working' | 'waiting' | 'idle' | 'stopped' | 'visiting';
+/* What a pet shows of its node's agent, or that it only drops by. `snoozed` still waits on you, quietly. */
+export type PetMood = 'working' | 'waiting' | 'snoozed' | 'idle' | 'stopped' | 'visiting';
 
 export interface CanvasPet {
     id: string;
@@ -25,7 +25,8 @@ const NO_UNSEEN: Readonly<Record<string, true>> = {};
 
 /*
  * A pet for every node with an agent in it: a chat, or a terminal whose CLI reported through its
- * hooks. Waiting is the same "needs you" every count reads, so a snoozed node does not jump.
+ * hooks. Waiting is the same "needs you" every count reads. A wait a person snoozed keeps its bubble
+ * until it is answered, since the question is still open, but does not jump.
  */
 export function petsOf(
     nodes: Readonly<Record<string, CanvasNode>>,
@@ -36,7 +37,9 @@ export function petsOf(
     snoozes: Snoozes
 ): CanvasPet[] {
     const shown = Object.values(nodes).filter((node) => (node.kind === 'chat' || node.kind === 'terminal') && !hidden.has(node.id));
-    const waiting = new Set(groupAttention(shown, sessions, chats, endpointId, NO_UNSEEN, snoozes).needsYou);
+    const attention = groupAttention(shown, sessions, chats, endpointId, NO_UNSEEN, snoozes);
+    const waiting = new Set(attention.needsYou);
+    const snoozed = new Set(attention.snoozed);
     const pets: CanvasPet[] = [];
     for (const node of shown) {
         let agent: AgentKind | undefined;
@@ -49,7 +52,7 @@ export function petsOf(
         } else {
             agent = nodeProvider(node, chats, endpointId);
         }
-        pets.push({ id: node.id, agent, mood: moodOf(node, waiting, sessions, chats, endpointId) });
+        pets.push({ id: node.id, agent, mood: snoozed.has(node.id) ? 'snoozed' : moodOf(node, waiting, sessions, chats, endpointId) });
     }
     return pets;
 }
@@ -79,11 +82,12 @@ export interface PetFrame {
 
 /*
  * What a pet draws on a tick of the shared clock. A pet that waits on you says so with a bubble and
- * jumps until the question is answered; with reduced motion asked for it keeps the bubble and stands still.
+ * jumps until the question is answered; snoozed, or with reduced motion asked for, it keeps the bubble
+ * and stands still.
  */
 export function petFrame(mood: PetMood, tick: number, still: boolean): PetFrame {
-    if (mood === 'waiting') {
-        return { pose: 'wait', frame: tick, lift: still ? 0 : JUMP[tick % JUMP.length], bubble: true };
+    if (mood === 'waiting' || mood === 'snoozed') {
+        return { pose: 'wait', frame: tick, lift: still || mood === 'snoozed' ? 0 : JUMP[tick % JUMP.length], bubble: true };
     }
     if (mood === 'working') {
         return { pose: 'work', frame: tick, lift: 0, bubble: false };

@@ -4,8 +4,8 @@ import { Tooltip } from '@adecore/ui';
 import { useChats } from '@adecore/agents-react/state';
 import { useNodeInViewport } from '@/canvas/culling';
 import { visibleRect } from '@/canvas/math';
-import { PAINT_SIZE, paintPet, type PetLook } from '@/canvas/pets/paint';
-import { PET_HEIGHT, PET_WIDTH, petFrame, petPlace, petsOf, type PetMood } from '@/canvas/pets/pet-state';
+import { PAINT_SIZE, paintPet, petPainter, type PetLook } from '@/canvas/pets/paint';
+import { PET_HEIGHT, PET_WIDTH, petPlace, petsOf, type PetMood } from '@/canvas/pets/pet-state';
 import { onPetTick } from '@/canvas/pets/ticker';
 import { usePetLook } from '@/canvas/pets/use-pet-look';
 import { createVisitor, VISIT_MS, visitSpot, type VisitSpot } from '@/canvas/pets/visitor';
@@ -37,16 +37,7 @@ export function PetFigure({ look, mood }: { look: PetLook; mood: PetMood }) {
         if (context === null) {
             return;
         }
-        const still = prefersStill();
-        let painted = '';
-        return onPetTick((tick) => {
-            const frame = petFrame(mood, tick, still);
-            const key = `${frame.pose}:${frame.frame}:${frame.lift}`;
-            if (key !== painted) {
-                painted = key;
-                paintPet(context, look, frame);
-            }
-        });
+        return onPetTick(petPainter(look, mood, prefersStill(), (frame) => paintPet(context, look, frame)));
     }, [look, mood]);
     return (
         <canvas
@@ -73,7 +64,7 @@ function Pet({ id, agent, mood }: { id: string; agent: AgentKind | undefined; mo
     const place = petPlace(node);
     // A node a person never named reads as its kind, so the label always says which node it leads to.
     const title = node.title?.trim() || t(node.kind === 'chat' ? 'kinds.chat' : 'kinds.terminal');
-    const label = t(mood === 'waiting' ? 'pets.waiting' : 'pets.goTo', { title });
+    const label = t(mood === 'waiting' || mood === 'snoozed' ? 'pets.waiting' : 'pets.goTo', { title });
     return (
         <Tooltip label={label}>
             <button

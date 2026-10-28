@@ -8,9 +8,11 @@ the file system, the daemon's folders or a project file.
 - Which nodes have one: a chat, and a terminal whose CLI reported through its hooks (`petsOf` in
   `pet-state.ts`). A node a collapsed group hides has none.
 - What it shows: working, waiting on you, idle or stopped. Waiting is the "needs you" every count
-  reads (`groupAttention`), so a snoozed node waits quietly. A waiting pet has a black speech bubble
-  with an orange exclamation mark and jumps until the question or approval is answered; with reduced
-  motion it keeps the bubble and stands still.
+  reads (`groupAttention`). A waiting pet has a black speech bubble with an orange exclamation mark
+  and jumps until the question or approval is answered. A wait a person snoozed keeps its bubble until
+  it is answered but does not jump, and with reduced motion no pet jumps.
+- A pet paints its canvas only when the picture changes (`petPainter`), so a strip of one frame at
+  rest paints once.
 - A click goes to the node (`goToNode`): the camera centers on it and selects it, and Back in the
   camera history returns.
 - One interval for the page drives every pet (`ticker.ts`), only while a pet is mounted, and a pet
@@ -28,7 +30,10 @@ a node maximized. It takes no press and has no row in Settings. The setting `pet
 
 Settings, Views, Pets, Add figure takes one file from the system's open panel. Only that file is
 read; it is kept as a data URL in this client's storage (`ruimte.pets.sprites`), which every window
-of the app shares and no machine sees.
+of the app shares and no machine sees. What is read back from there goes through the same checks as
+an import (`storedSpriteOf`): the bytes, the byte limit and the size in the image's own header against
+the frames stored beside it, so an entry edited by hand that does not pass is dropped. A strip whose
+decoded image has another size than it says is not drawn.
 
 The format:
 
