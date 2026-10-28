@@ -5,7 +5,6 @@ import { SettingsRow } from '@adecore/ui/settings';
 import { Select } from '@adecore/ui';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { codeThemesOf, useSettings } from '@/state/settings';
-import { useTheme } from '@/state/theme';
 
 const PREVIEW_CODE = [
     '// Greets a visitor by name.',
@@ -71,18 +70,8 @@ export function CodeSection() {
     const codeThemeLight = useSettings((s) => s.codeThemeLight);
     const codeThemeDark = useSettings((s) => s.codeThemeDark);
     const update = useSettings((s) => s.update);
-    const side = useTheme((s) => s.resolved);
     const lightThemes = codeThemesOf('light').map((info) => ({ value: info.id, label: info.displayName }));
     const darkThemes = codeThemesOf('dark').map((info) => ({ value: info.id, label: info.displayName }));
-    // One preview, under the theme of the side the app is on now; switching the app's theme shows the other.
-    const [themes, shown] = side === 'light' ? [lightThemes, codeThemeLight] : [darkThemes, codeThemeDark];
-    const preview = (
-        <CodeThemePreview
-            theme={shown}
-            mode={side}
-            label={t('editor.colors.preview', { theme: themes.find((theme) => theme.value === shown)?.label ?? shown })}
-        />
-    );
 
     return (
         <SettingsSection>
@@ -100,7 +89,11 @@ export function CodeSection() {
                     />
                 }
             >
-                {side === 'light' && preview}
+                <CodeThemePreview
+                    theme={codeThemeLight}
+                    mode="light"
+                    label={t('editor.colors.preview', { theme: lightThemes.find((theme) => theme.value === codeThemeLight)?.label ?? codeThemeLight })}
+                />
             </SettingsRow>
             <SettingsRow
                 searchId="editor.colors.dark"
@@ -116,7 +109,11 @@ export function CodeSection() {
                     />
                 }
             >
-                {side === 'dark' && preview}
+                <CodeThemePreview
+                    theme={codeThemeDark}
+                    mode="dark"
+                    label={t('editor.colors.preview', { theme: darkThemes.find((theme) => theme.value === codeThemeDark)?.label ?? codeThemeDark })}
+                />
             </SettingsRow>
         </SettingsSection>
     );
