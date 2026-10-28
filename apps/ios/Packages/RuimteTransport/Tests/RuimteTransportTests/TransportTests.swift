@@ -240,9 +240,11 @@ final class BrokerAndLifecycleTests: XCTestCase {
 
         original.events.closed(TransportFailure.invalid("The channel stopped answering."))
         XCTAssertFalse(client.isConnected)
-        XCTAssertEqual(scheduler.pending.count, 1)
+        // The reconnect and the grace before a drop is reported.
+        XCTAssertEqual(scheduler.pending.count, 2)
         pool.pathChanged(fingerprint: "wifi-restored", reachable: true)
         XCTAssertEqual(links.all.count, 2)
+        // A path change reconnects at once and lets go of both timers.
         XCTAssertTrue(scheduler.pending.isEmpty)
         lease.release()
         pool.shutdown()
