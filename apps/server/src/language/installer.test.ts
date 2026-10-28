@@ -72,7 +72,7 @@ describe('language installer', () => {
     it('installs the pinned packages with the daemon as bun, scripts off, and then counts as installed', async () => {
         const calls: { cwd: string; args: string[]; env: Record<string, string> }[] = [];
         const changes: string[] = [];
-        const installer = new LanguageInstaller({ root, runtime, run: installing('php', calls), onChange: (kind) => changes.push(kind) });
+        const installer = new LanguageInstaller({ root, runtime, run: installing('php', calls), now: () => 0, onChange: (kind) => changes.push(kind) });
         expect(await installer.state('php')).toBe('missing');
         await installer.install('php');
         expect(await installer.state('php')).toBe('installed');
