@@ -38,6 +38,17 @@ import {
     RoutineTargetPayloadSchema
 } from './routine.ts';
 import {
+    TemplateChangedEventSchema,
+    TemplateConfigurePayloadSchema,
+    TemplateConfigureResultSchema,
+    TemplateListPayloadSchema,
+    TemplateListResultSchema,
+    TemplateRemovePayloadSchema,
+    TemplateRemoveResultSchema,
+    TemplateSavePayloadSchema,
+    TemplateSaveResultSchema
+} from './templates.ts';
+import {
     CliUpdatePayloadSchema,
     CliUpdateResultSchema,
     CliVersionsPayloadSchema,
@@ -537,6 +548,7 @@ export * from './language-patterns.ts';
 export * from './stored-path.ts';
 export * from './sql-binding.ts';
 export * from './task.ts';
+export * from './templates.ts';
 export * from './terminal-prepare.ts';
 export * from './text.ts';
 export * from './usage.ts';
@@ -918,6 +930,11 @@ export const REQUEST_SCHEMAS = {
     'routine.watch': { payload: EmptySchema, result: EmptySchema },
     'routine.unwatch': { payload: EmptySchema, result: EmptySchema },
     'routine.skills': { payload: RoutineSkillsPayloadSchema, result: RoutineSkillsResultSchema },
+    // Any client of the owner edits; no request of these is on a peer's list, and an agent reaches templates only through its verb.
+    'template.list': { payload: TemplateListPayloadSchema, result: TemplateListResultSchema },
+    'template.save': { payload: TemplateSavePayloadSchema, result: TemplateSaveResultSchema },
+    'template.remove': { payload: TemplateRemovePayloadSchema, result: TemplateRemoveResultSchema },
+    'template.configure': { payload: TemplateConfigurePayloadSchema, result: TemplateConfigureResultSchema },
     'provenance.read': { payload: ProvenanceReadPayloadSchema, result: ProvenanceReadResultSchema },
     'provenance.review': { payload: ProvenanceReviewPayloadSchema, result: ProvenanceReviewResultSchema },
     'nanogpt.status': { payload: EmptySchema, result: NanoGptStatusSchema },
@@ -1028,7 +1045,9 @@ export const EVENT_SCHEMAS = {
     'artifact.changed': ArtifactChangedEventSchema,
     'provenance.changed': ProvenanceChangedEventSchema,
     // Only to the clients that asked with `routine.watch`.
-    'routine.changed': RoutineChangedEventSchema
+    'routine.changed': RoutineChangedEventSchema,
+    // A person's templates to every client, a project's to the clients that hold it.
+    'template.changed': TemplateChangedEventSchema
 } as const satisfies Record<string, z.ZodType>;
 
 export type EventType = keyof typeof EVENT_SCHEMAS;

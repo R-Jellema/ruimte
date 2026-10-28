@@ -417,6 +417,10 @@
     "routine.watch",
     "routine.unwatch",
     "routine.skills",
+    "template.list",
+    "template.save",
+    "template.remove",
+    "template.configure",
     "provenance.read",
     "provenance.review",
     "nanogpt.status",
@@ -496,7 +500,8 @@
     "plan.created",
     "artifact.changed",
     "provenance.changed",
-    "routine.changed"
+    "routine.changed",
+    "template.changed"
   ],
   "crypto": [
     {
