@@ -82,7 +82,9 @@ export const LanguageServerStatusSchema = z.object({
     // What `language.install` brings over the version the kind runs: the version this Ruimte pins, or a build of a checkout that changed since (`rebuild`).
     update: z.object({ version: z.string(), rebuild: z.boolean().optional() }).optional(),
     // The version the kind ran before, which `language.rollback` goes back to.
-    previous: z.object({ version: z.string() }).optional()
+    previous: z.object({ version: z.string() }).optional(),
+    // `messages` or `verbose` while the server traces, absent while off. Open on purpose, like `server`.
+    trace: z.string().optional()
 });
 export type LanguageServerStatus = z.infer<typeof LanguageServerStatusSchema>;
 
@@ -108,7 +110,12 @@ export const LanguageLogLineSchema = z.object({
     at: z.number().int().nonnegative(),
     // What wrote it: the installer, the server's own log and stderr, or the daemon about the server.
     stream: z.enum(['install', 'server', 'host']),
-    text: z.string()
+    text: z.string(),
+    // Both are open strings: an older client parses the line whole, so no value may be added to `stream`.
+    // `stderr`, `log`, `message` or `trace`.
+    source: z.string().optional(),
+    // `error`, `warning`, `info`, `log` or `debug`.
+    level: z.string().optional()
 });
 export type LanguageLogLine = z.infer<typeof LanguageLogLineSchema>;
 
@@ -192,14 +199,12 @@ export const LanguageDocumentOpenResultSchema = z.object({
 });
 export type LanguageDocumentOpenResult = z.infer<typeof LanguageDocumentOpenResultSchema>;
 
+export const LanguagePositionSchema = z.object({ line: z.number().int().nonnegative(), character: z.number().int().nonnegative() });
+export const LanguageRangeSchema = z.object({ start: LanguagePositionSchema, end: LanguagePositionSchema });
+
 /* One entry of `textDocument/didChange`: a range of the text it replaces, or without one the whole text. */
 export const LanguageContentChangeSchema = z.object({
-    range: z
-        .object({
-            start: z.object({ line: z.number().int().nonnegative(), character: z.number().int().nonnegative() }),
-            end: z.object({ line: z.number().int().nonnegative(), character: z.number().int().nonnegative() })
-        })
-        .optional(),
+    range: LanguageRangeSchema.optional(),
     text: z.string()
 });
 export type LanguageContentChange = z.infer<typeof LanguageContentChangeSchema>;
@@ -270,7 +275,20 @@ export const LANGUAGE_METHODS = [
     'callHierarchy/incomingCalls',
     'callHierarchy/outgoingCalls',
     // Asked of the server that serves the document, for a name in a snippet that is no document of its own.
-    'workspace/symbol'
+    'workspace/symbol',
+    'textDocument/documentLink',
+    'documentLink/resolve',
+    'textDocument/documentColor',
+    'textDocument/colorPresentation',
+    'textDocument/linkedEditingRange',
+    'textDocument/prepareTypeHierarchy',
+    'typeHierarchy/supertypes',
+    // Like the call hierarchy follow-ups, this one and the one above take `{ item }`.
+    'typeHierarchy/subtypes',
+    'textDocument/rangesFormatting',
+    'textDocument/inlineCompletion',
+    // Its params are `{ reason }`.
+    'textDocument/willSaveWaitUntil'
 ] as const;
 export const LanguageMethodSchema = z.enum(LANGUAGE_METHODS);
 export type LanguageMethod = z.infer<typeof LanguageMethodSchema>;
@@ -363,3 +381,66 @@ export const LanguageProvidersEventSchema = z.object({
     providers: LanguageProvidersSchema
 });
 export type LanguageProvidersEvent = z.infer<typeof LanguageProvidersEventSchema>;
+
+/* LSP `TextDocumentSaveReason`: 1 a person's save, 2 after a delay, 3 the editor lost focus. */
+export const LanguageWillSavePayloadSchema = LanguageDocumentTargetPayloadSchema.extend({
+    reason: z.union([z.literal(1), z.literal(2), z.literal(3)])
+});
+export type LanguageWillSavePayload = z.infer<typeof LanguageWillSavePayloadSchema>;
+
+export const LanguageWorkspaceProblemsPayloadSchema = z.object({ projectId: ProjectIdSchema });
+
+/* `servers` names the processes that answered, `files` counts the files reported in full. The reports come as `language.diagnostics`. */
+export const LanguageWorkspaceProblemsResultSchema = z.object({
+    servers: z.array(z.string()),
+    files: z.number().int().nonnegative()
+});
+export type LanguageWorkspaceProblemsResult = z.infer<typeof LanguageWorkspaceProblemsResultSchema>;
+
+/* The answer to a `language.message` that has `actions`: the title of the one chosen, or null when the person dismissed it. */
+export const LanguageMessageAnswerPayloadSchema = z.object({
+    projectId: ProjectIdSchema,
+    messageId: z.string().min(1),
+    action: z.string().nullable()
+});
+export type LanguageMessageAnswerPayload = z.infer<typeof LanguageMessageAnswerPayloadSchema>;
+
+export const LANGUAGE_TRACE_VALUES = ['off', 'messages', 'verbose'] as const;
+export const LanguageTraceValueSchema = z.enum(LANGUAGE_TRACE_VALUES);
+export type LanguageTraceValue = z.infer<typeof LanguageTraceValueSchema>;
+
+/* Switches `$/setTrace` of the server in this project. Kept in memory: a daemon start begins at `off`. */
+export const LanguageTracePayloadSchema = LanguageServerTargetPayloadSchema.extend({ value: LanguageTraceValueSchema });
+
+/* To every client that holds the project: a server's `window/showMessage` of type error or warning, or a `window/showMessageRequest`. */
+export const LanguageMessageEventSchema = z.object({
+    projectId: ProjectIdSchema,
+    messageId: z.string().min(1),
+    // The process, as `language.diagnostics` names it, and what a person calls it.
+    server: z.string(),
+    title: z.string(),
+    // LSP `MessageType`, 1 error to 5 debug; open, since a newer daemon may pass on more.
+    type: z.number().int(),
+    message: z.string(),
+    // Present exactly for `window/showMessageRequest`, which waits for `language.messageAnswer`; may be empty.
+    actions: z.array(z.string()).optional()
+});
+export type LanguageMessageEvent = z.infer<typeof LanguageMessageEventSchema>;
+
+/* To every holder: a message request was answered by any client or settled by the daemon, so its prompt goes. */
+export const LanguageMessageClosedEventSchema = z.object({ projectId: ProjectIdSchema, messageId: z.string().min(1) });
+export type LanguageMessageClosedEvent = z.infer<typeof LanguageMessageClosedEventSchema>;
+
+/* To the one client whose command runs on the server: a document to open, or an address to offer. */
+export const LanguageShowEventSchema = z
+    .object({
+        projectId: ProjectIdSchema,
+        server: z.string(),
+        title: z.string(),
+        // A stored path inside the project folder, or an http(s) address; never both.
+        path: z.string().optional(),
+        url: z.string().optional(),
+        selection: LanguageRangeSchema.optional()
+    })
+    .refine((show) => (show.path === undefined) !== (show.url === undefined), { message: 'A shown document has a path or a url, not both' });
+export type LanguageShowEvent = z.infer<typeof LanguageShowEventSchema>;

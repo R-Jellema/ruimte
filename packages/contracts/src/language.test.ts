@@ -40,7 +40,18 @@ describe('language wire', () => {
             'textDocument/prepareCallHierarchy',
             'callHierarchy/incomingCalls',
             'callHierarchy/outgoingCalls',
-            'workspace/symbol'
+            'workspace/symbol',
+            'textDocument/documentLink',
+            'documentLink/resolve',
+            'textDocument/documentColor',
+            'textDocument/colorPresentation',
+            'textDocument/linkedEditingRange',
+            'textDocument/prepareTypeHierarchy',
+            'typeHierarchy/supertypes',
+            'typeHierarchy/subtypes',
+            'textDocument/rangesFormatting',
+            'textDocument/inlineCompletion',
+            'textDocument/willSaveWaitUntil'
         ] as const) {
             expect(schema.parse({ ...base, method })).toEqual({ ...base, method });
             const payload = { ...base, method, version: 1, server: 'typescript' };
@@ -75,6 +86,10 @@ describe('language wire', () => {
             'language.request': [language.LanguageRequestPayloadSchema, language.LanguageRequestResultSchema],
             'language.command': [language.LanguageCommandPayloadSchema, language.LanguageCommandResultSchema],
             'language.edit.answer': [language.LanguageEditAnswerPayloadSchema, EmptySchema],
+            'language.willSave': [language.LanguageWillSavePayloadSchema, EmptySchema],
+            'language.workspaceProblems': [language.LanguageWorkspaceProblemsPayloadSchema, language.LanguageWorkspaceProblemsResultSchema],
+            'language.messageAnswer': [language.LanguageMessageAnswerPayloadSchema, EmptySchema],
+            'language.trace': [language.LanguageTracePayloadSchema, language.LanguageServerStatusResultSchema],
             'language.sql': [sql.LanguageSqlPayloadSchema, sql.LanguageSqlStateSchema],
             'language.sql.bind': [sql.LanguageSqlBindPayloadSchema, sql.LanguageSqlStateSchema]
         };
@@ -89,6 +104,9 @@ describe('language wire', () => {
             'language.custom.changed': language.LanguageCustomChangedEventSchema,
             'language.providers': language.LanguageProvidersEventSchema,
             'language.edit': language.LanguageEditEventSchema,
+            'language.message': language.LanguageMessageEventSchema,
+            'language.messageClosed': language.LanguageMessageClosedEventSchema,
+            'language.show': language.LanguageShowEventSchema,
             'language.sql.changed': sql.LanguageSqlChangedEventSchema
         };
         for (const [type, schema] of Object.entries(events)) {
@@ -112,5 +130,29 @@ describe('language wire', () => {
         expect(language.LanguageServerStatusSchema.safeParse({ ...base, chosen: true, unavailable: true }).success).toBe(true);
         expect(language.LanguagePreferPayloadSchema.safeParse({ server: 'php' }).success).toBe(true);
         expect(language.LanguagePreferPayloadSchema.safeParse({ server: 'custom:a' }).success).toBe(false);
+    });
+
+    test('a save reason is one of the three LSP reasons and a trace value one of three', () => {
+        const target = { projectId: 'p', path: 'a.ts' };
+        expect(language.LanguageWillSavePayloadSchema.safeParse({ ...target, reason: 3 }).success).toBe(true);
+        expect(language.LanguageWillSavePayloadSchema.safeParse({ ...target, reason: 4 }).success).toBe(false);
+        expect(language.LanguageTracePayloadSchema.safeParse({ projectId: 'p', server: 'css', value: 'verbose' }).success).toBe(true);
+        expect(language.LanguageTracePayloadSchema.safeParse({ projectId: 'p', server: 'css', value: 'loud' }).success).toBe(false);
+    });
+
+    test('a shown document has a path or a url, never both and never neither', () => {
+        const show = { projectId: 'p', server: 'css', title: 'CSS' };
+        expect(language.LanguageShowEventSchema.safeParse({ ...show, path: 'a.css' }).success).toBe(true);
+        expect(language.LanguageShowEventSchema.safeParse({ ...show, url: 'https://ruimte.app' }).success).toBe(true);
+        expect(language.LanguageShowEventSchema.safeParse(show).success).toBe(false);
+        expect(language.LanguageShowEventSchema.safeParse({ ...show, path: 'a.css', url: 'https://ruimte.app' }).success).toBe(false);
+    });
+
+    test('a message carries actions only for a request, and a log line keeps its source and level optional', () => {
+        const message = { projectId: 'p', messageId: 'message-1', server: 'css', title: 'CSS', type: 1, message: 'Broken' };
+        expect(language.LanguageMessageEventSchema.safeParse(message).success).toBe(true);
+        expect(language.LanguageMessageEventSchema.safeParse({ ...message, actions: [] }).success).toBe(true);
+        expect(language.LanguageLogLineSchema.safeParse({ at: 1, stream: 'server', text: 'x' }).success).toBe(true);
+        expect(language.LanguageLogLineSchema.safeParse({ at: 1, stream: 'server', text: 'x', source: 'trace', level: 'debug' }).success).toBe(true);
     });
 });

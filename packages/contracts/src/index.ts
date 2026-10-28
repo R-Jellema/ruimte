@@ -331,6 +331,9 @@ import {
     LanguageEditEventSchema,
     LanguageInstallPayloadSchema,
     LanguageLogResultSchema,
+    LanguageMessageAnswerPayloadSchema,
+    LanguageMessageClosedEventSchema,
+    LanguageMessageEventSchema,
     LanguagePreferPayloadSchema,
     LanguageProvidersEventSchema,
     LanguageRequestPayloadSchema,
@@ -338,9 +341,14 @@ import {
     LanguageRollbackPayloadSchema,
     LanguageServerStatusResultSchema,
     LanguageServerTargetPayloadSchema,
+    LanguageShowEventSchema,
     LanguageStatusEventSchema,
     LanguageStatusPayloadSchema,
-    LanguageStatusResultSchema
+    LanguageStatusResultSchema,
+    LanguageTracePayloadSchema,
+    LanguageWillSavePayloadSchema,
+    LanguageWorkspaceProblemsPayloadSchema,
+    LanguageWorkspaceProblemsResultSchema
 } from './language.ts';
 import {
     OnDeviceCancelPayloadSchema,
@@ -733,6 +741,13 @@ export const REQUEST_SCHEMAS = {
     'language.request': { payload: LanguageRequestPayloadSchema, result: LanguageRequestResultSchema },
     'language.command': { payload: LanguageCommandPayloadSchema, result: LanguageCommandResultSchema },
     'language.edit.answer': { payload: LanguageEditAnswerPayloadSchema, result: EmptySchema },
+    // Sent before a save writes; never holds the save up.
+    'language.willSave': { payload: LanguageWillSavePayloadSchema, result: EmptySchema },
+    // A whole-project pull on a person's press; the reports come as `language.diagnostics`.
+    'language.workspaceProblems': { payload: LanguageWorkspaceProblemsPayloadSchema, result: LanguageWorkspaceProblemsResultSchema },
+    'language.messageAnswer': { payload: LanguageMessageAnswerPayloadSchema, result: EmptySchema },
+    // A debugging switch like restart: any client of the machine may set it.
+    'language.trace': { payload: LanguageTracePayloadSchema, result: LanguageServerStatusResultSchema },
     'language.sql': { payload: LanguageSqlPayloadSchema, result: LanguageSqlStateSchema },
     // A person's choice of the connection a file, or the project, reads its SQL against; kept in their private project file.
     'language.sql.bind': { payload: LanguageSqlBindPayloadSchema, result: LanguageSqlStateSchema },
@@ -968,6 +983,10 @@ export const EVENT_SCHEMAS = {
     'language.custom.changed': LanguageCustomChangedEventSchema,
     'language.providers': LanguageProvidersEventSchema,
     'language.edit': LanguageEditEventSchema,
+    'language.message': LanguageMessageEventSchema,
+    'language.messageClosed': LanguageMessageClosedEventSchema,
+    // To the one client whose command runs on the server.
+    'language.show': LanguageShowEventSchema,
     'language.sql.changed': LanguageSqlChangedEventSchema,
     'ondevice.text': OnDeviceTextEventSchema,
     'launch.status': LaunchStatusSchema,
