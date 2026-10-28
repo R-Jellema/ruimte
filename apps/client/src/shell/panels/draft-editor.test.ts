@@ -35,7 +35,7 @@ beforeEach(() => {
 
 afterEach(() => {
     useTextDrafts.setState({ rows: {} });
-    useSettings.setState({ codeTrailingWhitespace: 'off' });
+    useSettings.setState({ codeTrailingWhitespace: 'off', codeEnsureFinalNewline: true });
 });
 
 describe('the whitespace of a file editor on save', () => {
@@ -46,9 +46,24 @@ describe('the whitespace of a file editor on save', () => {
         drafts.edit('local', PATH, 'const a = 2;\n');
         await drafts.save('local', PATH);
 
-        expect(editor.cleanups).toEqual([{ trailingWhitespace: 'modified', keepCaretLines: true }]);
+        expect(editor.cleanups).toEqual([{ trailingWhitespace: 'modified', keepCaretLines: true, ensureFinalNewline: true }]);
         expect(written).toEqual(['const a = 2;\n']);
         unbind();
+    });
+
+    test('asks for the final line break by default and leaves it out when the setting is off', async () => {
+        const first = setup('const a = 1;');
+        first.drafts.edit('local', PATH, 'const a = 2;');
+        await first.drafts.save('local', PATH);
+        expect(first.editor.cleanups.map((cleanup) => cleanup.ensureFinalNewline)).toEqual([true]);
+        first.unbind();
+
+        useSettings.setState({ codeEnsureFinalNewline: false });
+        const second = setup('const a = 1;');
+        second.drafts.edit('local', PATH, 'const a = 3;');
+        await second.drafts.save('local', PATH);
+        expect(second.editor.cleanups.map((cleanup) => cleanup.ensureFinalNewline)).toEqual([false]);
+        second.unbind();
     });
 
     test('still marks the text as saved while the cleanup is off, so changed lines count from there', async () => {
@@ -57,7 +72,7 @@ describe('the whitespace of a file editor on save', () => {
         drafts.edit('local', PATH, 'const a = 2;\n');
         await drafts.save('local', PATH);
 
-        expect(editor.cleanups).toEqual([{ trailingWhitespace: 'off', keepCaretLines: true }]);
+        expect(editor.cleanups).toEqual([{ trailingWhitespace: 'off', keepCaretLines: true, ensureFinalNewline: true }]);
         expect(editor.savedMarks).toBe(1);
         unbind();
     });

@@ -101,6 +101,7 @@ export function EditorGeneralTab() {
                         />
                     }
                 />
+                <SettingSwitchRow id="editor.general.saving.ensureFinalNewline" setting="codeEnsureFinalNewline" />
             </SettingsSection>
             {RENDERED_DOC_COMMENTS && (
                 <SettingsSection title={t('editor.general.documentation.title')}>

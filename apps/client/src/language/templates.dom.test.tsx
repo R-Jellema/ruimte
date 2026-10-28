@@ -79,7 +79,7 @@ describe('templates in an editor no language server serves', () => {
         });
         await pressKey(input()!, 'Tab');
 
-        expect(await savedText()).toBe('console.log();');
+        expect(await savedText()).toBe('console.log();\n');
     });
 
     test('a template of the person expands on Tab once the machine has listed it', async () => {
@@ -90,7 +90,7 @@ describe('templates in an editor no language server serves', () => {
         });
         await pressKey(input()!, 'Tab');
 
-        expect(await savedText()).toBe('hello();');
+        expect(await savedText()).toBe('hello();\n');
     });
 
     test('Insert Live Template lists the templates and inserts the one picked', async () => {
@@ -105,7 +105,7 @@ describe('templates in an editor no language server serves', () => {
         }
         await pressKey(input()!, 'Enter');
 
-        expect(await savedText()).toBe('hello();');
+        expect(await savedText()).toBe('hello();\n');
     });
 
     test('Surround With lists the constructs and wraps the selection in the one a digit names', async () => {

@@ -74,6 +74,14 @@ describe('a view an agent asks for', () => {
     });
 });
 
+describe('the final line break of a file', () => {
+    test('is added on save unless a person turned it off, also for a client that stored nothing about it', () => {
+        expect(settingsFrom({}).codeEnsureFinalNewline).toBe(true);
+        expect(settingsFrom({ codeEnsureFinalNewline: true }).codeEnsureFinalNewline).toBe(true);
+        expect(settingsFrom({ codeEnsureFinalNewline: false }).codeEnsureFinalNewline).toBe(false);
+    });
+});
+
 describe('the tiles of a chat map', () => {
     test('load unless a person turned them off, also for a client that stored nothing about them', () => {
         expect(settingsFrom({}).chatMapTiles).toBe(true);

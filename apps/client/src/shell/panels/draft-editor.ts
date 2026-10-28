@@ -24,7 +24,17 @@ export function bindDraftEditor(editor: Editor, drafts: TextDrafts, endpointId: 
             editor.applyEdits(edits);
         }
         // Also with cleanup off, since it marks the text as saved, which is where "modified lines" counts from.
-        editor.cleanUpWhitespace?.({ trailingWhitespace: useSettings.getState().codeTrailingWhitespace, keepCaretLines: true });
+        const { codeTrailingWhitespace, codeEnsureFinalNewline } = useSettings.getState();
+        const selections = editor.getSelections();
+        const changed = editor.cleanUpWhitespace?.({
+            trailingWhitespace: codeTrailingWhitespace,
+            keepCaretLines: true,
+            ensureFinalNewline: codeEnsureFinalNewline
+        });
+        // A line break added at the caret at the end of the file would carry the caret to a line of its own, and the next key lands there.
+        if (changed === true) {
+            editor.setSelections(selections);
+        }
     });
     const offDraft = useTextDrafts.subscribe((state, previous) => {
         const row = state.rows[key];

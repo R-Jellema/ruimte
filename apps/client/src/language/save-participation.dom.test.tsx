@@ -65,7 +65,7 @@ describe('saving a file a language server serves', () => {
         await pressKey(input()!, 's', MOD);
         await until(() => machine.requests('fs.write').length > 0);
 
-        expect(machine.requests('fs.write').at(-1)?.text).toBe('// organized\na');
+        expect(machine.requests('fs.write').at(-1)?.text).toBe('// organized\na\n');
         expect(machine.requests('language.willSave').at(-1)).toMatchObject({ path: 'greet.ts', reason: 1 });
 
         const order = machine.sent.map((request) => request.type);
@@ -78,7 +78,7 @@ describe('saving a file a language server serves', () => {
         await act(async () => input()!.blur());
         await until(() => machine.requests('fs.write').length > 0);
 
-        expect(machine.requests('fs.write').at(-1)?.text).toBe('a');
+        expect(machine.requests('fs.write').at(-1)?.text).toBe('a\n');
         expect(machine.requests('language.willSave').at(-1)).toMatchObject({ path: 'greet.ts', reason: 3 });
         expect(methods()).not.toContain('textDocument/willSaveWaitUntil');
     });

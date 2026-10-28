@@ -179,6 +179,10 @@
                         "modified": "Changed lines",
                         "all": "All lines"
                     }
+                },
+                "ensureFinalNewline": {
+                    "label": "End files with a line break",
+                    "description": "Right before a file saves. A file that already ends in one stays as it is."
                 }
             },
             "documentation": {

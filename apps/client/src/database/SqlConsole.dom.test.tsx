@@ -40,6 +40,6 @@ describe('the database console', () => {
         expect(machine.requests('fs.write')).toEqual([]);
         await pressKey(input()!, 's', isApplePlatform() ? { metaKey: true } : { ctrlKey: true });
         // At once, and not after the pause the autosave waits for.
-        expect(machine.requests('fs.write')).toEqual([{ path: CONSOLE, text: 'select 1;', expectedMtime: 1 }]);
+        expect(machine.requests('fs.write')).toEqual([{ path: CONSOLE, text: 'select 1;\n', expectedMtime: 1 }]);
     });
 });

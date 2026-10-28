@@ -257,6 +257,8 @@ export interface Settings {
     onboardingIntroSeen: boolean;
     /* Set by the first-run choice just before the app restarts, so the list opens without the welcome the person just had. Cleared when the onboarding closes. */
     onboardingSkipWelcome: boolean;
+    /* Whether a file ends in a line break after a save. On, since a file without one shows up in every diff and in tools that read lines. */
+    codeEnsureFinalNewline: boolean;
 }
 
 /* What `RTCPeerConnection` takes for the servers in the setting; none for an empty field. */
@@ -337,7 +339,8 @@ const DEFAULT_SETTINGS: Settings = {
     formatRegion: FORMAT_LANGUAGE,
     onboardingSeen: false,
     onboardingIntroSeen: false,
-    onboardingSkipWelcome: false
+    onboardingSkipWelcome: false,
+    codeEnsureFinalNewline: true
 };
 
 // Rounded as well as clamped: storage can still hold a half pixel, and text renders sharpest on a whole one.
@@ -440,7 +443,8 @@ export function settingsFrom(stored: Partial<Settings>): Settings {
         formatRegion: formatRegionFrom(stored.formatRegion),
         onboardingSeen: stored.onboardingSeen === true,
         onboardingIntroSeen: stored.onboardingIntroSeen === true,
-        onboardingSkipWelcome: stored.onboardingSkipWelcome === true
+        onboardingSkipWelcome: stored.onboardingSkipWelcome === true,
+        codeEnsureFinalNewline: stored.codeEnsureFinalNewline !== false
     };
 }
 

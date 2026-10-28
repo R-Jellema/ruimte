@@ -79,7 +79,9 @@ describe('the completion list of the editor', () => {
             await until(() => page.host.querySelector('.se-ghost-accessory') !== null);
             await pressKey(input()!, 'Tab');
             await pressKey(input()!, 's', MOD);
-            expect(machine.requests('fs.write').at(-1)?.text).toBe(before + suggestion);
+            expect(machine.requests('fs.write').at(-1)?.text).toBe(`${before}${suggestion}\n`);
+            // The first undo takes back the line break the save added; the second takes the whole suggestion.
+            await pressKey(input()!, 'z', MOD);
             await pressKey(input()!, 'z', MOD);
             await pressKey(input()!, 's', MOD);
             expect(machine.requests('fs.write').at(-1)?.text).toBe(before);
@@ -112,6 +114,6 @@ describe('the completion list of the editor', () => {
             typeInto(window, input()!, ';');
         });
         await pressKey(input()!, 's', MOD);
-        expect(machine.requests('fs.write').at(-1)?.text).toBe('greetA;');
+        expect(machine.requests('fs.write').at(-1)?.text).toBe('greetA;\n');
     });
 });

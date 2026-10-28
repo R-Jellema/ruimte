@@ -179,6 +179,10 @@
                         "modified": "Gewijzigde regels",
                         "all": "Alle regels"
                     }
+                },
+                "ensureFinalNewline": {
+                    "label": "Bestanden eindigen met een regeleinde",
+                    "description": "Vlak voordat een bestand wordt opgeslagen. Een bestand dat er al mee eindigt, blijft zoals het is."
                 }
             },
             "documentation": {
