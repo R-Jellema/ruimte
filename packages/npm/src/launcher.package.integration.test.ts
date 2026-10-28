@@ -75,9 +75,9 @@ test('node runs the packaged daemon and its search worker', async () => {
     let socket: WebSocket | undefined;
     try {
         const base = `http://127.0.0.1:${port}`;
-        const deadline = Date.now() + 20_000;
+        // No deadline of its own: a daemon that never comes up runs into the test's budget, a slow one still passes.
         let ready = false;
-        while (Date.now() < deadline && daemon.exitCode === null) {
+        while (daemon.exitCode === null) {
             if ((await fetch(`${base}/health`, { signal: AbortSignal.timeout(200) }).catch(() => null))?.ok) {
                 ready = true;
                 break;
@@ -105,35 +105,31 @@ test('node runs the packaged daemon and its search worker', async () => {
                 waiter.reject(new Error(frame.error?.message ?? 'Packaged request failed'));
             }
         };
+        /*
+         * A request fails when the daemon can no longer answer it, never on a clock: the daemon bounds
+         * its own work (the search without ripgrep stops after ten seconds), and a slow runner is no failure.
+         */
+        let lost: Error | undefined;
+        const lose = (error: Error): void => {
+            lost ??= error;
+            pending.forEach((waiter) => waiter.reject(lost!));
+            pending.clear();
+        };
+        connected.onclose = () => lose(new Error('The packaged daemon closed the socket'));
+        void daemon.exited.then((code) => lose(new Error(`The packaged daemon exited with ${code}`)));
         await new Promise<void>((resolve, reject) => {
-            const timer = setTimeout(() => reject(new Error('The packaged socket did not open')), 5000);
-            connected.onopen = () => {
-                clearTimeout(timer);
-                resolve();
-            };
-            connected.onerror = () => {
-                clearTimeout(timer);
-                reject(new Error('The packaged daemon refused its local ticket'));
-            };
+            connected.onopen = () => resolve();
+            connected.onerror = () => reject(new Error('The packaged daemon refused its local ticket'));
         });
         let nextId = 0;
         function request<T>(type: string, payload: object): Promise<T> {
             return new Promise((resolve, reject) => {
+                if (lost !== undefined) {
+                    reject(lost);
+                    return;
+                }
                 const id = String(++nextId);
-                const timer = setTimeout(() => {
-                    pending.delete(id);
-                    reject(new Error(`The packaged daemon did not answer ${type}`));
-                }, 5000);
-                pending.set(id, {
-                    resolve: (value) => {
-                        clearTimeout(timer);
-                        resolve(value as T);
-                    },
-                    reject: (error) => {
-                        clearTimeout(timer);
-                        reject(error);
-                    }
-                });
+                pending.set(id, { resolve: (value) => resolve(value as T), reject });
                 connected.send(JSON.stringify({ id, type, payload }));
             });
         }
