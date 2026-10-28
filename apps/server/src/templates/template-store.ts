@@ -197,9 +197,22 @@ export class TemplateStore {
     list(clientId: string, projectId: string | undefined): Promise<TemplateListResult> {
         return this.writes.run(async () => {
             const personal = await this.loadPersonal();
-            const project = projectId !== undefined && this.holds(clientId, projectId) ? await this.loadProject(projectId) : null;
+            const personalPart = personalSnapshot(personal.file);
 
-            return { personal: personalSnapshot(personal.file), project: project === null ? null : projectSnapshot(project.file) };
+            if (projectId === undefined || !this.holds(clientId, projectId)) {
+                return { personal: personalPart, project: null };
+            }
+
+            try {
+                return { personal: personalPart, project: projectSnapshot((await this.loadProject(projectId)).file) };
+            } catch (e) {
+                // A project file from a newer Ruimte must not cost a person their own templates; writes to it stay refused.
+                if (e instanceof TemplateError && e.code === 'templates-too-new') {
+                    return { personal: personalPart, project: null, projectTooNew: true };
+                }
+
+                throw e;
+            }
         });
     }
 

@@ -103,7 +103,11 @@ describe('reading', () => {
         await writeJson(projectPath(), { version: 2, live: [] });
         const before = await readFile(projectPath(), 'utf8');
 
-        await expect(store.list('c1', 'p1')).rejects.toMatchObject({ code: 'templates-too-new' });
+        const listed = await store.list('c1', 'p1');
+
+        expect(listed.project).toBeNull();
+        expect(listed.projectTooNew).toBe(true);
+        expect(listed.personal.live).toEqual([]);
         await expect(store.save('c1', { scope: 'project', projectId: 'p1', revision: 0, kind: 'live', template: log })).rejects.toMatchObject({
             code: 'templates-too-new'
         });

@@ -69873,6 +69873,10 @@
             "type": "null"
           }
         ]
+      },
+      "projectTooNew": {
+        "type": "boolean",
+        "const": true
       }
     },
     "required": [

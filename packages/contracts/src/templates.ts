@@ -105,10 +105,15 @@ export type ProjectTemplates = z.infer<typeof ProjectTemplatesSchema>;
 export const TemplateListPayloadSchema = z.object({ projectId: ProjectIdSchema.optional() });
 export type TemplateListPayload = z.infer<typeof TemplateListPayloadSchema>;
 
-/* `project` is null without a `projectId`, and for a project this client does not hold. */
+/*
+ * `project` is null without a `projectId`, and for a project this client does not hold. It is null as well
+ * when the project's file is from a newer Ruimte, which `projectTooNew` says; the person's own templates
+ * still come through.
+ */
 export const TemplateListResultSchema = z.object({
     personal: PersonalTemplatesSchema,
-    project: ProjectTemplatesSchema.nullable()
+    project: ProjectTemplatesSchema.nullable(),
+    projectTooNew: z.literal(true).optional()
 });
 export type TemplateListResult = z.infer<typeof TemplateListResultSchema>;
 
