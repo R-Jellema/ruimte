@@ -85,3 +85,25 @@ describe('language status', () => {
         expect(tracker.getSnapshot()[0]).toMatchObject({ state: 'crashed' });
     });
 });
+
+describe('trace', () => {
+    test('switches the trace of a server and takes the status it answers', async () => {
+        const transport = new FakeLanguageTransport();
+        transport.connection = { ...transport.connection, features: ['language.trace'] };
+        transport.answers.set('language.trace', () => ({ status: status('typescript', 'ready', { trace: 'verbose' }) }));
+        const tracker = new LanguageStatusTracker(transport, 'p1');
+        await tracker.trace('typescript', 'verbose');
+
+        expect(transport.callsOf('language.trace').map((call) => call.payload)).toEqual([{ projectId: 'p1', server: 'typescript', value: 'verbose' }]);
+        expect(tracker.getSnapshot()[0]).toMatchObject({ trace: 'verbose' });
+    });
+
+    test('sends nothing to a machine that cannot', async () => {
+        const transport = new FakeLanguageTransport();
+        const tracker = new LanguageStatusTracker(transport, 'p1');
+        await tracker.trace('typescript', 'verbose');
+
+        expect(tracker.canTrace()).toBe(false);
+        expect(transport.callsOf('language.trace')).toHaveLength(0);
+    });
+});

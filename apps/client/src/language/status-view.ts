@@ -1,4 +1,4 @@
-import type { LanguageServerKind, LanguageServerState, LanguageServerStatus } from '@ruimte/contracts';
+import type { LanguageLogLine, LanguageServerKind, LanguageServerState, LanguageServerStatus } from '@ruimte/contracts';
 
 /* The names of the servers are names and stay as they are in every language. */
 const SERVER_NAMES: Record<LanguageServerKind, { name: string; package: string }> = {
@@ -119,4 +119,13 @@ export function actionsOf(status: LanguageServerStatus): { install: boolean; upd
 /* The wire's kind of a server named in a status, or null for one this client does not know. */
 export function kindOf(server: string): LanguageServerKind | null {
     return server in SERVER_NAMES ? (server as LanguageServerKind) : null;
+}
+
+/* One line of a server's log as the dialog prints it: its level in front, and a trace line marked as one. */
+export function logLineText(line: LanguageLogLine): string {
+    if (line.source === 'trace') {
+        return `[trace] ${line.text}`;
+    }
+
+    return line.level === undefined ? line.text : `[${line.level}] ${line.text}`;
 }

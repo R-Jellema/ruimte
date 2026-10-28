@@ -12,6 +12,7 @@ import { ensureDatabaseConnections } from '@/database/connections';
 import { useDatabasePanel } from '@/database/state';
 import { useCanvasShortcuts } from '@/canvas/canvas-shortcuts';
 import { CellOverlayLayer } from '@/shell/CellOverlay';
+import { useServerPrompts } from '@/language/use-server-prompts';
 import { startLaunchWatch } from '@/launches/watch';
 import { useLaunches } from '@/launches/state';
 import { ForkDialog } from '@/shell/ForkDialog';
@@ -182,6 +183,7 @@ export function WorkspaceShell({ workspace }: { workspace: Workspace }) {
     /* Once for the whole project rather than once per cell, since a grid draws up to nine canvases. */
     useCanvasShortcuts();
     useRemoteHolds(workspace.connection.endpointId);
+    useServerPrompts(workspace.connection.transport);
     /* The window's toolbar is where a file view puts its controls, and the body that draws them sits
        under the same column, so the element they portal into is held here. */
     const [fileToolbarHost, setFileToolbarHost] = useState<HTMLElement | null>(null);

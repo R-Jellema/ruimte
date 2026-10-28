@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { LanguageServerStatus } from '@ruimte/contracts';
-import { actionsOf, alternativeTo, chipServer, groupedStatuses, isOwn, listedServers, nameOf, packageOf, toneOf } from './status-view';
+import { actionsOf, alternativeTo, chipServer, groupedStatuses, isOwn, listedServers, logLineText, nameOf, packageOf, toneOf } from './status-view';
 
 function status(server: string, state: LanguageServerStatus['state'], extra: Partial<LanguageServerStatus> = {}): LanguageServerStatus {
     return { server, state, version: '1.0.0', documents: 0, ...extra };
@@ -110,3 +110,13 @@ describe('groupedStatuses', () => {
 function ownServer(server: string): LanguageServerStatus {
     return status(server, 'stopped', { name: 'Zig', languages: [], patterns: [] });
 }
+
+describe('logLineText', () => {
+    test('puts the level in front of a line, and marks a trace line as one', () => {
+        const line = { at: 1, stream: 'server' as const, text: 'indexed' };
+
+        expect(logLineText(line)).toBe('indexed');
+        expect(logLineText({ ...line, level: 'warning' })).toBe('[warning] indexed');
+        expect(logLineText({ ...line, source: 'trace' })).toBe('[trace] indexed');
+    });
+});

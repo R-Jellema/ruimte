@@ -838,6 +838,20 @@
         "showLog": "Toon log",
         "logTitle": "Log van {{name}}",
         "logEmpty": "Nog niets gelogd",
+        "logRefresh": "Vernieuwen",
+        "trace": {
+            "label": "Trace",
+            "off": "Uit",
+            "messages": "Berichten",
+            "verbose": "Uitgebreid"
+        },
+        "message": {
+            "from": "Van {{name}}"
+        },
+        "show": {
+            "title": "{{name}} wil een webpagina openen",
+            "open": "Openen"
+        },
         "failed": "Kon de language server niet bereiken: {{message}}",
         "none": "Geen language server voor dit bestand",
         "logs": "Logs",

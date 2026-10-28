@@ -1,4 +1,5 @@
-import type { LanguageLogLine, LanguageServerKind, LanguageServerStatus } from '@ruimte/contracts';
+import type { LanguageLogLine, LanguageServerKind, LanguageServerStatus, LanguageTraceValue } from '@ruimte/contracts';
+import { machineAnswers } from '@/transport/features';
 import type { Transport } from '@/transport/transport';
 import { SnapshotTracker, upsert } from './snapshot-tracker';
 
@@ -57,6 +58,21 @@ export class LanguageStatusTracker extends SnapshotTracker<readonly LanguageServ
 
     async log(server: string): Promise<LanguageLogLine[]> {
         return (await this.transport.request('language.log', { projectId: this.projectId, server })).lines;
+    }
+
+    /* Whether the machine can switch a server's trace, which a machine from before it cannot. */
+    canTrace(): boolean {
+        return machineAnswers(this.transport.connection, 'language.trace');
+    }
+
+    /* Switches what the server traces to the log. The machine keeps it in memory only. */
+    async trace(server: string, value: LanguageTraceValue): Promise<void> {
+        if (!this.canTrace()) {
+            return;
+        }
+
+        const { status } = await this.transport.request('language.trace', { projectId: this.projectId, server, value });
+        this.set(status);
     }
 
     /* An install began or ended on the machine. One that ended leaves the kind to the project, so its own state is asked for. */

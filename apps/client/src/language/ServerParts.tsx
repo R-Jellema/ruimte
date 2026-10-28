@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { LanguageLogLine } from '@ruimte/contracts';
-import type { LanguageServerStatus } from '@ruimte/contracts';
-import { Button, Dialog } from '@adecore/ui';
+import { RefreshCw } from 'lucide-react';
+import { LANGUAGE_TRACE_VALUES, type LanguageLogLine, type LanguageServerStatus, type LanguageTraceValue } from '@ruimte/contracts';
+import { Button, ButtonGroup, Dialog, IconButton, Select } from '@adecore/ui';
 import { report, useStatuses } from './server-status';
 import type { LanguageStatusTracker } from './status';
-import { actionsOf, kindOf, nameOf, type ServerTone } from './status-view';
+import { actionsOf, kindOf, logLineText, nameOf, type ServerTone } from './status-view';
 
 const DOT_CLASSES: Record<ServerTone, string> = {
     ok: 'bg-status-idle',
@@ -23,6 +23,10 @@ export function LogDialog({ server, tracker, onClose }: { server: string | null;
     const [lines, setLines] = useState<LanguageLogLine[] | null>(null);
     const statuses = useStatuses(tracker);
 
+    const [reads, setReads] = useState(0);
+    const status = statuses.find((candidate) => candidate.server === server);
+    const tracing = tracker.canTrace() && (status?.state === 'ready' || status?.state === 'indexing');
+
     useEffect(() => {
         if (server === null) {
             return;
@@ -36,14 +40,31 @@ export function LogDialog({ server, tracker, onClose }: { server: string | null;
             alive = false;
             setLines(null);
         };
-    }, [server, tracker]);
+    }, [server, tracker, reads]);
 
     return (
         <Dialog.Root open={server !== null} onOpenChange={(next) => !next && onClose()}>
             <Dialog.Popup className="flex h-[480px] w-[720px] flex-col gap-3 p-4">
-                <Dialog.Title>{t('language.logTitle', { name: server === null ? '' : nameOf(server, statuses) })}</Dialog.Title>
+                <div className="flex items-center justify-between gap-3">
+                    <Dialog.Title>{t('language.logTitle', { name: server === null ? '' : nameOf(server, statuses) })}</Dialog.Title>
+                    <div className="flex items-center gap-2">
+                        {tracing && server !== null && (
+                            <Select<LanguageTraceValue>
+                                label={t('language.trace.label')}
+                                variant="outlined"
+                                size="sm"
+                                value={(status?.trace as LanguageTraceValue | undefined) ?? 'off'}
+                                onValueChange={(value) => void tracker.trace(server, value).catch((error: unknown) => report(error, t))}
+                                items={LANGUAGE_TRACE_VALUES.map((value) => ({ value, label: t(`language.trace.${value}`) }))}
+                            />
+                        )}
+                        <ButtonGroup>
+                            <IconButton icon={RefreshCw} size="sm" label={t('language.logRefresh')} onClick={() => setReads((count) => count + 1)} />
+                        </ButtonGroup>
+                    </div>
+                </div>
                 <div className="min-h-0 grow overflow-auto rounded-md bg-surface-sunken p-3 font-mono text-xs whitespace-pre-wrap text-text-muted select-text">
-                    {lines !== null && (lines.length === 0 ? t('language.logEmpty') : lines.map((line) => line.text).join('\n'))}
+                    {lines !== null && (lines.length === 0 ? t('language.logEmpty') : lines.map(logLineText).join('\n'))}
                 </div>
             </Dialog.Popup>
         </Dialog.Root>

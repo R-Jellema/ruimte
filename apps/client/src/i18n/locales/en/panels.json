@@ -838,6 +838,20 @@
         "showLog": "Show log",
         "logTitle": "{{name}} log",
         "logEmpty": "Nothing logged yet",
+        "logRefresh": "Refresh",
+        "trace": {
+            "label": "Trace",
+            "off": "Off",
+            "messages": "Messages",
+            "verbose": "Verbose"
+        },
+        "message": {
+            "from": "From {{name}}"
+        },
+        "show": {
+            "title": "{{name}} wants to open a web page",
+            "open": "Open"
+        },
         "failed": "Could not reach the language server: {{message}}",
         "none": "No language server for this file",
         "logs": "Logs",
