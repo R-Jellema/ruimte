@@ -114,6 +114,7 @@
     "kinds": {
         "terminal": "Terminal",
         "chat": "Chat",
+        "design": "Design",
         "browser": "Browser",
         "group": "Group",
         "note": "Note",
@@ -353,6 +354,11 @@
     },
     "minimap": {
         "label": "Canvas map"
+    },
+    "pets": {
+        "goTo": "Go to {{title}}",
+        "waiting": "{{title}} needs you",
+        "failed": "The pets could not be shown"
     },
     "missingProvider": {
         "notInstalled": "{{name}} is not installed on this machine.",

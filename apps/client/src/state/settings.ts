@@ -279,6 +279,12 @@ export interface Settings {
     /* How far out a canvas still draws its costly bodies live (a page, a file, a diagram, a device).
        About what this computer can carry, so it sits with the client and not with a project. */
     canvasRenderDistance: RenderDistance;
+    /* Whether a pet stands on every agent's node and says when it waits on you. Off to start with: a canvas is a place to work. */
+    pets: boolean;
+    /* Which pets: a built-in set (`PET_SETS`) or `custom:<id>` for a sprite a person added (`canvas/pets/custom-sprites.ts`). */
+    petsSprite: string;
+    /* Whether, while Pets is off, a pet now and then drops by beside a node for a moment. On to start with. */
+    petsVisitor: boolean;
 }
 
 /* What `RTCPeerConnection` takes for the servers in the setting; none for an empty field. */
@@ -363,7 +369,10 @@ const DEFAULT_SETTINGS: Settings = {
     onboardingSkipWelcome: false,
     codeEnsureFinalNewline: true,
     terminalFont: 'editor',
-    canvasRenderDistance: 'standard'
+    canvasRenderDistance: 'standard',
+    pets: false,
+    petsSprite: 'buddies',
+    petsVisitor: true
 };
 
 // Rounded as well as clamped: storage can still hold a half pixel, and text renders sharpest on a whole one.
@@ -471,7 +480,12 @@ export function settingsFrom(stored: Partial<Settings>): Settings {
         codeEnsureFinalNewline: stored.codeEnsureFinalNewline !== false,
         terminalFont:
             stored.terminalFont === 'editor' ? 'editor' : (MONO_FONTS.find((entry) => entry.id === stored.terminalFont)?.id ?? DEFAULT_SETTINGS.terminalFont),
-        canvasRenderDistance: renderDistanceFrom(stored.canvasRenderDistance)
+        canvasRenderDistance: renderDistanceFrom(stored.canvasRenderDistance),
+        // Only a stored `true` brings the pets, and only a stored `false` keeps the visitor away.
+        pets: stored.pets === true,
+        // Whether a custom sprite is still there is the pets' own question, so a string is kept as it is.
+        petsSprite: typeof stored.petsSprite === 'string' && stored.petsSprite !== '' ? stored.petsSprite : DEFAULT_SETTINGS.petsSprite,
+        petsVisitor: stored.petsVisitor !== false
     };
 }
 

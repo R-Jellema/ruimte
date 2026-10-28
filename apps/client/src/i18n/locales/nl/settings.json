@@ -610,7 +610,7 @@
         },
         "views": {
             "label": "Weergaven",
-            "description": "Nodegroottes, canvaskaart, tekeningen en browserpagina's."
+            "description": "Nodegroottes, canvaskaart, pets, tekeningen en browserpagina's."
         },
         "files": {
             "label": "Bestanden en Git",
@@ -676,6 +676,44 @@
                     "standard": "Standaard",
                     "far": "Ver",
                     "unlimited": "Onbeperkt"
+                }
+            }
+        },
+        "pets": {
+            "title": "Pets",
+            "enabled": {
+                "label": "Pets",
+                "description": "Op elke chat en elke terminal met een agent staat een klein figuurtje dat laat zien wat die doet. Wacht een agent op jou, dan springt zijn figuurtje met een tekstballon tot je antwoordt. Klik op een figuurtje om naar zijn node te gaan."
+            },
+            "visitor": {
+                "label": "Bezoeker",
+                "description": "Zolang Pets uit staat, komt er af en toe een figuurtje een paar seconden bij een node langs."
+            },
+            "sprite": {
+                "label": "Figuren",
+                "description": "Claude en Codex hebben elk een eigen figuur; andere agents krijgen die van Claude. Een figuur die je toevoegde staat voor elke agent.",
+                "sets": {
+                    "buddies": "Buddy's",
+                    "animals": "Vos en kikker"
+                }
+            },
+            "custom": {
+                "label": "Je eigen figuren",
+                "description": "Een PNG- of WebP-strook van vierkante frames naast elkaar, zo hoog als één frame, die in een lus speelt: tot {{frames}} frames van hoogstens {{size}} pixels, hoogstens {{kilobytes}} KB. Hij blijft in deze app.",
+                "add": "Figuur toevoegen",
+                "remove": "{{name}} verwijderen",
+                "frames_one": "{{count}} frame, {{size}} px",
+                "frames_other": "{{count}} frames, {{size}} px",
+                "problem": {
+                    "type": "Kies een PNG- of WebP-afbeelding.",
+                    "bytes": "Deze afbeelding is groter dan {{kilobytes}} KB.",
+                    "unreadable": "Dit bestand kon niet worden gelezen als PNG- of WebP-afbeelding.",
+                    "frame-small": "Een frame is minstens {{min}} pixels hoog.",
+                    "frame-large": "Een frame is hoogstens {{max}} pixels hoog.",
+                    "frames-whole": "De breedte is geen heel aantal vierkante frames zo hoog als de afbeelding.",
+                    "frames-many": "Een strook heeft hoogstens {{frames}} frames.",
+                    "full": "Je kunt hoogstens {{limit}} figuren bewaren. Verwijder er eerst een.",
+                    "storage": "Er is geen ruimte meer om deze figuur te bewaren."
                 }
             }
         },
