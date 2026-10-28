@@ -493,6 +493,7 @@ describe('smart keys', () => {
             indentOnPaste: true,
             smartSemicolon: true,
             smartArrow: true,
+            templateLiterals: true,
             camelHumps: false
         });
     });
