@@ -1452,6 +1452,25 @@ describe('the PHP server of Ruimte and Intelephense', () => {
         });
     });
 
+    it('keeps a PHP server in view of the cache pass until its processes exited after the project closed', async () => {
+        const { host, spawner, clock } = await installed(['php-native']);
+        await open(host, 'src/a.php', '<?php', 'client-1', 'php');
+        await ready(host, 'php-native');
+        const [php] = spawner.of('php-native');
+        php!.stubborn = true;
+        const ending = host.end('p1');
+        await settle();
+
+        expect(host.phpCache().liveFolders()).toEqual([WORK]);
+        expect(host.phpCache().anyLive()).toBe(true);
+
+        clock.fire();
+        await ending;
+
+        expect(host.phpCache().liveFolders()).toEqual([]);
+        expect(host.phpCache().anyLive()).toBe(false);
+    });
+
     it('serves a template of PHP by its name when the editor gave it no language', async () => {
         const { host } = await installed(['php-native']);
         expect((await open(host, 'views/page.phtml', '<p>', 'client-1', 'plaintext')).servers).toEqual(['php-native']);

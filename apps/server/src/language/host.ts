@@ -291,6 +291,7 @@ export class LanguageHost {
     private readonly isFolder: (path: string) => Promise<boolean>;
     private readonly sinks = new ClientSinks((clientId) => this.dropClient(clientId));
     private readonly projects = new Map<string, ProjectLanguage>();
+    private readonly ending = new Set<ProjectLanguage>();
     private readonly phpGate = new StorageGate();
     private readonly edits = new Map<string, PendingEdit>();
     private editCounter = 0;
@@ -402,18 +403,19 @@ export class LanguageHost {
     phpCache(): PhpCache {
         const storage = nativeStorageOf(this.installer.directoryOf('php-native'));
         const keptStubs = this.installer.keptStubsOf('php-native');
-        const liveServers = (): LanguageServer[] =>
-            [...this.projects.values()].flatMap((project) => {
+        // A closed project is gone from `projects` while its processes may still be exiting, and its caches stay in use until then.
+        const liveProjects = (): { folder: string; server: LanguageServer }[] =>
+            [...this.projects.values(), ...this.ending].flatMap((project) => {
                 const server = project.servers.get('php-native');
 
-                return server?.live ? [server] : [];
+                return server?.live ? [{ folder: project.folder, server }] : [];
             });
+        const liveServers = (): LanguageServer[] => liveProjects().map(({ server }) => server);
 
         return {
             storage,
             keptStubs,
-            liveFolders: () =>
-                [...this.projects.values()].filter((project) => project.servers.get('php-native')?.live === true).map((project) => project.folder),
+            liveFolders: () => liveProjects().map(({ folder }) => folder),
             // A running server may still read the stubs of the install before the current one.
             liveStubsDirs: () => (liveServers().length === 0 ? [] : keptStubs.map((commit) => nativeStubsOf(this.installer.directoryOf('php-native'), commit))),
             anyLive: () => liveServers().length > 0,
@@ -838,10 +840,16 @@ export class LanguageHost {
             return;
         }
         this.projects.delete(projectId);
+        this.ending.add(project);
         project.watcher?.close();
         project.watcher = null;
         project.documents.clear();
-        await Promise.all([...project.servers.values()].map((server) => server.stop()));
+
+        try {
+            await Promise.all([...project.servers.values()].map((server) => server.stop()));
+        } finally {
+            this.ending.delete(project);
+        }
     }
 
     /* The daemon is going down. */
