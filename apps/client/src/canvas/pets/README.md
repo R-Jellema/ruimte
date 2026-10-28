@@ -33,8 +33,7 @@ While Pets is off, a pet now and then stands beside a node on screen for four se
 away (`visitor.ts`), never where it would stand on another node. One clock for the page, a first
 visit 20 to 60 minutes after a canvas opens and the next 20 to 60 minutes after that, only while the
 window is visible and nobody is dragging or has a node maximized. It takes no press. It is on by
-default and has no row in Settings; the setting `petsVisitor` in `ruimte.settings` turns it off: set
-it to `false` in this client's storage.
+default; Settings, Views, Pets, Visitor turns it off (`petsVisitor`).
 
 ## A figure of your own
 

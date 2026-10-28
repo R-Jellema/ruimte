@@ -283,7 +283,7 @@ export interface Settings {
     pets: boolean;
     /* Which pets: a built-in set (`PET_SETS`) or `custom:<id>` for a sprite a person added (`canvas/pets/custom-sprites.ts`). */
     petsSprite: string;
-    /* Whether, while Pets is off, a pet now and then drops by beside a node for a moment. No row shows it, so it stays a surprise. */
+    /* Whether, while Pets is off, a pet now and then drops by beside a node for a moment. On to start with. */
     petsVisitor: boolean;
 }
 

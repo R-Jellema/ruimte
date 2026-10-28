@@ -685,6 +685,10 @@
                 "label": "Pets",
                 "description": "Op elke chat en elke terminal met een agent staat een klein figuurtje dat laat zien wat die doet. Wacht een agent op jou, dan springt zijn figuurtje met een tekstballon tot je antwoordt. Klik op een figuurtje om naar zijn node te gaan."
             },
+            "visitor": {
+                "label": "Bezoeker",
+                "description": "Zolang Pets uit staat, komt er af en toe een figuurtje een paar seconden bij een node langs."
+            },
             "sprite": {
                 "label": "Figuren",
                 "description": "Claude en Codex hebben elk een eigen figuur; andere agents krijgen die van Claude. Een figuur die je toevoegde staat voor elke agent.",

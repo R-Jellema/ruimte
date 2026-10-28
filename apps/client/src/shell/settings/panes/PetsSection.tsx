@@ -55,6 +55,7 @@ export function PetsSection() {
     return (
         <SettingsSection title={t('views.pets.title')} icon={PawPrint}>
             <SettingSwitchRow id="views.pets.enabled" setting="pets" />
+            <SettingSwitchRow id="views.pets.visitor" setting="petsVisitor" />
             <SettingsRow
                 searchId="views.pets.sprite"
                 label={t('views.pets.sprite.label')}

@@ -44,7 +44,7 @@ beforeEach(() => {
 afterEach(async () => {
     await act(async () => useUi.getState().setSettings({ open: false }));
     await canvas.close();
-    useSettings.getState().update({ pets: false });
+    useSettings.getState().update({ pets: false, petsVisitor: true });
 });
 
 describe('pets on a canvas', () => {
@@ -64,6 +64,17 @@ describe('pets on a canvas', () => {
 
         await clickOn(petsSwitch());
         await until(() => pet(WRITER.id) === null);
+    });
+
+    test('the visitor is on until a person turns it off in Settings, Views', async () => {
+        await open();
+        await act(async () => useUi.getState().setSettings({ open: true, section: 'views' }));
+        const visitorSwitch = (): HTMLElement | null => document.querySelector('[role="switch"][aria-label="Visitor"]');
+        await until(() => visitorSwitch() !== null);
+        expect(visitorSwitch()?.getAttribute('aria-checked')).toBe('true');
+
+        await clickOn(visitorSwitch());
+        await until(() => useSettings.getState().petsVisitor === false);
     });
 
     test('a chat that waits on you has a pet that says so, until the question is answered', async () => {
