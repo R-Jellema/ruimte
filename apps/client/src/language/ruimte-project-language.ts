@@ -18,7 +18,7 @@ import { parseNames } from '@/ondevice/names-model';
 import { namesPrompt } from '@/ondevice/prompts';
 import { openFileLink } from '@/shell/panels/file-links';
 import { RUIMTE_EDITOR_KEYMAP } from '@/shell/editor-keymap';
-import { isApplePlatform } from '@/desktop/bridge';
+import { isApplePlatform, openInSystemBrowser } from '@/desktop/bridge';
 import { useSettings } from '@/state/settings';
 import { useToasts } from '@/state/toasts';
 import type { Transport } from '@/transport/transport';
@@ -79,6 +79,8 @@ export class ProjectLanguage extends SharedProjectLanguage {
             },
             pathOfUri: (uri) => service.pathOfLocation(uri),
             serverNames: (uri) => service.serversOf(uri),
+            // A link a person Mod+clicks; a server's own request to show an address never reaches this (see `server-prompts.ts`).
+            openExternal: openInSystemBrowser,
             notify: (notification) => useToasts.getState().show(notification),
             suggestNames: (request, signal) => suggestNames(transport, request, signal)
         });

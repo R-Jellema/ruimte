@@ -1,7 +1,7 @@
 import type { EventMap, EventType, RequestMap, RequestType } from '@ruimte/contracts';
 import { applyContentChanges, type ContentChange } from '@adecore/lsp';
 import type { ProjectFiles } from '@adecore/editor-react';
-import { TransportError, type Transport, type TransportStatus } from '@/transport/transport';
+import { TransportError, type ConnectionState, type Transport, type TransportStatus } from '@/transport/transport';
 
 interface Call {
     type: string;
@@ -15,6 +15,8 @@ interface Call {
  */
 export class FakeLanguageTransport implements Transport {
     status: TransportStatus = 'open';
+    /* What `endpoint.info` said the machine answers; a test lists the new requests it expects the machine to know. */
+    connection: ConnectionState = { status: 'open', attempts: 0, retryAt: null, features: [] };
     calls: Call[] = [];
     /* Each document by stored path: the text and version the daemon holds. */
     documents = new Map<string, { text: string; version: number; languageId: string }>();

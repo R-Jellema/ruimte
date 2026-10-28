@@ -281,6 +281,92 @@ describe('requests', () => {
     });
 });
 
+describe('newer language methods', () => {
+    const range = { start: origin, end: { line: 0, character: 3 } };
+    const formatting = { tabSize: 4, insertSpaces: true };
+    const item = { name: 'Base', kind: 5, uri, range, selectionRange: range, data: { id: 7 } };
+
+    test('sends each method with the params the daemon routes', async () => {
+        const { transport, language } = await opened();
+        await language.documentLinks(uri);
+        await language.resolveDocumentLink(uri, { range });
+        await language.documentColors(uri);
+        await language.colorPresentations(uri, { red: 1, green: 0, blue: 0, alpha: 1 }, range);
+        await language.linkedEditingRanges(uri, origin);
+        await language.prepareTypeHierarchy(uri, origin);
+        await language.supertypes(uri, item);
+        await language.subtypes(uri, item);
+        await language.rangesFormatting(uri, [range], formatting);
+        await language.inlineCompletions(uri, origin, { triggerKind: 1 });
+
+        expect(transport.callsOf('language.request').map((call) => call.payload)).toMatchObject([
+            { method: 'textDocument/documentLink', params: {} },
+            { method: 'documentLink/resolve', params: { range } },
+            { method: 'textDocument/documentColor', params: {} },
+            { method: 'textDocument/colorPresentation', params: { color: { red: 1, green: 0, blue: 0, alpha: 1 }, range } },
+            { method: 'textDocument/linkedEditingRange', params: { position: origin } },
+            { method: 'textDocument/prepareTypeHierarchy', params: { position: origin } },
+            { method: 'typeHierarchy/supertypes', params: { item } },
+            { method: 'typeHierarchy/subtypes', params: { item } },
+            { method: 'textDocument/rangesFormatting', params: { ranges: [range], options: formatting } },
+            { method: 'textDocument/inlineCompletion', params: { position: origin, context: { triggerKind: 1 } } }
+        ]);
+    });
+
+    test('hands a type hierarchy item back with its data', async () => {
+        const { transport, language } = await opened();
+        transport.answers.set('language.request', () => ({ result: [item], server: 'typescript', version: 1 }));
+        const [prepared] = (await language.prepareTypeHierarchy(uri, origin)) ?? [];
+        await language.supertypes(uri, prepared!);
+
+        expect(transport.callsOf('language.request').at(-1)?.payload).toMatchObject({ params: { item: { data: { id: 7 } } } });
+    });
+
+    test('resolves a link against the process that made it', async () => {
+        const { transport, language } = await opened();
+        transport.answers.set('language.request', () => ({ result: [{ range }, { range }], server: 'css', version: 1, itemServers: ['css', 'html'] }));
+        const links = (await language.documentLinks(uri)) ?? [];
+        await language.resolveDocumentLink(uri, links[1]!);
+
+        expect(transport.callsOf('language.request').at(-1)?.payload).toMatchObject({ method: 'documentLink/resolve', server: 'html' });
+    });
+
+    test('sends willSave for an open document only to a machine that answers it, and never waits for it', async () => {
+        const { transport, language } = await opened();
+        await language.willSave(uri, 2);
+
+        expect(transport.callsOf('language.willSave')).toHaveLength(0);
+
+        transport.connection = { ...transport.connection, features: ['language.willSave'] };
+        transport.answers.set('language.willSave', () => {
+            throw new TransportError('language-unavailable', 'down');
+        });
+        await language.willSave(uri, 2);
+        await language.willSave('file:///work/app/src/closed.ts', 2);
+
+        expect(transport.callsOf('language.willSave').map((call) => call.payload)).toEqual([{ projectId: 'p1', path: 'src/a.ts', reason: 2 }]);
+    });
+
+    test('answers null for willSaveWaitUntil without the provider, and asks with the reason with it', async () => {
+        const { transport, language } = await opened();
+
+        expect(await language.willSaveWaitUntil(uri)).toBeNull();
+        expect(transport.callsOf('language.request')).toHaveLength(0);
+
+        transport.emit('language.providers', { projectId: 'p1', path: 'src/a.ts', providers: { 'textDocument/willSaveWaitUntil': {} } });
+        await language.willSaveWaitUntil(uri, 1);
+
+        expect(transport.callsOf('language.request')[0].payload).toMatchObject({ method: 'textDocument/willSaveWaitUntil', params: { reason: 1 } });
+    });
+
+    test("leaves the opening of a server's documents and messages to the prompts", () => {
+        const { language } = service();
+
+        expect('onShowDocument' in language).toBe(false);
+        expect('onServerMessage' in language).toBe(false);
+    });
+});
+
 describe('events', () => {
     test('passes diagnostics of the open documents on with the server that sent them, and drops those of another version', async () => {
         const { transport, language } = await opened();

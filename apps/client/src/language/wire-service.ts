@@ -13,6 +13,9 @@ import {
     type CodeAction,
     type CodeActionContext,
     type CodeLens,
+    type Color,
+    type ColorInformation,
+    type ColorPresentation,
     type Command,
     type CompletionContext,
     type CompletionItem,
@@ -20,15 +23,19 @@ import {
     type ContentChange,
     type Disposable,
     type DocumentHighlight,
+    type DocumentLink,
     type DocumentSymbolResult,
     type DiagnosticsReport,
     type FoldingRange,
     type FormattingOptions,
     type Hover,
     type InlayHint,
+    type InlineCompletionContext,
+    type InlineCompletionResult,
     type LanguageDocument,
     type LanguageRequestOptions,
     type LanguageService,
+    type LinkedEditingRanges,
     type Location,
     type NavigationResult,
     type Position,
@@ -40,11 +47,14 @@ import {
     type SemanticTokensDelta,
     type SignatureHelp,
     type SignatureHelpContext,
+    type TextDocumentSaveReason,
     type TextEdit,
+    type TypeHierarchyItem,
     type WorkspaceEdit,
     type WorkspaceSymbolResult
 } from '@adecore/lsp';
 import { messageOf } from '@adecore/ui';
+import { machineAnswers } from '@/transport/features';
 import { TransportError, type Transport } from '@/transport/transport';
 
 export interface WireLanguageServiceOptions {
@@ -443,6 +453,66 @@ export class WireLanguageService implements LanguageService {
 
     resolveCodeLens(uri: string, lens: CodeLens, options?: LanguageRequestOptions): Promise<CodeLens> {
         return this.call(uri, 'codeLens/resolve', lens, options);
+    }
+
+    documentLinks(uri: string, options?: LanguageRequestOptions): Promise<DocumentLink[] | null> {
+        return this.call(uri, 'textDocument/documentLink', {}, options);
+    }
+
+    resolveDocumentLink(uri: string, link: DocumentLink, options?: LanguageRequestOptions): Promise<DocumentLink> {
+        return this.call(uri, 'documentLink/resolve', link, options);
+    }
+
+    documentColors(uri: string, options?: LanguageRequestOptions): Promise<ColorInformation[] | null> {
+        return this.call(uri, 'textDocument/documentColor', {}, options);
+    }
+
+    colorPresentations(uri: string, color: Color, range: Range, options?: LanguageRequestOptions): Promise<ColorPresentation[] | null> {
+        return this.call(uri, 'textDocument/colorPresentation', { color, range }, options);
+    }
+
+    linkedEditingRanges(uri: string, position: Position, options?: LanguageRequestOptions): Promise<LinkedEditingRanges | null> {
+        return this.call(uri, 'textDocument/linkedEditingRange', { position }, options);
+    }
+
+    prepareTypeHierarchy(uri: string, position: Position, options?: LanguageRequestOptions): Promise<TypeHierarchyItem[] | null> {
+        return this.call(uri, 'textDocument/prepareTypeHierarchy', { position }, options);
+    }
+
+    supertypes(uri: string, item: TypeHierarchyItem, options?: LanguageRequestOptions): Promise<TypeHierarchyItem[] | null> {
+        return this.call(uri, 'typeHierarchy/supertypes', { item }, options);
+    }
+
+    subtypes(uri: string, item: TypeHierarchyItem, options?: LanguageRequestOptions): Promise<TypeHierarchyItem[] | null> {
+        return this.call(uri, 'typeHierarchy/subtypes', { item }, options);
+    }
+
+    rangesFormatting(uri: string, ranges: readonly Range[], formatting: FormattingOptions, options?: LanguageRequestOptions): Promise<TextEdit[] | null> {
+        return this.call(uri, 'textDocument/rangesFormatting', { ranges: [...ranges], options: formatting }, options);
+    }
+
+    inlineCompletions(uri: string, position: Position, context: InlineCompletionContext, options?: LanguageRequestOptions): Promise<InlineCompletionResult> {
+        return this.call(uri, 'textDocument/inlineCompletion', { position, context }, options);
+    }
+
+    /* Tells the servers a save is coming. It never holds the save up: the daemon's answer is not waited for and a failure is dropped. */
+    willSave(uri: string, reason: TextDocumentSaveReason = 1): Promise<void> {
+        const document = this.documents.get(uri);
+        const { transport, projectId } = this.options;
+
+        if (document !== undefined && machineAnswers(transport.connection, 'language.willSave')) {
+            void transport.request('language.willSave', { projectId, path: document.path, reason }).catch(() => undefined);
+        }
+
+        return Promise.resolve();
+    }
+
+    willSaveWaitUntil(uri: string, reason: TextDocumentSaveReason = 1, options?: LanguageRequestOptions): Promise<TextEdit[] | null> {
+        if (!this.supports('textDocument/willSaveWaitUntil', uri)) {
+            return Promise.resolve(null);
+        }
+
+        return this.call(uri, 'textDocument/willSaveWaitUntil', { reason }, options);
     }
 
     /* The URI the language servers know a stored path by, for a location the view must open. */

@@ -62,6 +62,7 @@ const UNBOUNDED_REQUESTS: ReadonlySet<RequestType> = new Set<RequestType>([
     'git.worktree-merge',
     'language.install',
     'language.rollback',
+    'language.workspaceProblems',
     'ondevice.generate',
     'provider.installAgent',
     'provider.installServer',
