@@ -1,14 +1,23 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import {
-    addPetSprite,
+    forgetUnusedImages,
     imageFacts,
+    previewSpriteOf,
+    readPetStrip,
+    savePetSprite,
     SHEET_LIMITS,
     sheetLayout,
-    spriteNameOf,
+    spriteImage,
+    spriteOf,
     storedSpriteOf,
+    stripFor,
+    stripsOf,
     usePetSprites,
+    type CustomPetSprite,
+    type PetStrip,
     type SheetReader
 } from '@/canvas/pets/custom-sprites';
+import { drawnFrameKey, type PetLook } from '@/canvas/pets/paint';
 
 function bytesOf(...parts: (string | number[])[]): string {
     return parts.map((part) => (typeof part === 'string' ? part : String.fromCharCode(...part))).join('');
@@ -125,59 +134,88 @@ describe('what the bytes of an image say', () => {
     });
 });
 
+const FILE = { name: 'cat.png', type: 'image/png', size: 900 };
+const STAND: PetStrip = { image: STRIP, frameSize: 16, frames: 4 };
+const WORK: PetStrip = { image: png(32, 16), frameSize: 16, frames: 2 };
+
+function sprite(id: string, strips: Partial<Record<'walk' | 'work' | 'wait' | 'sleep' | 'stopped', PetStrip>> = {}): CustomPetSprite {
+    return spriteOf(id, id, { stand: STAND, ...strips })!;
+}
+
 describe('a picked file', () => {
-    test('is kept under its name, and becomes a choice another window reads back', async () => {
-        const result = await addPetSprite({ name: 'cat.png', type: 'image/png', size: 900 }, reader(STRIP), () => 'c1');
-        expect(result).toEqual({ sprite: { id: 'c1', name: 'cat', image: STRIP, frameSize: 16, frames: 4 } });
-        expect(usePetSprites.getState().sprites.map((sprite) => sprite.id)).toEqual(['c1']);
+    test('is read as a strip, and nothing is kept before the figure is saved', async () => {
+        expect(await readPetStrip(FILE, reader(STRIP))).toEqual({ strip: STAND });
+        expect(usePetSprites.getState().sprites).toEqual([]);
+    });
+
+    test('is refused when it is an SVG, too large, not an image, cut wrong or decodes to another size', async () => {
+        expect(await readPetStrip({ ...FILE, type: 'image/svg+xml' }, reader(STRIP))).toEqual({ problem: 'type' });
+        expect(await readPetStrip({ ...FILE, size: SHEET_LIMITS.bytes + 1 }, reader(STRIP))).toEqual({ problem: 'bytes' });
+        expect(await readPetStrip(FILE, reader(png(64, 16, SHEET_LIMITS.bytes + 3)))).toEqual({ problem: 'bytes' });
+        expect(await readPetStrip(FILE, reader(`data:image/png;base64,${btoa('<html>')}`))).toEqual({ problem: 'unreadable' });
+        expect(await readPetStrip(FILE, reader(png(50, 16), { width: 50, height: 16 }))).toEqual({ problem: 'frames-whole' });
+        expect(await readPetStrip(FILE, reader(STRIP, { width: 32, height: 16 }))).toEqual({ problem: 'unreadable' });
+    });
+
+    test('is never decoded when its header claims a size outside the limits', async () => {
+        let decoded = false;
+        const huge: SheetReader = {
+            dataUrl: async () => png(30000, 30000),
+            size: async () => {
+                decoded = true;
+                return { width: 30000, height: 30000 };
+            }
+        };
+        expect(await readPetStrip(FILE, huge)).toEqual({ problem: 'frame-large' });
+        expect(decoded).toBe(false);
+    });
+});
+
+describe('a figure of strips per state', () => {
+    test('needs a strip to stand in, and keeps the others by state under its name', () => {
+        expect(spriteOf('a', 'Cat', { work: WORK })).toBeNull();
+        expect(spriteOf('a', '  Cat  ', { stand: STAND, work: WORK })).toEqual({ id: 'a', name: 'Cat', ...STAND, strips: { work: WORK } });
+        expect(spriteOf('a', 'x'.repeat(60), { stand: STAND })?.name).toHaveLength(SHEET_LIMITS.nameLength);
+        expect(stripsOf(sprite('a', { work: WORK }))).toEqual({ stand: STAND, work: WORK });
+    });
+
+    test('plays its own strip in a state that has one, and the standing strip in every other', () => {
+        const cat = sprite('a', { work: WORK, stopped: WORK });
+        expect(stripFor(cat, 'work')).toEqual({ pose: 'work', strip: WORK });
+        expect(stripFor(cat, 'stopped')).toEqual({ pose: 'stopped', strip: WORK });
+        for (const pose of ['stand', 'walk', 'wait', 'sleep'] as const) {
+            expect(stripFor(cat, pose)).toEqual({ pose: 'stand', strip: cat });
+        }
+    });
+
+    test('is kept under its id, changed in place, and becomes a choice another window reads back', () => {
+        expect(savePetSprite(sprite('c1'))).toEqual({ sprite: sprite('c1') });
+        expect(savePetSprite(sprite('c1', { work: WORK }))).toEqual({ sprite: sprite('c1', { work: WORK }) });
         usePetSprites.setState({ sprites: [] });
         usePetSprites.getState().reload();
-        expect(usePetSprites.getState().sprites.map((sprite) => sprite.name)).toEqual(['cat']);
+        expect(usePetSprites.getState().sprites).toEqual([sprite('c1', { work: WORK })]);
     });
 
-    test('a sprite the storage refuses is not kept, since it would be gone after a reload', async () => {
+    test('a figure the storage refuses is not kept, since it would be gone after a reload', () => {
         Reflect.deleteProperty(globalThis, 'localStorage');
-        expect(await addPetSprite({ name: 'cat.png', type: 'image/png', size: 900 }, reader(STRIP), () => 'c1')).toEqual({ problem: 'storage' });
+        expect(savePetSprite(sprite('c1'))).toEqual({ problem: 'storage' });
         expect(usePetSprites.getState().sprites).toEqual([]);
     });
 
-    test('is refused when it is an SVG, too large, not an image, cut wrong or decodes to another size, and nothing is kept', async () => {
-        const file = { name: 'cat.png', type: 'image/png', size: 900 };
-        expect(await addPetSprite({ ...file, type: 'image/svg+xml' }, reader(STRIP), () => 'x')).toEqual({ problem: 'type' });
-        expect(await addPetSprite({ ...file, size: SHEET_LIMITS.bytes + 1 }, reader(STRIP), () => 'x')).toEqual({ problem: 'bytes' });
-        expect(await addPetSprite(file, reader(png(64, 16, SHEET_LIMITS.bytes + 3)), () => 'x')).toEqual({ problem: 'bytes' });
-        expect(await addPetSprite(file, reader(`data:image/png;base64,${btoa('<html>')}`), () => 'x')).toEqual({ problem: 'unreadable' });
-        expect(await addPetSprite(file, reader(png(50, 16), { width: 50, height: 16 }), () => 'x')).toEqual({ problem: 'frames-whole' });
-        expect(await addPetSprite(file, reader(STRIP, { width: 32, height: 16 }), () => 'x')).toEqual({ problem: 'unreadable' });
-        expect(usePetSprites.getState().sprites).toEqual([]);
-    });
-
-    test('is refused once the client keeps as many as it may', async () => {
+    test('is refused once the client keeps as many as it may, though one already kept still changes', () => {
         for (let i = 0; i < SHEET_LIMITS.maxSprites; i++) {
-            await addPetSprite({ name: `cat${i}.png`, type: 'image/png', size: 900 }, reader(STRIP), () => `c${i}`);
+            savePetSprite(sprite(`c${i}`));
         }
-        expect(await addPetSprite({ name: 'one.png', type: 'image/png', size: 900 }, reader(STRIP), () => 'more')).toEqual({ problem: 'full' });
+        expect(savePetSprite(sprite('more'))).toEqual({ problem: 'full' });
+        expect(savePetSprite(sprite('c0', { work: WORK }))).toEqual({ sprite: sprite('c0', { work: WORK }) });
     });
 
-    test('is refused when the last place went while it was read, as another window or a second pick may take it', async () => {
-        for (let i = 0; i < SHEET_LIMITS.maxSprites - 1; i++) {
-            await addPetSprite({ name: `cat${i}.png`, type: 'image/png', size: 900 }, reader(STRIP), () => `c${i}`);
-        }
-        const meanwhile: SheetReader = {
-            dataUrl: async () => {
-                await addPetSprite({ name: 'other.png', type: 'image/png', size: 900 }, reader(STRIP), () => 'other');
-                return STRIP;
-            },
-            size: async () => ({ width: 64, height: 16 })
-        };
-        expect(await addPetSprite({ name: 'late.png', type: 'image/png', size: 900 }, meanwhile, () => 'late')).toEqual({ problem: 'full' });
-        expect(usePetSprites.getState().sprites).toHaveLength(SHEET_LIMITS.maxSprites);
-    });
-
-    test('is named after its file, without the extension and never too long', () => {
-        expect(spriteNameOf('my cat.png')).toBe('my cat');
-        expect(spriteNameOf('.png')).toBe('.png');
-        expect(spriteNameOf(`${'a'.repeat(60)}.png`)).toHaveLength(SHEET_LIMITS.nameLength);
+    test('is refused when all strips together would take more room than eight of the largest', () => {
+        const large: PetStrip = { image: png(64, 16, SHEET_LIMITS.bytes), frameSize: 16, frames: 4 };
+        const full = (id: string) => spriteOf(id, id, { stand: large, walk: large, work: large, wait: large })!;
+        expect(savePetSprite(full('a'))).toEqual({ sprite: full('a') });
+        expect(savePetSprite(full('b'))).toEqual({ sprite: full('b') });
+        expect(savePetSprite(sprite('c'))).toEqual({ problem: 'room' });
     });
 });
 
@@ -225,5 +263,140 @@ describe('a sprite read back from storage', () => {
         );
         usePetSprites.getState().reload();
         expect(usePetSprites.getState().sprites.map((sprite) => sprite.id)).toEqual(['ok']);
+    });
+
+    test('of a client from before strips per state is a figure that stands in its one strip and plays it in every state', () => {
+        const legacy = storedSpriteOf(good)!;
+        expect(legacy).toEqual(good);
+        expect(stripsOf(legacy)).toEqual({ stand: STAND });
+        for (const pose of ['stand', 'walk', 'work', 'wait', 'sleep', 'stopped'] as const) {
+            expect(stripFor(legacy, pose)).toEqual({ pose: 'stand', strip: legacy });
+        }
+    });
+
+    test('keeps the strips of other states that pass, and drops one that does not, or a state it does not know, alone', () => {
+        const entry = {
+            ...good,
+            strips: {
+                work: WORK,
+                wait: { ...WORK, frames: 3 },
+                sleep: { ...WORK, image: `data:image/png;base64,${btoa('<svg onload="x()"></svg>')}` },
+                dance: WORK,
+                stand: WORK
+            }
+        };
+        expect(storedSpriteOf(entry)).toEqual({ ...good, strips: { work: WORK } });
+        expect(storedSpriteOf({ ...good, strips: { wait: 'nope' } })).toEqual(good);
+    });
+
+    test('a figure whose strips this version cannot read stands in its own strip alone', () => {
+        for (const strips of ['nope', null, [], 3]) {
+            expect(storedSpriteOf({ ...good, strips })).toEqual(good);
+        }
+    });
+
+    test('keeps a name no longer than an import would, and each id once', () => {
+        expect(storedSpriteOf({ ...good, name: 'x'.repeat(500) })?.name).toHaveLength(SHEET_LIMITS.nameLength);
+        localStorage.setItem('ruimte.pets.sprites', JSON.stringify([good, { ...good, name: 'twin' }]));
+        usePetSprites.getState().reload();
+        expect(usePetSprites.getState().sprites.map((sprite) => sprite.name)).toEqual(['ok']);
+    });
+
+    test('drops a figure whose standing strip does not pass, whatever its other strips are', () => {
+        expect(storedSpriteOf({ ...good, frames: 2, strips: { work: WORK } })).toBeNull();
+    });
+
+    test('keeps no more figures, nor more room, than an import would', () => {
+        const large: PetStrip = { image: png(64, 16, SHEET_LIMITS.bytes), frameSize: 16, frames: 4 };
+        const many = Array.from({ length: SHEET_LIMITS.maxSprites + 2 }, (_, i) => ({ ...good, id: `c${i}` }));
+        localStorage.setItem('ruimte.pets.sprites', JSON.stringify(many));
+        usePetSprites.getState().reload();
+        expect(usePetSprites.getState().sprites).toHaveLength(SHEET_LIMITS.maxSprites);
+
+        const heavy = { id: 'heavy', name: 'heavy', ...large, strips: { walk: large, work: large, wait: large, sleep: large, stopped: large } };
+        localStorage.setItem('ruimte.pets.sprites', JSON.stringify([heavy, { ...heavy, id: 'second' }, good]));
+        usePetSprites.getState().reload();
+        expect(usePetSprites.getState().sprites.map((sprite) => sprite.id)).toEqual(['heavy', 'ok']);
+    });
+});
+
+describe('the images a figure plays', () => {
+    // The unit run has no images: this one decodes at once to the size its source was given here.
+    const sizes = new Map<string, { width: number; height: number }>();
+    let made = 0;
+    class FakeImage {
+        src = '';
+        complete = true;
+        constructor() {
+            made += 1;
+        }
+        get naturalWidth(): number {
+            return sizes.get(this.src)?.width ?? 0;
+        }
+        get naturalHeight(): number {
+            return sizes.get(this.src)?.height ?? 0;
+        }
+    }
+    const NEW_STAND: PetStrip = { image: png(16, 16), frameSize: 16, frames: 1 };
+
+    beforeEach(() => {
+        made = 0;
+        sizes.clear();
+        sizes.set(STAND.image, { width: 64, height: 16 });
+        sizes.set(WORK.image, { width: 32, height: 16 });
+        sizes.set(NEW_STAND.image, { width: 16, height: 16 });
+        Object.defineProperty(globalThis, 'Image', { configurable: true, value: FakeImage });
+    });
+
+    afterEach(() => {
+        Reflect.deleteProperty(globalThis, 'Image');
+        forgetUnusedImages();
+    });
+
+    test('a preview of a figure being changed keeps its own images, so the pets on the canvas keep theirs', () => {
+        const kept = sprite('cat');
+        savePetSprite(kept);
+        const preview = previewSpriteOf('cat', { stand: NEW_STAND })!;
+        expect(preview.id).not.toBe(kept.id);
+
+        const onCanvas = spriteImage(kept, 'stand')!.image;
+        const inDialog = spriteImage(preview, 'stand')!.image;
+        // Beat after beat, each finds the image it made: nothing is made again and neither waits on a decode.
+        for (let beat = 0; beat < 4; beat++) {
+            expect(spriteImage(kept, 'stand')!.image).toBe(onCanvas);
+            expect(spriteImage(preview, 'stand')!.image).toBe(inDialog);
+        }
+        expect(made).toBe(2);
+    });
+
+    test('the images of a preview go once the dialog closes, and those of a kept figure stay', () => {
+        const kept = sprite('cat');
+        savePetSprite(kept);
+        const onCanvas = spriteImage(kept, 'stand')!.image;
+        spriteImage(previewSpriteOf('cat', { stand: NEW_STAND })!, 'stand');
+        forgetUnusedImages();
+        expect(spriteImage(kept, 'stand')!.image).toBe(onCanvas);
+        expect(made).toBe(2);
+        spriteImage(previewSpriteOf('cat', { stand: NEW_STAND })!, 'stand');
+        expect(made).toBe(3);
+    });
+
+    test('a strip of its own that decodes to another size than it says gives way to the standing one', () => {
+        const cat = sprite('cat', { work: WORK });
+        expect(spriteImage(cat, 'work')).toMatchObject({ pose: 'work', strip: WORK });
+        sizes.set(WORK.image, { width: 48, height: 16 });
+        const lying = sprite('liar', { work: WORK });
+        expect(spriteImage(lying, 'work')).toMatchObject({ pose: 'stand', strip: lying });
+        // A standing strip that does not fit has nothing to give way to.
+        sizes.set(STAND.image, { width: 8, height: 8 });
+        expect(spriteImage(sprite('broken'), 'stand')).toBeNull();
+    });
+
+    test('a pet whose own strip gave way to the standing one plays every frame of that one', () => {
+        const still: PetStrip = { image: png(16, 16), frameSize: 16, frames: 1 };
+        sizes.set(still.image, { width: 48, height: 16 });
+        const look: PetLook = { kind: 'sheet', sprite: sprite('liar', { work: still }) };
+        const keys = new Set([0, 1, 2, 3].map((frame) => drawnFrameKey(look, { pose: 'work', frame, lift: 0, bubble: false })));
+        expect(keys.size).toBe(STAND.frames);
     });
 });

@@ -79,26 +79,34 @@ stays, and a stored `petsSprite` is read as a set of one.
 
 ## A figure of your own
 
-Settings, Views, Pets, Add figure takes one file from the system's open panel. Only that file is
-read; it is kept as a data URL in this client's storage (`ruimte.pets.sprites`), which every window
-of the app shares and no machine sees. What is read back from there goes through the same checks as
-an import (`storedSpriteOf`): the bytes, the byte limit and the size in the image's own header against
-the frames stored beside it, so an entry edited by hand that does not pass is dropped. A strip whose
-decoded image has another size than it says is not drawn.
+Settings, Views, Pets, Add figure opens a dialog (`PetFigureDialog.tsx`) with a name and a row for
+every state: Standing (the visitor), Walking (along the bottom of the screen), Working, Needs you (the
+jump is this strip lifted), Idle and Stopped, each with a preview painted as on the canvas. Only the
+files picked are read, and nothing is kept before Save. A figure is kept as data URLs in this
+client's storage (`ruimte.pets.sprites`), which every window of the app shares and no machine sees;
+the window that saves a figure last wins. What is read back goes through the same checks as an import
+(`storedSpriteOf`, `storedStripOf`): a figure whose Standing strip fails is dropped, any other strip
+that fails drops out alone. The previews decode under an id of their own (`previewSpriteOf`), so a
+figure's pets keep their images while it is changed.
 
-The format:
+A state plays its own strip, or Standing's, which every figure needs (`stripFor`), and Standing's
+too where its own decoded to another size than it says. Stopped without its own tips Standing's over
+and fades it. Standing's strip is stored where the one strip was and the others under `strips`, so a
+figure from before plays as it did, and an older Ruimte reads a newer one as its Standing strip.
+
+The format of a strip:
 
 - A PNG or a WebP image, at most 64 KB. The bytes must start with the signature of that format; an
   SVG, or any other file with a PNG name, is refused.
 - One row of square frames, left to right, with no gaps. A frame is as high as the image, so the
   width is the height times the number of frames.
 - A frame is 8 to 256 pixels high, and a strip has 1 to 16 frames. A single square image is a strip
-  of one frame.
+  of one frame. The size is read from the header before anything decodes.
 - A transparent background. The frames are scaled without smoothing, so pixel art stays sharp;
   the figure is drawn about 36 pixels high on the canvas at 100%.
-- The strip plays in a loop for every state: at a walk while the agent works or waits on you, slower
-  while it is idle, and tipped over and faded once it stopped. The bubble and the jump are drawn over
-  it as for a built-in figure.
+- A strip plays in a loop: at a walk while the agent works or waits on you, slower while it is idle
+  or stopped. The bubble and the jump are drawn over it as for a built-in figure.
 
-At most 8 figures are kept. A figure you added stands for every agent its set is given to; the
-built-in sets have one for Claude and one for Codex, and every other CLI gets Claude's.
+At most 8 figures are kept, and all their strips together take at most 512 KB, eight strips of the
+largest size. A figure you added stands for every agent its set is given to; the built-in sets have
+one for Claude and one for Codex, and every other CLI gets Claude's.

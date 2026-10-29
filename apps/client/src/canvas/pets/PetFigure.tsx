@@ -3,7 +3,7 @@ import { usePrefersStill } from '@/canvas/pets/figure-support';
 import { KID_HEIGHT, KID_PAINT_WIDTH } from '@/canvas/pets/kids';
 import { PAINT_SIZE, paintPet, petPainter, type PetLook } from '@/canvas/pets/paint';
 import { PET_HEIGHT, PET_PAINT_WIDTH, type PetMood } from '@/canvas/pets/pet-state';
-import { bowColors } from '@/canvas/pets/pixel';
+import { bowColors, type PetPose } from '@/canvas/pets/pixel';
 import { onPetTick } from '@/canvas/pets/ticker';
 
 /*
@@ -17,7 +17,8 @@ export function PetFigure({
     crowded,
     accent,
     walking,
-    small = false
+    small = false,
+    pose
 }: {
     look: PetLook;
     mood: PetMood;
@@ -25,6 +26,8 @@ export function PetFigure({
     accent?: string;
     walking?: () => boolean;
     small?: boolean;
+    /* Only for a preview of one state: that pose, whatever the mood. */
+    pose?: PetPose;
 }) {
     const ref = useRef<HTMLCanvasElement>(null);
     const still = usePrefersStill();
@@ -34,8 +37,8 @@ export function PetFigure({
             return;
         }
         const bow = accent === undefined ? null : bowColors(accent);
-        return onPetTick(petPainter(look, mood, still, (frame) => paintPet(context, look, frame, crowded, bow), walking));
-    }, [look, mood, still, crowded, accent, walking]);
+        return onPetTick(petPainter(look, mood, still, (frame) => paintPet(context, look, frame, crowded, bow), walking, pose));
+    }, [look, mood, still, crowded, accent, walking, pose]);
     return (
         <canvas
             ref={ref}

@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ImageUp, PawPrint, Trash2 } from 'lucide-react';
-import { Button, Checkbox, FormError, Icon, IconButton, Select } from '@adecore/ui';
+import { ImageUp, PawPrint, Pencil, Trash2 } from 'lucide-react';
+import { Button, Checkbox, Icon, IconButton, Select } from '@adecore/ui';
 import { SettingsRow } from '@adecore/ui/settings';
-import { addPetSprite, browserSheetReader, SHEET_LIMITS, SHEET_TYPES, usePetSprites, type SheetProblem } from '@/canvas/pets/custom-sprites';
+import { SHEET_LIMITS, stripsOf, usePetSprites, type CustomPetSprite } from '@/canvas/pets/custom-sprites';
 import { CUSTOM_PET_PREFIX, PET_SETS, petChoiceKey, petPoolOf, petSetsWith } from '@/canvas/pets/pet-state';
+import { PetFigureDialog, type PetFigureEdit } from '@/shell/settings/panes/PetFigureDialog';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { SettingSwitchRow } from '@/shell/settings/SettingSwitchRow';
 import { useSettings, type PetsPlace } from '@/state/settings';
@@ -19,9 +20,7 @@ export function PetsSection() {
     const update = useSettings((s) => s.update);
     const sprites = usePetSprites((s) => s.sprites);
     const remove = usePetSprites((s) => s.remove);
-    const fileRef = useRef<HTMLInputElement>(null);
-    const [problem, setProblem] = useState<SheetProblem | null>(null);
-    const [busy, setBusy] = useState(false);
+    const [edit, setEdit] = useState<PetFigureEdit | null>(null);
 
     const pool = petPoolOf(
         setting,
@@ -33,20 +32,14 @@ export function PetsSection() {
         ...sprites.map((sprite) => ({ key: `${CUSTOM_PET_PREFIX}${sprite.id}`, label: sprite.name }))
     ];
 
-    const pick = async (file: File | undefined): Promise<void> => {
-        if (!file) {
-            return;
+    const open = (sprite: CustomPetSprite | null): void => setEdit({ sprite, open: true, round: (edit?.round ?? 0) + 1 });
+
+    const saved = (sprite: CustomPetSprite): void => {
+        // A figure a person just added joins the pets, beside the sets already picked; a changed one stays where it was.
+        if (edit?.sprite === null) {
+            update({ petsSets: petSetsWith(pool, `${CUSTOM_PET_PREFIX}${sprite.id}`, true) });
         }
-        setProblem(null);
-        setBusy(true);
-        const result = await addPetSprite(file, browserSheetReader, () => crypto.randomUUID());
-        setBusy(false);
-        if ('problem' in result) {
-            setProblem(result.problem);
-            return;
-        }
-        // A figure a person just added joins the pets, beside the sets already picked.
-        update({ petsSets: petSetsWith(pool, `${CUSTOM_PET_PREFIX}${result.sprite.id}`, true) });
+        setEdit(edit === null ? null : { ...edit, open: false });
     };
 
     const removeSprite = (id: string): void => {
@@ -104,41 +97,20 @@ export function PetsSection() {
                     kilobytes: SHEET_LIMITS.bytes / 1024
                 })}
                 control={
-                    <Button disabled={busy || sprites.length >= SHEET_LIMITS.maxSprites} onClick={() => fileRef.current?.click()}>
+                    <Button disabled={sprites.length >= SHEET_LIMITS.maxSprites} onClick={() => open(null)}>
                         <Icon icon={ImageUp} size={12} /> {t('views.pets.custom.add')}
                     </Button>
                 }
             >
-                <input
-                    ref={fileRef}
-                    type="file"
-                    accept={SHEET_TYPES.join(',')}
-                    className="hidden"
-                    onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        event.target.value = '';
-                        void pick(file);
-                    }}
-                />
-                {problem !== null && (
-                    <FormError className="mt-2">
-                        {t(`views.pets.custom.problem.${problem}`, {
-                            kilobytes: SHEET_LIMITS.bytes / 1024,
-                            min: SHEET_LIMITS.minFrame,
-                            max: SHEET_LIMITS.maxFrame,
-                            frames: SHEET_LIMITS.maxFrames,
-                            limit: SHEET_LIMITS.maxSprites
-                        })}
-                    </FormError>
-                )}
                 {sprites.length > 0 && (
-                    <ul className="mt-2 flex flex-col gap-1">
+                    <ul className="flex flex-col gap-1">
                         {sprites.map((sprite) => (
                             <li key={sprite.id} className="flex items-center gap-2 text-sm text-text">
                                 <span className="min-w-0 grow truncate">{sprite.name}</span>
                                 <span className="shrink-0 text-xs text-text-muted tabular-nums">
-                                    {t('views.pets.custom.frames', { count: sprite.frames, size: sprite.frameSize })}
+                                    {t('views.pets.custom.stateCount', { count: Object.keys(stripsOf(sprite)).length })}
                                 </span>
+                                <IconButton icon={Pencil} size="sm" label={t('views.pets.custom.edit', { name: sprite.name })} onClick={() => open(sprite)} />
                                 <IconButton
                                     icon={Trash2}
                                     size="sm"
@@ -150,6 +122,7 @@ export function PetsSection() {
                     </ul>
                 )}
             </SettingsRow>
+            <PetFigureDialog key={edit?.round ?? 0} edit={edit} onClose={() => setEdit(edit === null ? null : { ...edit, open: false })} onSaved={saved} />
         </SettingsSection>
     );
 }

@@ -714,6 +714,32 @@
                 "remove": "{{name}} verwijderen",
                 "frames_one": "{{count}} frame, {{size}} px",
                 "frames_other": "{{count}} frames, {{size}} px",
+                "edit": "{{name}} bewerken",
+                "stateCount_one": "{{count}} houding",
+                "stateCount_other": "{{count}} houdingen",
+                "states": {
+                    "stand": "Staan",
+                    "walk": "Lopen",
+                    "work": "Bezig",
+                    "wait": "Wacht op jou",
+                    "sleep": "Inactief",
+                    "stopped": "Gestopt"
+                },
+                "dialog": {
+                    "new": "Nieuwe figuur",
+                    "edit": "Figuur bewerken",
+                    "description": "Elke houding kan een eigen strook hebben. Een houding zonder speelt Staan, die elke figuur nodig heeft.",
+                    "name": "Naam",
+                    "save": "Opslaan",
+                    "choose": "Kies bestand",
+                    "chooseFor": "Kies bestand voor {{state}}",
+                    "replaceFor": "Strook voor {{state}} vervangen",
+                    "replace": "Vervangen",
+                    "drop": "Strook voor {{state}} verwijderen",
+                    "needed": "Elke figuur heeft deze nodig",
+                    "standing": "Speelt Staan",
+                    "tipped": "Speelt Staan, omgevallen"
+                },
                 "problem": {
                     "type": "Kies een PNG- of WebP-afbeelding.",
                     "bytes": "Deze afbeelding is groter dan {{kilobytes}} KB.",
@@ -723,6 +749,7 @@
                     "frames-whole": "De breedte moet een heel aantal vierkante frames zijn.",
                     "frames-many": "Een strook heeft hoogstens {{frames}} frames.",
                     "full": "Je kunt hoogstens {{limit}} figuren bewaren. Verwijder er eerst een.",
+                    "room": "Je figuren nemen samen hoogstens {{total}} KB in. Verwijder er een of kies een kleinere strook.",
                     "storage": "Er is geen ruimte meer om deze figuur te bewaren."
                 }
             }

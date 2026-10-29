@@ -714,6 +714,32 @@
                 "remove": "Remove {{name}}",
                 "frames_one": "{{count}} frame, {{size}} px",
                 "frames_other": "{{count}} frames, {{size}} px",
+                "edit": "Edit {{name}}",
+                "stateCount_one": "{{count}} state",
+                "stateCount_other": "{{count}} states",
+                "states": {
+                    "stand": "Standing",
+                    "walk": "Walking",
+                    "work": "Working",
+                    "wait": "Needs you",
+                    "sleep": "Idle",
+                    "stopped": "Stopped"
+                },
+                "dialog": {
+                    "new": "New figure",
+                    "edit": "Edit figure",
+                    "description": "Every state can have a strip of its own. One without plays Standing, which every figure needs.",
+                    "name": "Name",
+                    "save": "Save",
+                    "choose": "Choose file",
+                    "chooseFor": "Choose file for {{state}}",
+                    "replaceFor": "Replace the strip for {{state}}",
+                    "replace": "Replace",
+                    "drop": "Remove the strip for {{state}}",
+                    "needed": "Every figure needs this one",
+                    "standing": "Plays Standing",
+                    "tipped": "Plays Standing, tipped over"
+                },
                 "problem": {
                     "type": "Pick a PNG or WebP image.",
                     "bytes": "This image is larger than {{kilobytes}} KB.",
@@ -723,6 +749,7 @@
                     "frames-whole": "The width must be a whole number of square frames.",
                     "frames-many": "A strip has at most {{frames}} frames.",
                     "full": "You can keep {{limit}} figures at most. Remove one first.",
+                    "room": "Your figures take {{total}} KB together at most. Remove one or pick a smaller strip.",
                     "storage": "There is no room left to keep this figure."
                 }
             }
