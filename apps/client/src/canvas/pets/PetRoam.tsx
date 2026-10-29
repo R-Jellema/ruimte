@@ -4,15 +4,17 @@ import { Tooltip } from '@adecore/ui';
 import { useChats } from '@adecore/agents-react/state';
 import { nodeColorOf } from '@ruimte/contracts';
 import { accentColor } from '@/canvas/accents';
-import { petLabel, usePrefersStill } from '@/canvas/pets/figure-support';
-import { KID_HEIGHT, KID_PAINT_WIDTH, KID_WIDTH, kidId, kidMoodsOf, petKidsOf } from '@/canvas/pets/kids';
-import type { PetLook } from '@/canvas/pets/paint';
-import { PetFigure } from '@/canvas/pets/PetFigure';
-import { PET_HEIGHT, PET_HIT_HEIGHT, PET_HIT_TOP, PET_PAINT_WIDTH, PET_WIDTH, petNodeKey, petOf, type PetMood } from '@/canvas/pets/pet-state';
+import { petLabel, usePrefersStill } from '@/pets/figure-support';
+import { KID_HEIGHT, KID_PAINT_WIDTH, KID_WIDTH, kidId, kidMoodsOf, petKidsOf } from '@/pets/kids';
+import type { PetLook } from '@/pets/paint';
+import { PetFigure } from '@/pets/PetFigure';
+import { PET_HIT_HEIGHT, PET_HIT_TOP, petNodeKey, sameStanding } from '@/canvas/pets/placement';
+import { useDeparting, useTeleport } from '@/pets/teleport';
+import { PET_HEIGHT, PET_PAINT_WIDTH, PET_WIDTH, petOf, type PetMood } from '@/pets/pet-state';
 import { PET_LEDGE_ATTRIBUTE, PET_WALL_ATTRIBUTE } from '@/canvas/pets/attributes';
 import { FIGURE, groundOf, Roam, type Obstacle } from '@/canvas/pets/roam';
-import { onPetTick } from '@/canvas/pets/ticker';
-import { usePetLook } from '@/canvas/pets/use-pet-look';
+import { onPetTick } from '@/pets/ticker';
+import { usePetLook } from '@/pets/use-pet-look';
 import { PROMPT_STACK_ATTRIBUTE } from '@/canvas/prompt-stack';
 import { useCanvas, useCanvasStore } from '@/state/canvas';
 import { useEndpointId } from '@/state/keys';
@@ -71,7 +73,8 @@ function RoamingKid({
     look,
     accent,
     roam,
-    onElement
+    onElement,
+    beam
 }: {
     id: string;
     leader: string;
@@ -81,6 +84,7 @@ function RoamingKid({
     accent: string | undefined;
     roam: Roam;
     onElement: OnElement;
+    beam: 'in' | 'out' | undefined;
 }) {
     useEffect(() => {
         roam.follow(id, leader);
@@ -91,21 +95,21 @@ function RoamingKid({
     return (
         <div
             ref={(element) => onElement(id, element)}
-            data-pet-kid={pet}
+            data-pet-kid={beam === 'out' ? undefined : pet}
             data-pet-mood={mood}
             className="absolute bottom-0"
             // Its feet where a pet's would be at the same spot, half as far from its left edge.
             style={{ left: FIGURE.feet / 2, width: KID_PAINT_WIDTH, height: KID_HEIGHT, visibility: 'hidden' }}
         >
             <div style={{ transformOrigin: `${KID_WIDTH / 2}px 0` }}>
-                <PetFigure look={look} mood={mood} crowded={false} accent={accent} walking={() => roam.spot(id)?.walking === true} small />
+                <PetFigure look={look} mood={mood} crowded={false} accent={accent} walking={() => roam.spot(id)?.walking === true} small beam={beam} />
             </div>
         </div>
     );
 }
 
 /* One pet along the bottom, placed on each beat by the layer's `Roam`, which this tells its mood, with the kids of its sub-agents behind it. */
-function RoamingPet({ id, ownPets, roam, onElement }: { id: string; ownPets: ReadonlySet<string>; roam: Roam; onElement: OnElement }) {
+function RoamingPet({ id, ownPets, roam, onElement, gone }: { id: string; ownPets: ReadonlySet<string>; roam: Roam; onElement: OnElement; gone: boolean }) {
     const { t } = useTranslation('canvas');
     const canvasStore = useCanvasStore();
     const endpointId = useEndpointId();
@@ -117,7 +121,10 @@ function RoamingPet({ id, ownPets, roam, onElement }: { id: string; ownPets: Rea
     const tasks = useTasks((s) => s.byEndpoint);
     const kidKey = useChats((s) => (withKids && node !== undefined ? petKidsOf(node, s.byKey, tasks, endpointId, ownPets) : ''));
     const kids = kidMoodsOf(kidKey);
-    const pet = node === undefined ? null : petOf(node, sessions, chats, endpointId, snoozes);
+    const still = usePrefersStill();
+    const live = gone || node === undefined ? null : petOf(node, sessions, chats, endpointId, snoozes);
+    const { shown, beam } = useTeleport(live === null || node === undefined ? null : { node, pet: live }, sameStanding, still);
+    const pet = shown?.pet ?? null;
     const look = usePetLook(pet?.agent, id);
     const mood = pet?.mood ?? null;
 
@@ -130,11 +137,16 @@ function RoamingPet({ id, ownPets, roam, onElement }: { id: string; ownPets: Rea
 
     useEffect(() => () => roam.leave(id), [roam, id]);
 
-    if (node === undefined || pet === null) {
+    const home = shown?.node;
+
+    if (home === undefined || pet === null) {
         return null;
     }
-    const label = petLabel(t, node, pet.mood);
-    const accent = accentColor(nodeColorOf(node));
+
+    const label = petLabel(t, home, pet.mood);
+    const accent = accentColor(nodeColorOf(home));
+    const leaving = beam === 'out';
+
     return (
         <>
             {/* Before their pet, so it walks in front of them. */}
@@ -149,6 +161,7 @@ function RoamingPet({ id, ownPets, roam, onElement }: { id: string; ownPets: Rea
                     accent={accent}
                     roam={roam}
                     onElement={onElement}
+                    beam={beam}
                 />
             ))}
             <div
@@ -160,25 +173,28 @@ function RoamingPet({ id, ownPets, roam, onElement }: { id: string; ownPets: Rea
             >
                 {/* Turned around its own middle, so a pet walking left faces left and stays where it stands. */}
                 <div style={{ transformOrigin: `${PET_WIDTH / 2}px 0` }}>
-                    <PetFigure look={look} mood={pet.mood} crowded={false} accent={accent} walking={() => roam.spot(id)?.walking === true} />
+                    <PetFigure look={look} mood={pet.mood} crowded={false} accent={accent} walking={() => roam.spot(id)?.walking === true} beam={beam} />
                 </div>
-                <Tooltip label={label}>
-                    <button
-                        type="button"
-                        data-pet={id}
-                        data-pet-mood={pet.mood}
-                        aria-label={label}
-                        className="pointer-events-auto absolute left-0 cursor-pointer rounded-md outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                        style={{ top: PET_HIT_TOP, width: PET_WIDTH, height: PET_HIT_HEIGHT }}
-                        // Drawn over the canvas, which would read a press on a pet as the start of a box or a pan.
-                        onPointerDown={(event) => event.stopPropagation()}
-                        onDoubleClick={(event) => event.stopPropagation()}
-                        onClick={(event) => {
-                            event.stopPropagation();
-                            canvasStore.getState().goToNode(id);
-                        }}
-                    />
-                </Tooltip>
+                {/* A pet on its way out is only a picture: it leads nowhere any more. */}
+                {!leaving && (
+                    <Tooltip label={label}>
+                        <button
+                            type="button"
+                            data-pet={id}
+                            data-pet-mood={pet.mood}
+                            aria-label={label}
+                            className="pointer-events-auto absolute left-0 cursor-pointer rounded-md outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                            style={{ top: PET_HIT_TOP, width: PET_WIDTH, height: PET_HIT_HEIGHT }}
+                            // Drawn over the canvas, which would read a press on a pet as the start of a box or a pan.
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onDoubleClick={(event) => event.stopPropagation()}
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                canvasStore.getState().goToNode(id);
+                            }}
+                        />
+                    </Tooltip>
+                )}
             </div>
         </>
     );
@@ -189,9 +205,11 @@ function RoamingPet({ id, ownPets, roam, onElement }: { id: string; ownPets: Rea
  * rest in their own pose, and hop onto the dock and off again. One that waits on you or stopped stays
  * where it is. Over the canvas and under the dock, which keeps every press meant for it.
  */
-export function PetRoam() {
-    const ids = useCanvas(petNodeKey);
-    const own = new Set(ids.split('\n'));
+export function PetRoam({ leaving }: { leaving: boolean }) {
+    const key = useCanvas(petNodeKey);
+    // Turned off, every pet beams out where it is; a node removed takes its pet out the same way.
+    const { all, gone } = useDeparting(leaving || key === '' ? [] : key.split('\n'));
+    const own = new Set(all.filter((id) => !gone.has(id)));
     const layerRef = useRef<HTMLDivElement>(null);
     const [roam] = useState(() => new Roam(Math.random));
     const [elements] = useState(() => new Map<string, HTMLElement>());
@@ -231,7 +249,9 @@ export function PetRoam() {
 
     return (
         <div ref={layerRef} data-pet-roam className="pointer-events-none absolute inset-0 overflow-hidden">
-            {ids === '' ? null : ids.split('\n').map((id) => <RoamingPet key={id} id={id} ownPets={own} roam={roam} onElement={onElement} />)}
+            {all.map((id) => (
+                <RoamingPet key={id} id={id} ownPets={own} roam={roam} onElement={onElement} gone={gone.has(id)} />
+            ))}
         </div>
     );
 }

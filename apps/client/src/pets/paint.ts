@@ -1,5 +1,5 @@
-import { spriteImage, stripFor, type CustomPetSprite } from '@/canvas/pets/custom-sprites';
-import { bubbleCell, petFrame, type PetFrame, type PetMood } from '@/canvas/pets/pet-state';
+import { spriteImage, stripFor, type CustomPetSprite } from '@/pets/custom-sprites';
+import { bubbleCell, petFrame, type PetFrame, type PetMood } from '@/pets/pet-state';
 import {
     BUBBLE_ROWS,
     bubble,
@@ -14,7 +14,7 @@ import {
     type BowColors,
     type DrawnSprite,
     type PetPose
-} from '@/canvas/pets/pixel';
+} from '@/pets/pixel';
 
 /* A built-in figure, or a strip a person added. */
 export type PetLook = { kind: 'drawn'; sprite: DrawnSprite } | { kind: 'sheet'; sprite: CustomPetSprite };

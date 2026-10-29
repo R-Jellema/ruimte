@@ -1,4 +1,4 @@
-import type { PetMood } from '@/canvas/pets/pet-state';
+import type { PetMood } from '@/pets/pet-state';
 
 /* A box over the bottom of a canvas that a pet keeps out of, in pixels from the layer's left edge and up from its bottom. */
 export interface Obstacle {

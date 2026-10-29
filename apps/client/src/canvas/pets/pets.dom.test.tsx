@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
 import type { ChatSubagentItem, ProjectCanvasView, ProjectNode } from '@ruimte/contracts';
-import { browserSheetReader, usePetSprites } from '@/canvas/pets/custom-sprites';
+import { browserSheetReader, usePetSprites } from '@/pets/custom-sprites';
 import { canvasOfNode } from '@/state/canvas';
 import { useSettings } from '@/state/settings';
 import { useUi } from '@/state/ui';
@@ -10,6 +10,7 @@ import { FakeMachine } from '../../../testing/fake-machine';
 import { clickOn, until } from '../../../testing/dom';
 import { buttonWithText, everything, typeInto } from '../../../testing/dom-helpers';
 import { openCanvasPage, type CanvasPage } from '../../../testing/canvas-page';
+import { claudeProvider, fakeProvider } from '../../../testing/fake-provider';
 
 const WRITER: ProjectNode = { id: 'writer', kind: 'chat', title: 'Writer', x: 2000, y: 1000, w: 480, h: 520 };
 const PLAN: ProjectNode = { id: 'plan', kind: 'note', title: 'Plan', body: 'Ship it', x: 0, y: 0, w: 400, h: 320 };
@@ -77,16 +78,16 @@ beforeEach(() => {
 afterEach(async () => {
     await act(async () => useUi.getState().setSettings({ open: false }));
     await canvas.close();
-    useSettings.getState().update({ pets: false, petsPlace: 'nodes', petsSets: ['buddies'], petsVisitor: true, petsSubagents: true });
+    useSettings.getState().update({ pets: false, petsPlace: 'nodes', petsSets: ['buddies'], petsVisitor: true, petsSubagents: true, petsInViews: true });
 });
 
 describe('pets on a canvas', () => {
-    test('stay away until a person turns them on in Settings, Views, and go again when they turn them off', async () => {
+    test('stay away until a person turns them on in Settings, Pets, and go again when they turn them off', async () => {
         await open();
         await act(async () => machine.emit('chat.status', { chatId: WRITER.id, info: chatInfoOf(WRITER.id) }));
         expect(pet(WRITER.id)).toBeNull();
 
-        await act(async () => useUi.getState().setSettings({ open: true, section: 'views' }));
+        await act(async () => useUi.getState().setSettings({ open: true, section: 'pets' }));
         await until(() => petsSwitch() !== null);
         expect(petsSwitch()?.getAttribute('aria-checked')).toBe('false');
 
@@ -95,13 +96,15 @@ describe('pets on a canvas', () => {
         // A note has no agent, so no pet.
         expect(pet(PLAN.id)).toBeNull();
 
+        // Turned off, a pet beams out where it stood before it goes, a picture that takes no press.
         await clickOn(petsSwitch());
         await until(() => pet(WRITER.id) === null);
+        expect(canvas.page.host.querySelector(`[data-pet-box="${WRITER.id}"][data-pet-leaving]`)).not.toBeNull();
     });
 
-    test('the visitor is on until a person turns it off in Settings, Views', async () => {
+    test('the visitor is on until a person turns it off in Settings, Pets', async () => {
         await open();
-        await act(async () => useUi.getState().setSettings({ open: true, section: 'views' }));
+        await act(async () => useUi.getState().setSettings({ open: true, section: 'pets' }));
         const visitorSwitch = (): HTMLElement | null => document.querySelector('[role="switch"][aria-label="Visitor"]');
         await until(() => visitorSwitch() !== null);
         expect(visitorSwitch()?.getAttribute('aria-checked')).toBe('true');
@@ -110,24 +113,25 @@ describe('pets on a canvas', () => {
         await until(() => useSettings.getState().petsVisitor === false);
     });
 
-    test('a person picks several sets of figures in Settings, Views, and never none', async () => {
+    test('a person switches on several sets of figures in Settings, Pets, each with a preview, and never none', async () => {
         await open();
-        await act(async () => useUi.getState().setSettings({ open: true, section: 'views' }));
-        const setBox = (label: string): HTMLElement | null => document.querySelector(`[role="checkbox"][aria-label="${label}"]`);
-        await until(() => setBox('Buddies') !== null);
-        expect(setBox('Buddies')?.getAttribute('aria-checked')).toBe('true');
-        expect(setBox('Fox and frog')?.getAttribute('aria-checked')).toBe('false');
+        await act(async () => useUi.getState().setSettings({ open: true, section: 'pets' }));
+        const setSwitch = (name: string): HTMLElement | null => document.querySelector(`[role="switch"][aria-label="Use ${name}"]`);
+        await until(() => setSwitch('Buddies') !== null);
+        expect(document.querySelector('[role="img"][aria-label="Preview of Fox and frog"]')).not.toBeNull();
+        expect(setSwitch('Buddies')?.getAttribute('aria-checked')).toBe('true');
+        expect(setSwitch('Fox and frog')?.getAttribute('aria-checked')).toBe('false');
         // The only set picked cannot be left out.
-        expect(setBox('Buddies')?.hasAttribute('data-disabled')).toBe(true);
+        expect(setSwitch('Buddies')?.hasAttribute('data-disabled')).toBe(true);
 
-        await clickOn(setBox('Fox and frog')?.closest('label') ?? null);
-        await until(() => setBox('Fox and frog')?.getAttribute('aria-checked') === 'true');
+        await clickOn(setSwitch('Fox and frog'));
+        await until(() => setSwitch('Fox and frog')?.getAttribute('aria-checked') === 'true');
         expect(useSettings.getState().petsSets).toEqual(['buddies', 'animals']);
 
-        await clickOn(setBox('Buddies')?.closest('label') ?? null);
-        await until(() => setBox('Buddies')?.getAttribute('aria-checked') === 'false');
+        await clickOn(setSwitch('Buddies'));
+        await until(() => setSwitch('Buddies')?.getAttribute('aria-checked') === 'false');
         expect(useSettings.getState().petsSets).toEqual(['animals']);
-        expect(setBox('Fox and frog')?.hasAttribute('data-disabled')).toBe(true);
+        expect(setSwitch('Fox and frog')?.hasAttribute('data-disabled')).toBe(true);
     });
 
     test('a chat that waits on you has a pet that says so, until the question is answered', async () => {
@@ -213,7 +217,7 @@ describe('pets on a canvas', () => {
         );
         await until(() => kids(WRITER.id).length === 1);
 
-        await act(async () => useUi.getState().setSettings({ open: true, section: 'views' }));
+        await act(async () => useUi.getState().setSettings({ open: true, section: 'pets' }));
         const kidsSwitch = (): HTMLElement | null => document.querySelector('[role="switch"][aria-label="Sub-agents"]');
         await until(() => kidsSwitch() !== null);
         expect(kidsSwitch()?.getAttribute('aria-checked')).toBe('true');
@@ -269,6 +273,34 @@ describe('pets on a canvas', () => {
     });
 });
 
+describe('a figure per agent', () => {
+    afterEach(() => {
+        useSettings.getState().update({ petsByAgent: {} });
+    });
+
+    test('a person gives each CLI on the machine a figure of its own in Settings, Pets, and Default takes it back', async () => {
+        machine.answer('provider.list', () => ({
+            providers: [claudeProvider(), fakeProvider('codex', 'Codex')]
+        }));
+        await open();
+        await act(async () => useUi.getState().setSettings({ open: true, section: 'pets' }));
+        const trigger = (name: string): HTMLElement | null => document.querySelector(`[aria-label="Figure for ${name}"]`);
+        await until(() => trigger('Codex') !== null && trigger('Claude Code') !== null);
+        expect(trigger('Codex')?.textContent).toContain('Default');
+
+        await clickOn(trigger('Codex'));
+        await until(() => document.querySelector('[role="option"]') !== null);
+        await clickOn([...document.querySelectorAll('[role="option"]')].find((option) => option.textContent?.startsWith('Fox and frog')) ?? null);
+        await until(() => useSettings.getState().petsByAgent.codex === 'animals');
+        expect(useSettings.getState().petsByAgent).toEqual({ codex: 'animals' });
+
+        await clickOn(trigger('Codex'));
+        await until(() => document.querySelector('[role="option"]') !== null);
+        await clickOn([...document.querySelectorAll('[role="option"]')].find((option) => option.textContent?.startsWith('Default')) ?? null);
+        await until(() => useSettings.getState().petsByAgent.codex === undefined);
+    });
+});
+
 describe('a figure of your own', () => {
     // A PNG header for a strip of four frames of 16 pixels, which is all a stored figure is checked on.
     const head = `\x89PNG\r\n\x1a\n${String.fromCharCode(0, 0, 0, 13)}IHDR${String.fromCharCode(0, 0, 0, 64, 0, 0, 0, 16, 8, 6, 0, 0, 0)}`;
@@ -281,7 +313,7 @@ describe('a figure of your own', () => {
 
     async function openSettings(): Promise<void> {
         await open();
-        await act(async () => useUi.getState().setSettings({ open: true, section: 'views' }));
+        await act(async () => useUi.getState().setSettings({ open: true, section: 'pets' }));
         await until(() => buttonWithText('Add figure') !== null);
     }
 

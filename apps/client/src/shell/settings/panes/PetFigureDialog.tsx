@@ -16,11 +16,11 @@ import {
     type PetStrip,
     type PetStrips,
     type SheetProblem
-} from '@/canvas/pets/custom-sprites';
-import type { PetLook } from '@/canvas/pets/paint';
-import { PetFigure } from '@/canvas/pets/PetFigure';
-import { PET_HEIGHT, PET_PAINT_WIDTH, type PetMood } from '@/canvas/pets/pet-state';
-import { PET_POSES, type PetPose } from '@/canvas/pets/pixel';
+} from '@/pets/custom-sprites';
+import type { PetLook } from '@/pets/paint';
+import { PetFigure } from '@/pets/PetFigure';
+import { PET_HEIGHT, PET_PAINT_WIDTH, type PetMood } from '@/pets/pet-state';
+import { PET_POSES, type PetPose } from '@/pets/pixel';
 
 /*
  * One opening of the dialog, for a new figure or one added before. It stays after a close, so the dialog
@@ -83,15 +83,15 @@ function StripRow({
     const { t } = useTranslation('settings');
     const chooseRef = useRef<HTMLButtonElement>(null);
     const problemId = useId();
-    const state = t(`views.pets.custom.states.${pose}`);
+    const state = t(`pets.custom.states.${pose}`);
     const plays =
         strip !== undefined
-            ? t('views.pets.custom.frames', { count: strip.frames, size: strip.frameSize })
+            ? t('pets.custom.frames', { count: strip.frames, size: strip.frameSize })
             : pose === 'stand'
-              ? t('views.pets.custom.dialog.needed')
+              ? t('pets.custom.dialog.needed')
               : pose === 'stopped'
-                ? t('views.pets.custom.dialog.tipped')
-                : t('views.pets.custom.dialog.standing');
+                ? t('pets.custom.dialog.tipped')
+                : t('pets.custom.dialog.standing');
     return (
         <li data-pet-state={pose} className="flex flex-col gap-1">
             <div className="flex items-center gap-3">
@@ -105,17 +105,17 @@ function StripRow({
                 <Button
                     ref={chooseRef}
                     disabled={reading}
-                    aria-label={strip === undefined ? t('views.pets.custom.dialog.chooseFor', { state }) : t('views.pets.custom.dialog.replaceFor', { state })}
+                    aria-label={strip === undefined ? t('pets.custom.dialog.chooseFor', { state }) : t('pets.custom.dialog.replaceFor', { state })}
                     aria-describedby={problem === undefined ? undefined : problemId}
                     onClick={onChoose}
                 >
-                    <Icon icon={ImageUp} size={12} /> {strip === undefined ? t('views.pets.custom.dialog.choose') : t('views.pets.custom.dialog.replace')}
+                    <Icon icon={ImageUp} size={12} /> {strip === undefined ? t('pets.custom.dialog.choose') : t('pets.custom.dialog.replace')}
                 </Button>
                 {strip !== undefined && pose !== 'stand' && (
                     <IconButton
                         icon={Trash2}
                         size="sm"
-                        label={t('views.pets.custom.dialog.drop', { state })}
+                        label={t('pets.custom.dialog.drop', { state })}
                         onClick={() => {
                             onDrop();
                             // The button goes with the strip, so the keys stay on the row, on the button that gives it one again.
@@ -124,7 +124,7 @@ function StripRow({
                     />
                 )}
             </div>
-            {problem !== undefined && <FormError id={problemId}>{t(`views.pets.custom.problem.${problem}`, limitsOf())}</FormError>}
+            {problem !== undefined && <FormError id={problemId}>{t(`pets.custom.problem.${problem}`, limitsOf())}</FormError>}
         </li>
     );
 }
@@ -176,7 +176,7 @@ export function PetFigureDialog({ edit, onClose, onSaved }: { edit: PetFigureEdi
         }
         const result = savePetSprite(sprite);
         if ('problem' in result) {
-            throw new Error(t(`views.pets.custom.problem.${result.problem}`, limitsOf()));
+            throw new Error(t(`pets.custom.problem.${result.problem}`, limitsOf()));
         }
         onSaved(result.sprite);
     };
@@ -185,11 +185,11 @@ export function PetFigureDialog({ edit, onClose, onSaved }: { edit: PetFigureEdi
         <PromptDialog
             open={edit?.open === true}
             nested
-            title={edit?.sprite ? t('views.pets.custom.dialog.edit') : t('views.pets.custom.dialog.new')}
+            title={edit?.sprite ? t('pets.custom.dialog.edit') : t('pets.custom.dialog.new')}
             titleIcon={PawPrint}
-            description={t('views.pets.custom.dialog.description')}
-            field={{ label: t('views.pets.custom.dialog.name'), initial: edit?.sprite?.name ?? '', maxLength: SHEET_LIMITS.nameLength }}
-            confirmLabel={t('views.pets.custom.dialog.save')}
+            description={t('pets.custom.dialog.description')}
+            field={{ label: t('pets.custom.dialog.name'), initial: edit?.sprite?.name ?? '', maxLength: SHEET_LIMITS.nameLength }}
+            confirmLabel={t('pets.custom.dialog.save')}
             confirmDisabled={preview === null || reading}
             onConfirm={save}
             onOpenChange={onClose}

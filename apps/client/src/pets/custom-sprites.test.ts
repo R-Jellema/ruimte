@@ -16,8 +16,8 @@ import {
     type CustomPetSprite,
     type PetStrip,
     type SheetReader
-} from '@/canvas/pets/custom-sprites';
-import { drawnFrameKey, type PetLook } from '@/canvas/pets/paint';
+} from '@/pets/custom-sprites';
+import { drawnFrameKey, type PetLook } from '@/pets/paint';
 
 function bytesOf(...parts: (string | number[])[]): string {
     return parts.map((part) => (typeof part === 'string' ? part : String.fromCharCode(...part))).join('');

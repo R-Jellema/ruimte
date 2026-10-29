@@ -1,12 +1,17 @@
 # Pets
 
-A small figure on every agent's node of a canvas, which a person turns on in Settings, Views, Pets.
-Off to start with. Everything here is the client's: what a pet shows comes from the state the client
+A small figure on every agent's node of a canvas, and on a chat or a terminal open as a view of its
+own, which a person turns on in Settings, Pets. Off to start with.
+
+What a pet is and how it is drawn lives here, in `src/pets`: the figures, the paint, the shared beat,
+the sets, the kids, the strips a person added, and the pets of views (`ViewPet.tsx`). Where a pet
+stands on a canvas, along the bottom of the screen, the visitor and the trips to a page live in
+`src/canvas/pets`. Everything here is the client's: what a pet shows comes from the state the client
 already holds (`chat.status`, a terminal's `session.status` from the CLI's hooks), and nothing reads
 the file system, the daemon's folders or a project file.
 
 - Which nodes have one: a chat, a design (through the chat under its own id, as its status dot), and a
-  terminal whose CLI reported through its hooks (`petNodeKey` and `petOf` in `pet-state.ts`). A node
+  terminal whose CLI reported through its hooks (`petNodeKey` in `canvas/pets/placement.ts`, `petOf` in `pet-state.ts`). A node
   a collapsed group hides has none.
 - What it shows: working, waiting on you, idle or stopped. Waiting is the "needs you" every count
   reads (`groupAttention`). A waiting pet has a black speech bubble with an orange exclamation mark
@@ -23,7 +28,15 @@ the file system, the daemon's folders or a project file.
   id, the CLI's own and the tasks it gave, but not a task whose node has a pet of its own. The kid of
   a task that waits for a limit to lift sleeps. On a node they stand in a row behind the pet and take
   no press. A terminal has none, since nothing of its CLI's sub-agents reaches the client. Settings,
-  Views, Pets, Sub-agents turns them off (`petsSubagents`).
+  Pets, Sub-agents turns them off (`petsSubagents`).
+- A pet comes and goes with a teleport (`teleport.ts`, `beam.ts`): when its agent starts or ends, when
+  its node goes, and when Pets, Where pets are or In views of their own is changed. One on its way out
+  is drawn as it was last seen, a picture that takes no press and has no kids a test counts, and the
+  layer it is in stays until it is gone (`useLinger`, `useDeparting`). Settings, Pets, Teleport picks
+  the way for every pet (`petsBeam`): Gather, the default, Scanline, Pixel rain, Transporter, Portal,
+  or Random, a new one for every beam. A beam draws per cell on a paint of its own, wider than the
+  figure, for the pixels that stray. A node that only scrolls into view mounts no new figure, so a pan
+  beams nothing. With reduced motion a pet is there or gone at once.
 - A pet paints its canvas only when the picture changes (`petPainter`), so a strip of one frame at
   rest paints once.
 - A click goes to the node (`goToNode`): the camera centers on it and selects it, and Back in the
@@ -39,7 +52,7 @@ the file system, the daemon's folders or a project file.
 
 ## Along the bottom of the screen
 
-Settings, Views, Pets, Where pets are (`petsPlace`) takes the pets off their nodes and puts them along
+Settings, Pets, Where pets are (`petsPlace`) takes the pets off their nodes and puts them along
 the bottom of the canvas, over it in its cell's overlay and under the dock (`PetRoam.tsx`). Nodes
 still have them, so a node a collapsed group hides has none here either.
 
@@ -67,19 +80,23 @@ While Pets is off, a pet now and then stands beside a node on screen for four se
 away (`visitor.ts`), never where it would stand on another node. One clock for the page, a first
 visit 20 to 60 minutes after a canvas opens and the next 20 to 60 minutes after that, only while the
 window is visible and nobody is dragging or has a node maximized. It takes no press. It is on by
-default; Settings, Views, Pets, Visitor turns it off (`petsVisitor`).
+default; Settings, Pets, Visitor turns it off (`petsVisitor`).
 
 ## Sets
 
-Settings, Views, Pets, Figures picks one set or more (`petsSets`): the buddies, the fox and the frog,
+Settings, Pets, Figures switches one set or more on (`petsSets`): the buddies, the fox and the frog,
 and the figures a person added. A node's pet comes from the set that scores highest for its id
 (`petChoiceFor`), so it keeps its set in every window, and a set that joins or leaves moves only the
 pets it takes or gave up. The visitor comes from the set of the node it visits. The last set picked
 stays, and a stored `petsSprite` is read as a set of one.
 
+Settings, Pets, Per agent gives a CLI a set of its own (`petsByAgent`, by the CLI's kind), such as
+a cat a person added for Claude and another for Codex (`agentPetChoice`). A CLI on Default, a visitor,
+and a CLI whose figure was removed since take theirs from the sets switched on.
+
 ## A figure of your own
 
-Settings, Views, Pets, Add figure opens a dialog (`PetFigureDialog.tsx`) with a name and a row for
+Settings, Pets, Add figure opens a dialog (`PetFigureDialog.tsx`) with a name and a row for
 every state: Standing (the visitor), Walking (along the bottom of the screen), Working, Needs you (the
 jump is this strip lifted), Idle and Stopped, each with a preview painted as on the canvas. Only the
 files picked are read, and nothing is kept before Save. A figure is kept as data URLs in this
@@ -110,3 +127,33 @@ The format of a strip:
 At most 8 figures are kept, and all their strips together take at most 512 KB, eight strips of the
 largest size. A figure you added stands for every agent its set is given to; the built-in sets have
 one for Claude and one for Codex, and every other CLI gets Claude's.
+
+## In a view of its own
+
+A chat or a terminal open as a view of its own has its pet too, while Settings, Pets, In views of their
+own is on (`petsInViews`, on to start with). It is the pet its node would have: the same `petOf`, the
+same set for the same id, and for a chat the same kids. A view has no color, so its pet wears no bow.
+
+- A chat's pet stands on the top edge of the composer card, near its right corner, with its kids
+  behind it (`ChatViewPet`). The card holds the open question while there is one, so the pet stands
+  beside what waits on you. The card is ADE CORE's, so it is found by its class and measured again
+  when it changes. A composer narrower than 320 pixels has no pet.
+- A terminal's text takes every pixel of its body, so its pet stands in the cell's bar at half its
+  size, its feet on the line under the bar, the bubble beside its head (`TerminalViewPet`).
+- A press hands the keyboard over: to the open question or the field to type in, or to the terminal.
+
+## A trip to a page
+
+While Pets is on its nodes, an agent's pet walks over the line to a page or a device the agent works
+in (`canvas/pets/page-trip.ts`, `use-page-trip.ts`): a browser or device node at the other end of a
+target line from its node. The machine asks a page through the client that holds it
+(`browser/page-hold.ts`), and the ask names the page and not the agent, so the line says whose it is.
+A device counts as asked for as long as `device.operated` names the agent's node.
+
+- It sets off at the first ask, stays on the page's top edge while the asks come, and walks home after
+  five quiet seconds. It moves on to another page or home only after four seconds on one, so an agent
+  switching pages does not send it back and forth.
+- It walks the line's own route (`lineRoutes`), in under a second and a half however long the line.
+- A pet that waits on you is home at once, where the question is answered. A page out of view keeps
+  it home, and with reduced motion it only takes its place.
+- On a page a press still goes to its own node.

@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import type { ChatItem, ChatSubagentItem, Task } from '@ruimte/contracts';
 import type { ChatState, ChatsById } from '@adecore/agents-react/state';
-import { kidMoodsOf, MAX_PET_KIDS, petKidMoods, petKidsOf } from '@/canvas/pets/kids';
+import { kidMoodsOf, MAX_PET_KIDS, petKidMoods, petKidsOf } from '@/pets/kids';
 import type { CanvasNode } from '@/state/canvas';
 import { endpointKey, endpointOfNode } from '@/state/keys';
-import { chatInfoOf } from '../../../testing/chat-info';
+import { chatInfoOf } from '../../testing/chat-info';
 
 const NO_PETS: ReadonlySet<string> = new Set();
 

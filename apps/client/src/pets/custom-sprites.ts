@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { z } from 'zod';
-import { PET_POSES, type PetPose } from '@/canvas/pets/pixel';
-import { onPetSpritesChanged, PET_SPRITES_STORAGE_KEY } from '@/canvas/pets/sprites-key';
+import { PET_POSES, type PetPose } from '@/pets/pixel';
+import { onPetSpritesChanged, PET_SPRITES_STORAGE_KEY } from '@/pets/sprites-key';
 import { storedJson } from '@/state/stored-json';
 
 /*

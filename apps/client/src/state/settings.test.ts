@@ -201,6 +201,26 @@ describe('pets', () => {
         expect(settingsFrom({ petsVisitor: 0 as unknown as boolean }).petsVisitor).toBe(true);
     });
 
+    test('give a chat or a terminal in a view of its own its pet until a stored false keeps it away', () => {
+        expect(settingsFrom({}).petsInViews).toBe(true);
+        expect(settingsFrom({ petsInViews: false }).petsInViews).toBe(false);
+        expect(settingsFrom({ petsInViews: 'no' as unknown as boolean }).petsInViews).toBe(true);
+    });
+
+    test('beam pets in and out by gathering unless a stored style or Random says otherwise', () => {
+        expect(settingsFrom({}).petsBeam).toBe('gather');
+        expect(settingsFrom({ petsBeam: 'portal' }).petsBeam).toBe('portal');
+        expect(settingsFrom({ petsBeam: 'random' }).petsBeam).toBe('random');
+        expect(settingsFrom({ petsBeam: 'warp' as unknown as 'portal' }).petsBeam).toBe('gather');
+    });
+
+    test('keep the figure given to each CLI, and leave out what is no name of a set', () => {
+        expect(settingsFrom({}).petsByAgent).toEqual({});
+        expect(settingsFrom({ petsByAgent: { claude: 'custom:tabby', codex: 'animals' } }).petsByAgent).toEqual({ claude: 'custom:tabby', codex: 'animals' });
+        expect(settingsFrom({ petsByAgent: { claude: 3, codex: '', '': 'animals' } as unknown as Record<string, string> }).petsByAgent).toEqual({});
+        expect(settingsFrom({ petsByAgent: ['animals'] as unknown as Record<string, string> }).petsByAgent).toEqual({});
+    });
+
     test('take the kids of sub-agents along until a person turns them off', () => {
         expect(settingsFrom({}).petsSubagents).toBe(true);
         expect(settingsFrom({ petsSubagents: false }).petsSubagents).toBe(false);

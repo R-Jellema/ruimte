@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { CLAUDE_BUDDY, CODEX_BUDDY } from '@/canvas/pets/buddies';
-import { FOX_SPRITE, FROG_SPRITE } from '@/canvas/pets/animals';
-import { drawnFrameKey, paintPet, petPainter, type PetLook } from '@/canvas/pets/paint';
-import type { PetFrame, PetMood } from '@/canvas/pets/pet-state';
+import { CLAUDE_BUDDY, CODEX_BUDDY } from '@/pets/buddies';
+import { FOX_SPRITE, FROG_SPRITE } from '@/pets/animals';
+import { drawnFrameKey, paintPet, petPainter, type PetLook } from '@/pets/paint';
+import type { PetFrame, PetMood } from '@/pets/pet-state';
 import {
     bowColors,
     DRAWN_CYCLE,
@@ -14,7 +14,7 @@ import {
     type DrawnSprite,
     type PaintTarget,
     type PetPose
-} from '@/canvas/pets/pixel';
+} from '@/pets/pixel';
 
 const STILL_STRIP: PetLook = { kind: 'sheet', sprite: { id: 'still', name: 'Still', image: 'data:image/png;base64,AAAA', frameSize: 16, frames: 1 } };
 const BUDDY: PetLook = { kind: 'drawn', sprite: CLAUDE_BUDDY };

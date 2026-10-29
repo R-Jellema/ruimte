@@ -1,9 +1,9 @@
 import { isChatNode, type ChatItem, type ChatSubagentItem } from '@ruimte/contracts';
 import type { ChatsById } from '@adecore/agents-react/state';
-import { PET_HEIGHT, PET_PAINT_WIDTH, PET_WIDTH, type PetMood } from '@/canvas/pets/pet-state';
-import type { CanvasNode } from '@/state/canvas';
+import { PET_HEIGHT, PET_PAINT_WIDTH, PET_WIDTH, type PetMood } from '@/pets/pet-state';
 import { memoByIdentity } from '@/state/identity-memo';
 import { endpointKey, endpointOfNode } from '@/state/keys';
+import type { StatusOf } from '@/state/sessions';
 import { childTask, type TasksById } from '@/state/tasks';
 
 /* At most this many kids follow one pet; more would crowd the top edge of a node and the bottom of the screen. */
@@ -53,12 +53,12 @@ export function petKidMoods(
 }
 
 /*
- * The kids of a node's pet, as one string of their moods so a selector answers the same while nothing
+ * The kids of a node's or a view's pet, as one string of their moods so a selector answers the same while nothing
  * changed. A design follows the chat under its own id, as its status does. A terminal has none: its
  * CLI's hooks name a sub-agent to the daemon, but nothing of it reaches a client.
  */
 export function petKidsOf(
-    node: CanvasNode,
+    node: StatusOf,
     chats: ChatsById,
     tasks: Readonly<Record<string, TasksById>>,
     endpointId: string,
