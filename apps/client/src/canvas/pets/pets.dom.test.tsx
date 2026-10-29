@@ -44,7 +44,7 @@ beforeEach(() => {
 afterEach(async () => {
     await act(async () => useUi.getState().setSettings({ open: false }));
     await canvas.close();
-    useSettings.getState().update({ pets: false, petsPlace: 'nodes', petsVisitor: true });
+    useSettings.getState().update({ pets: false, petsPlace: 'nodes', petsSets: ['buddies'], petsVisitor: true });
 });
 
 describe('pets on a canvas', () => {
@@ -75,6 +75,26 @@ describe('pets on a canvas', () => {
 
         await clickOn(visitorSwitch());
         await until(() => useSettings.getState().petsVisitor === false);
+    });
+
+    test('a person picks several sets of figures in Settings, Views, and never none', async () => {
+        await open();
+        await act(async () => useUi.getState().setSettings({ open: true, section: 'views' }));
+        const setBox = (label: string): HTMLElement | null => document.querySelector(`[role="checkbox"][aria-label="${label}"]`);
+        await until(() => setBox('Buddies') !== null);
+        expect(setBox('Buddies')?.getAttribute('aria-checked')).toBe('true');
+        expect(setBox('Fox and frog')?.getAttribute('aria-checked')).toBe('false');
+        // The only set picked cannot be left out.
+        expect(setBox('Buddies')?.hasAttribute('data-disabled')).toBe(true);
+
+        await clickOn(setBox('Fox and frog')?.closest('label') ?? null);
+        await until(() => setBox('Fox and frog')?.getAttribute('aria-checked') === 'true');
+        expect(useSettings.getState().petsSets).toEqual(['buddies', 'animals']);
+
+        await clickOn(setBox('Buddies')?.closest('label') ?? null);
+        await until(() => setBox('Buddies')?.getAttribute('aria-checked') === 'false');
+        expect(useSettings.getState().petsSets).toEqual(['animals']);
+        expect(setBox('Fox and frog')?.hasAttribute('data-disabled')).toBe(true);
     });
 
     test('a chat that waits on you has a pet that says so, until the question is answered', async () => {

@@ -66,7 +66,7 @@ function RoamingPet({ id, roam, onElement }: { id: string; roam: Roam; onElement
     const chats = useChats((s) => s.statusByKey);
     const snoozes = useSnoozes((s) => s.byKey);
     const pet = node === undefined ? null : petOf(node, sessions, chats, endpointId, snoozes);
-    const look = usePetLook(pet?.agent);
+    const look = usePetLook(pet?.agent, id);
     const mood = pet?.mood ?? null;
 
     useEffect(() => {

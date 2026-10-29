@@ -697,7 +697,7 @@
             },
             "sprite": {
                 "label": "Figuren",
-                "description": "Claude en Codex hebben elk een eigen figuur; andere agents krijgen die van Claude. Een figuur die je toevoegde staat voor elke agent.",
+                "description": "Kies er één of meer; elke agent houdt een figuur uit een ervan. Claude en Codex hebben elk een eigen figuur; andere agents krijgen die van Claude.",
                 "sets": {
                     "buddies": "Buddy's",
                     "animals": "Vos en kikker"

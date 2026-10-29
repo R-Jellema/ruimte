@@ -53,7 +53,7 @@ function Pet({ id }: { id: string }) {
     const chats = useChats((s) => s.statusByKey);
     const snoozes = useSnoozes((s) => s.byKey);
     const pet = node === undefined ? null : petOf(node, sessions, chats, endpointId, snoozes);
-    const look = usePetLook(pet?.agent);
+    const look = usePetLook(pet?.agent, id);
     // A pet off screen keeps no beat; it stands where it was once its node comes back in view.
     const inView = useNodeInViewport(id);
     if (node === undefined || pet === null) {
@@ -99,7 +99,8 @@ function NodePets() {
 function PetVisitor() {
     const canvasStore = useCanvasStore();
     const [visit, setVisit] = useState<VisitSpot | null>(null);
-    const look = usePetLook(undefined);
+    // From the set the node it visits would have, so a visitor is one of the figures a person picked.
+    const look = usePetLook(undefined, visit?.nodeId ?? '');
 
     useEffect(() => {
         let leave: ReturnType<typeof setTimeout> | null = null;

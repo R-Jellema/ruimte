@@ -697,7 +697,7 @@
             },
             "sprite": {
                 "label": "Figures",
-                "description": "Claude and Codex each have their own figure; other agents get Claude's. A figure you added stands for every agent.",
+                "description": "Pick one or more; each agent keeps a figure from one of them. Claude and Codex each have their own; other agents get Claude's.",
                 "sets": {
                     "buddies": "Buddies",
                     "animals": "Fox and frog"

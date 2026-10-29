@@ -98,6 +98,20 @@ function chatStreamingFrom(stored: unknown): ChatStreamingMode {
 
 export type PetsPlace = 'nodes' | 'screen';
 
+// More than the built-in sets and every figure a client may keep, so a hand-edited list cannot slow every pet down.
+const MAX_PET_SETS = 32;
+const MAX_PET_SET_LENGTH = 64;
+
+/*
+ * The stored sets, or the one choice before sets could be combined, under `petsSprite`, as a set of one.
+ * Each once and never none. Whether a custom set is still there is the pets' own question, so a name is kept as it is.
+ */
+function petSetsFrom(stored: unknown, legacy: unknown): string[] {
+    const named: unknown[] = Array.isArray(stored) ? stored : [legacy];
+    const sets = [...new Set(named.filter((set): set is string => typeof set === 'string' && set !== '' && set.length <= MAX_PET_SET_LENGTH))];
+    return sets.length > 0 ? sets.slice(0, MAX_PET_SETS) : ['buddies'];
+}
+
 /* When this computer stays awake: never, while an agent works, or all the time. */
 export type KeepAwakeMode = 'off' | 'working' | 'always';
 
@@ -285,8 +299,8 @@ export interface Settings {
     pets: boolean;
     /* Where the pets are: on their nodes, or along the bottom of the screen, around the dock (`canvas/pets/roam.ts`). */
     petsPlace: PetsPlace;
-    /* Which pets: a built-in set (`PET_SETS`) or `custom:<id>` for a sprite a person added (`canvas/pets/custom-sprites.ts`). */
-    petsSprite: string;
+    /* The sets pets come from, each a built-in set (`PET_SETS`) or `custom:<id>` for one a person added (`canvas/pets/custom-sprites.ts`). Never empty. */
+    petsSets: string[];
     /* Whether, while Pets is off, a pet now and then drops by beside a node for a moment. On to start with. */
     petsVisitor: boolean;
 }
@@ -376,7 +390,7 @@ const DEFAULT_SETTINGS: Settings = {
     canvasRenderDistance: 'standard',
     pets: false,
     petsPlace: 'nodes',
-    petsSprite: 'buddies',
+    petsSets: ['buddies'],
     petsVisitor: true
 };
 
@@ -489,8 +503,7 @@ export function settingsFrom(stored: Partial<Settings>): Settings {
         // Only a stored `true` brings the pets, and only a stored `false` keeps the visitor away.
         pets: stored.pets === true,
         petsPlace: stored.petsPlace === 'screen' ? 'screen' : 'nodes',
-        // Whether a custom sprite is still there is the pets' own question, so a string is kept as it is.
-        petsSprite: typeof stored.petsSprite === 'string' && stored.petsSprite !== '' ? stored.petsSprite : DEFAULT_SETTINGS.petsSprite,
+        petsSets: petSetsFrom(stored.petsSets, (stored as Partial<Settings> & { petsSprite?: unknown }).petsSprite),
         petsVisitor: stored.petsVisitor !== false
     };
 }

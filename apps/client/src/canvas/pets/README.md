@@ -60,6 +60,14 @@ visit 20 to 60 minutes after a canvas opens and the next 20 to 60 minutes after 
 window is visible and nobody is dragging or has a node maximized. It takes no press. It is on by
 default; Settings, Views, Pets, Visitor turns it off (`petsVisitor`).
 
+## Sets
+
+Settings, Views, Pets, Figures picks one set or more (`petsSets`): the buddies, the fox and the frog,
+and the figures a person added. A node's pet comes from the set that scores highest for its id
+(`petChoiceFor`), so it keeps its set in every window, and a set that joins or leaves moves only the
+pets it takes or gave up. The visitor comes from the set of the node it visits. The last set picked
+stays, and a stored `petsSprite` is read as a set of one.
+
 ## A figure of your own
 
 Settings, Views, Pets, Add figure takes one file from the system's open panel. Only that file is
@@ -83,5 +91,5 @@ The format:
   while it is idle, and tipped over and faded once it stopped. The bubble and the jump are drawn over
   it as for a built-in figure.
 
-At most 8 figures are kept. A figure you added stands for every agent; the built-in sets have one
-for Claude and one for Codex, and every other CLI gets Claude's.
+At most 8 figures are kept. A figure you added stands for every agent its set is given to; the
+built-in sets have one for Claude and one for Codex, and every other CLI gets Claude's.

@@ -1,16 +1,19 @@
 import type { AgentKind } from '@ruimte/contracts';
 import { usePetSprites } from '@/canvas/pets/custom-sprites';
 import type { PetLook } from '@/canvas/pets/paint';
-import { builtInSprite, petChoiceOf } from '@/canvas/pets/pet-state';
+import { builtInSprite, petChoiceFor, petPoolOf } from '@/canvas/pets/pet-state';
 import { useSettings } from '@/state/settings';
 
-/* The look the settings name for an agent: a built-in figure, or the strip a person added. */
-export function usePetLook(agent: AgentKind | undefined): PetLook {
-    const setting = useSettings((s) => s.petsSprite);
+/* The look of a node's pet: from the set the settings pool gives that node, a built-in figure for its agent or the strip a person added. */
+export function usePetLook(agent: AgentKind | undefined, nodeId: string): PetLook {
+    const setting = useSettings((s) => s.petsSets);
     const sprites = usePetSprites((s) => s.sprites);
-    const choice = petChoiceOf(
-        setting,
-        sprites.map((sprite) => sprite.id)
+    const choice = petChoiceFor(
+        petPoolOf(
+            setting,
+            sprites.map((sprite) => sprite.id)
+        ),
+        nodeId
     );
     const custom = choice.kind === 'custom' ? sprites.find((sprite) => sprite.id === choice.id) : undefined;
     if (custom !== undefined) {

@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ImageUp, PawPrint, Trash2 } from 'lucide-react';
-import { Button, FormError, Icon, IconButton, Select } from '@adecore/ui';
+import { Button, Checkbox, FormError, Icon, IconButton, Select } from '@adecore/ui';
 import { SettingsRow } from '@adecore/ui/settings';
 import { addPetSprite, browserSheetReader, SHEET_LIMITS, SHEET_TYPES, usePetSprites, type SheetProblem } from '@/canvas/pets/custom-sprites';
-import { CUSTOM_PET_PREFIX, PET_SETS, petChoiceOf } from '@/canvas/pets/pet-state';
+import { CUSTOM_PET_PREFIX, PET_SETS, petChoiceKey, petPoolOf, petSetsWith } from '@/canvas/pets/pet-state';
 import { SettingsSection } from '@/shell/settings/SettingsSection';
 import { SettingSwitchRow } from '@/shell/settings/SettingSwitchRow';
 import { useSettings, type PetsPlace } from '@/state/settings';
@@ -14,7 +14,7 @@ const PETS_PLACES: readonly PetsPlace[] = ['nodes', 'screen'];
 /* Pets on the canvas: whether they come, which figures, and the strips a person added, which stay in this client. */
 export function PetsSection() {
     const { t } = useTranslation('settings');
-    const setting = useSettings((s) => s.petsSprite);
+    const setting = useSettings((s) => s.petsSets);
     const place = useSettings((s) => s.petsPlace);
     const update = useSettings((s) => s.update);
     const sprites = usePetSprites((s) => s.sprites);
@@ -23,14 +23,14 @@ export function PetsSection() {
     const [problem, setProblem] = useState<SheetProblem | null>(null);
     const [busy, setBusy] = useState(false);
 
-    const choice = petChoiceOf(
+    const pool = petPoolOf(
         setting,
         sprites.map((sprite) => sprite.id)
     );
-    const value = choice.kind === 'custom' ? `${CUSTOM_PET_PREFIX}${choice.id}` : choice.set;
-    const items = [
-        ...PET_SETS.map((set) => ({ value: set, label: t(`views.pets.sprite.sets.${set}`) })),
-        ...sprites.map((sprite) => ({ value: `${CUSTOM_PET_PREFIX}${sprite.id}`, label: sprite.name }))
+    const picked = pool.map(petChoiceKey);
+    const choices = [
+        ...PET_SETS.map((set) => ({ key: set, label: t(`views.pets.sprite.sets.${set}`) })),
+        ...sprites.map((sprite) => ({ key: `${CUSTOM_PET_PREFIX}${sprite.id}`, label: sprite.name }))
     ];
 
     const pick = async (file: File | undefined): Promise<void> => {
@@ -45,14 +45,14 @@ export function PetsSection() {
             setProblem(result.problem);
             return;
         }
-        update({ petsSprite: `${CUSTOM_PET_PREFIX}${result.sprite.id}` });
+        // A figure a person just added joins the pets, beside the sets already picked.
+        update({ petsSets: petSetsWith(pool, `${CUSTOM_PET_PREFIX}${result.sprite.id}`, true) });
     };
 
     const removeSprite = (id: string): void => {
         remove(id);
-        if (choice.kind === 'custom' && choice.id === id) {
-            update({ petsSprite: 'buddies' });
-        }
+        const rest = picked.filter((key) => key !== `${CUSTOM_PET_PREFIX}${id}`);
+        update({ petsSets: rest.length > 0 ? rest : ['buddies'] });
     };
 
     return (
@@ -73,20 +73,27 @@ export function PetsSection() {
                 }
             />
             <SettingSwitchRow id="views.pets.visitor" setting="petsVisitor" />
-            <SettingsRow
-                searchId="views.pets.sprite"
-                label={t('views.pets.sprite.label')}
-                description={t('views.pets.sprite.description')}
-                control={
-                    <Select
-                        value={value}
-                        label={t('views.pets.sprite.label')}
-                        align="end"
-                        items={items}
-                        onValueChange={(next) => update({ petsSprite: next })}
-                    />
-                }
-            />
+            <SettingsRow searchId="views.pets.sprite" label={t('views.pets.sprite.label')} description={t('views.pets.sprite.description')}>
+                <ul role="group" aria-label={t('views.pets.sprite.label')} className="flex flex-col gap-1">
+                    {choices.map((choice) => {
+                        const on = picked.includes(choice.key);
+                        return (
+                            <li key={choice.key}>
+                                <label className="flex items-center gap-2 text-sm text-text">
+                                    <Checkbox
+                                        checked={on}
+                                        // The last set picked stays, so the pets always come from one.
+                                        disabled={on && picked.length === 1}
+                                        label={choice.label}
+                                        onCheckedChange={(next) => update({ petsSets: petSetsWith(pool, choice.key, next) })}
+                                    />
+                                    <span className="min-w-0 truncate">{choice.label}</span>
+                                </label>
+                            </li>
+                        );
+                    })}
+                </ul>
+            </SettingsRow>
             <SettingsRow
                 searchId="views.pets.custom"
                 label={t('views.pets.custom.label')}

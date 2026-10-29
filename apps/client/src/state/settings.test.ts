@@ -168,12 +168,31 @@ describe('pets', () => {
         expect(settingsFrom({ pets: 'yes' as unknown as boolean }).pets).toBe(false);
     });
 
-    test('start as the buddies and keep a custom choice for the pets to look up', () => {
-        expect(settingsFrom({}).petsSprite).toBe('buddies');
-        expect(settingsFrom({ petsSprite: 'animals' }).petsSprite).toBe('animals');
-        expect(settingsFrom({ petsSprite: 'custom:abc' }).petsSprite).toBe('custom:abc');
-        expect(settingsFrom({ petsSprite: '' }).petsSprite).toBe('buddies');
-        expect(settingsFrom({ petsSprite: 3 as unknown as string }).petsSprite).toBe('buddies');
+    test('start as the buddies and keep the sets a person picked, custom ones for the pets to look up', () => {
+        expect(settingsFrom({}).petsSets).toEqual(['buddies']);
+        expect(settingsFrom({ petsSets: ['animals', 'custom:abc'] }).petsSets).toEqual(['animals', 'custom:abc']);
+        expect(settingsFrom({ petsSets: ['animals', 'animals', '', 3 as unknown as string] }).petsSets).toEqual(['animals']);
+        expect(settingsFrom({ petsSets: [] }).petsSets).toEqual(['buddies']);
+        expect(settingsFrom({ petsSets: 'animals' as unknown as string[] }).petsSets).toEqual(['buddies']);
+    });
+
+    test('keep a hand-edited list of sets small', () => {
+        const many = Array.from({ length: 1000 }, (_, i) => `custom:${i}`);
+        expect(settingsFrom({ petsSets: many }).petsSets).toHaveLength(32);
+        expect(settingsFrom({ petsSets: [`custom:${'x'.repeat(100)}`, 'animals'] }).petsSets).toEqual(['animals']);
+    });
+
+    test('take the one choice of a client from before sets could be combined as a set of one', () => {
+        const legacy = (petsSprite: unknown) => settingsFrom({ petsSprite } as Parameters<typeof settingsFrom>[0]).petsSets;
+        expect(legacy('animals')).toEqual(['animals']);
+        expect(legacy('custom:abc')).toEqual(['custom:abc']);
+        expect(legacy('')).toEqual(['buddies']);
+        expect(legacy(3)).toEqual(['buddies']);
+        // Once sets are stored, they are what counts.
+        expect(settingsFrom({ petsSets: ['buddies', 'animals'], petsSprite: 'custom:abc' } as Parameters<typeof settingsFrom>[0]).petsSets).toEqual([
+            'buddies',
+            'animals'
+        ]);
     });
 
     test('let the visitor come unless a stored false keeps it away', () => {

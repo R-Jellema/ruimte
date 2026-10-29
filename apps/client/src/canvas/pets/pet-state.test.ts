@@ -12,13 +12,16 @@ import {
     PET_HIT_HEIGHT,
     petBlocked,
     petBubbleBox,
-    petChoiceOf,
+    petChoiceFor,
     petCrowded,
     petFrame,
     petHitBox,
     petNodeKey,
     petOf,
-    petPlace
+    petPlace,
+    petPoolOf,
+    petSetsWith,
+    type PetChoice
 } from '@/canvas/pets/pet-state';
 import type { CanvasNode } from '@/state/canvas';
 import type { SessionsByKey, SessionState } from '@/state/sessions';
@@ -163,12 +166,60 @@ describe('the figures', () => {
             }
         }
     });
+});
 
-    test('a custom choice whose sprite is gone falls back to the buddies', () => {
-        expect(petChoiceOf('custom:a1', ['a1'])).toEqual({ kind: 'custom', id: 'a1' });
-        expect(petChoiceOf('custom:gone', ['a1'])).toEqual({ kind: 'built-in', set: 'buddies' });
-        expect(petChoiceOf('animals', [])).toEqual({ kind: 'built-in', set: 'animals' });
-        expect(petChoiceOf('dragons', [])).toEqual({ kind: 'built-in', set: 'buddies' });
+describe('the sets pets come from', () => {
+    const NODES = Array.from({ length: 60 }, (_, i) => `node-${i}`);
+    const BUDDIES: PetChoice = { kind: 'built-in', set: 'buddies' };
+    const ANIMALS: PetChoice = { kind: 'built-in', set: 'animals' };
+
+    test('are the ones named that are still there, each once, the built-in ones first', () => {
+        expect(petPoolOf(['custom:a1', 'animals', 'buddies', 'animals'], ['a1', 'b2'])).toEqual([BUDDIES, ANIMALS, { kind: 'custom', id: 'a1' }]);
+        expect(petPoolOf(['custom:gone', 'animals'], ['a1'])).toEqual([ANIMALS]);
+    });
+
+    test('are the buddies when nothing named is left', () => {
+        expect(petPoolOf(['custom:gone'], ['a1'])).toEqual([BUDDIES]);
+        expect(petPoolOf(['dragons'], [])).toEqual([BUDDIES]);
+        expect(petPoolOf([], [])).toEqual([BUDDIES]);
+    });
+
+    test('give a node the same set every time, whatever order they were picked in', () => {
+        const pool = petPoolOf(['buddies', 'animals', 'custom:a1'], ['a1']);
+        const reversed = [...pool].reverse();
+        for (const id of NODES) {
+            expect(petChoiceFor(pool, id)).toEqual(petChoiceFor(pool, id));
+            expect(petChoiceFor(reversed, id)).toEqual(petChoiceFor(pool, id));
+        }
+    });
+
+    test('spread the nodes over every set in the pool', () => {
+        const pool = petPoolOf(['buddies', 'animals', 'custom:a1'], ['a1']);
+        const used = new Set(NODES.map((id) => JSON.stringify(petChoiceFor(pool, id))));
+        expect(used.size).toBe(3);
+    });
+
+    test('move only the pets of a set that joins or leaves, and keep every other pet as it was', () => {
+        const two = petPoolOf(['buddies', 'animals'], ['a1']);
+        const three = petPoolOf(['buddies', 'animals', 'custom:a1'], ['a1']);
+        for (const id of NODES) {
+            const after = petChoiceFor(three, id);
+            if (after.kind !== 'custom') {
+                expect<PetChoice>(after).toEqual(petChoiceFor(two, id));
+            }
+        }
+    });
+
+    test('one set picked is the one set every pet has', () => {
+        for (const id of NODES) {
+            expect(petChoiceFor([ANIMALS], id)).toEqual(ANIMALS);
+        }
+    });
+
+    test('pick and leave out a set, never the last one', () => {
+        expect(petSetsWith([BUDDIES], 'animals', true)).toEqual(['buddies', 'animals']);
+        expect(petSetsWith([BUDDIES, ANIMALS], 'buddies', false)).toEqual(['animals']);
+        expect(petSetsWith([ANIMALS], 'animals', false)).toEqual(['animals']);
     });
 });
 

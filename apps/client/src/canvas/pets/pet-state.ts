@@ -225,11 +225,62 @@ export function builtInSprite(set: PetSet, agent: AgentKind | undefined): DrawnS
     return codex ? CODEX_BUDDY : CLAUDE_BUDDY;
 }
 
-/* What the setting names: a built-in set, or a sprite a person added that is still there. Anything else is the buddies. */
-export function petChoiceOf(setting: string, customIds: readonly string[]): { kind: 'built-in'; set: PetSet } | { kind: 'custom'; id: string } {
-    if (setting.startsWith(CUSTOM_PET_PREFIX)) {
-        const id = setting.slice(CUSTOM_PET_PREFIX.length);
-        return customIds.includes(id) ? { kind: 'custom', id } : { kind: 'built-in', set: 'buddies' };
+/* A set pets come from: a built-in one, or one a person added. */
+export type PetChoice = { kind: 'built-in'; set: PetSet } | { kind: 'custom'; id: string };
+
+/*
+ * The sets the setting names that are still there, each once, the built-in ones first. A set a person
+ * added and removed since is left out, and when nothing named is left the pets are the buddies.
+ */
+export function petPoolOf(setting: readonly string[], customIds: readonly string[]): PetChoice[] {
+    const pool: PetChoice[] = PET_SETS.filter((set) => setting.includes(set)).map((set) => ({ kind: 'built-in', set }));
+    for (const id of customIds) {
+        if (setting.includes(`${CUSTOM_PET_PREFIX}${id}`)) {
+            pool.push({ kind: 'custom', id });
+        }
     }
-    return { kind: 'built-in', set: PET_SETS.find((set) => set === setting) ?? 'buddies' };
+    return pool.length > 0 ? pool : [{ kind: 'built-in', set: 'buddies' }];
+}
+
+/* What the setting holds for a set. */
+export function petChoiceKey(choice: PetChoice): string {
+    return choice.kind === 'custom' ? `${CUSTOM_PET_PREFIX}${choice.id}` : choice.set;
+}
+
+function score(text: string): number {
+    let hash = 5381;
+    for (let i = 0; i < text.length; i++) {
+        hash = (Math.imul(hash, 33) + text.charCodeAt(i)) | 0;
+    }
+    // Mixed once more, so two keys that differ in their last character do not score side by side.
+    hash = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b);
+    return (hash ^ (hash >>> 16)) >>> 0;
+}
+
+/*
+ * The set of the pool a node's pet comes from: the one that scores highest for the node. The same node
+ * gets the same set every time and in every window, whatever order the sets were picked in, and a set
+ * that joins or leaves changes only the pets it takes or gave up.
+ */
+export function petChoiceFor(pool: readonly PetChoice[], nodeId: string): PetChoice {
+    let best = pool[0];
+    let bestScore = -1;
+    for (const choice of pool) {
+        const each = score(`${petChoiceKey(choice)}\n${nodeId}`);
+        if (each > bestScore) {
+            best = choice;
+            bestScore = each;
+        }
+    }
+    return best;
+}
+
+/* The pool's sets with one picked or left out, as the setting holds them. The last one stays: a pet always comes from somewhere. */
+export function petSetsWith(pool: readonly PetChoice[], key: string, picked: boolean): string[] {
+    const keys = pool.map(petChoiceKey);
+    const rest = keys.filter((each) => each !== key);
+    if (picked) {
+        return [...rest, key];
+    }
+    return rest.length > 0 ? rest : keys;
 }
