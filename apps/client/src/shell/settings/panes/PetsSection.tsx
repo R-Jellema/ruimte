@@ -72,6 +72,7 @@ export function PetsSection() {
                     />
                 }
             />
+            <SettingSwitchRow id="views.pets.subagents" setting="petsSubagents" />
             <SettingSwitchRow id="views.pets.visitor" setting="petsVisitor" />
             <SettingsRow searchId="views.pets.sprite" label={t('views.pets.sprite.label')} description={t('views.pets.sprite.description')}>
                 <ul role="group" aria-label={t('views.pets.sprite.label')} className="flex flex-col gap-1">

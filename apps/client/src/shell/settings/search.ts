@@ -108,6 +108,7 @@ export const SETTINGS_INDEX: readonly SearchEntry[] = [
     row('views.canvas.renderDistance'),
     row('views.pets.enabled'),
     row('views.pets.place'),
+    row('views.pets.subagents'),
     row('views.pets.visitor'),
     row('views.pets.sprite'),
     row('views.pets.custom'),

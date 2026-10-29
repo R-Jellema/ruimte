@@ -691,6 +691,10 @@
                 "nodes": "On their nodes",
                 "screen": "Bottom of the screen"
             },
+            "subagents": {
+                "label": "Sub-agents",
+                "description": "A smaller figure walks along with a pet for each sub-agent at work, up to three."
+            },
             "visitor": {
                 "label": "Visitor",
                 "description": "While Pets is off, a pet now and then drops by beside a node for a few seconds."

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { act } from 'react';
-import type { ProjectCanvasView, ProjectNode } from '@ruimte/contracts';
+import type { ChatSubagentItem, ProjectCanvasView, ProjectNode } from '@ruimte/contracts';
 import { canvasOfNode } from '@/state/canvas';
 import { useSettings } from '@/state/settings';
 import { useUi } from '@/state/ui';
@@ -19,6 +19,37 @@ let canvas: CanvasPage;
 
 function pet(id: string): HTMLElement | null {
     return canvas.page.host.querySelector(`[data-pet="${id}"]`);
+}
+
+function kids(id: string): HTMLElement[] {
+    return [...canvas.page.host.querySelectorAll<HTMLElement>(`[data-pet-kid="${id}"]`)];
+}
+
+function subagent(id: string): ChatSubagentItem {
+    return {
+        id,
+        kind: 'subagent',
+        turnId: null,
+        createdAt: 1,
+        toolUseId: `spawn-${id}`,
+        description: id,
+        subagentType: null,
+        prompt: null,
+        background: true,
+        status: 'running',
+        startedAt: 1,
+        finishedAt: null,
+        summary: null,
+        result: null,
+        usage: null,
+        lastTool: null,
+        itemsTruncated: false
+    };
+}
+
+/* The writer's thread holds these sub-agents once its node attaches it. */
+function attachWith(items: ChatSubagentItem[]): void {
+    machine.answer('chat.attach', ({ chatId }) => ({ info: chatInfoOf(chatId), items: chatId === WRITER.id ? items : [], seq: 1 }) as never);
 }
 
 function petsSwitch(): HTMLElement | null {
@@ -44,7 +75,7 @@ beforeEach(() => {
 afterEach(async () => {
     await act(async () => useUi.getState().setSettings({ open: false }));
     await canvas.close();
-    useSettings.getState().update({ pets: false, petsPlace: 'nodes', petsSets: ['buddies'], petsVisitor: true });
+    useSettings.getState().update({ pets: false, petsPlace: 'nodes', petsSets: ['buddies'], petsVisitor: true, petsSubagents: true });
 });
 
 describe('pets on a canvas', () => {
@@ -162,5 +193,76 @@ describe('pets on a canvas', () => {
         await clickOn(roaming());
 
         expect(store().getState().selection).toEqual([WRITER.id]);
+    });
+
+    test('a chat with sub-agents at work takes a smaller pet along for each, until one ends or a person turns them off', async () => {
+        const reviewer = subagent('reviewer');
+        attachWith([reviewer, subagent('tester')]);
+        useSettings.getState().update({ pets: true });
+        await open();
+        // Kids are drawn only while their node is in view, as their pet is.
+        await act(async () => store().getState().setCamera({ x: -1800, y: -800, zoom: 1 }));
+        await act(async () => machine.emit('chat.status', { chatId: WRITER.id, info: chatInfoOf(WRITER.id) }));
+        await until(() => kids(WRITER.id).length === 2);
+        expect(kids(PLAN.id)).toEqual([]);
+
+        await act(async () =>
+            machine.emit('chat.event', { chatId: WRITER.id, event: { type: 'item', item: { ...reviewer, status: 'done', finishedAt: 2 } }, seq: 2 })
+        );
+        await until(() => kids(WRITER.id).length === 1);
+
+        await act(async () => useUi.getState().setSettings({ open: true, section: 'views' }));
+        const kidsSwitch = (): HTMLElement | null => document.querySelector('[role="switch"][aria-label="Sub-agents"]');
+        await until(() => kidsSwitch() !== null);
+        expect(kidsSwitch()?.getAttribute('aria-checked')).toBe('true');
+        await clickOn(kidsSwitch());
+        await until(() => kids(WRITER.id).length === 0);
+        expect(pet(WRITER.id)).not.toBeNull();
+    });
+
+    test('along the bottom of the screen, the kids walk there too and take no press', async () => {
+        attachWith([subagent('reviewer'), subagent('tester'), subagent('linter'), subagent('docs')]);
+        useSettings.getState().update({ pets: true, petsPlace: 'screen' });
+        await open();
+        await act(async () => machine.emit('chat.status', { chatId: WRITER.id, info: chatInfoOf(WRITER.id) }));
+        const roaming = (): HTMLElement[] => [...document.querySelectorAll<HTMLElement>(`[data-pet-roam] [data-pet-kid="${WRITER.id}"]`)];
+        // Three at most, however many sub-agents work.
+        await until(() => roaming().length === 3);
+        expect(roaming().map((kid) => kid.querySelector('button'))).toEqual([null, null, null]);
+    });
+
+    test('kids go with their pet when a collapsed group hides its node', async () => {
+        const team: ProjectNode = { id: 'team', kind: 'group', title: 'Team', x: 1900, y: 900, w: 700, h: 700 };
+        attachWith([subagent('reviewer')]);
+        useSettings.getState().update({ pets: true });
+        canvas = await openCanvasPage(machine, [{ ...MAIN, nodes: [PLAN, team, WRITER] }], PLAN.id);
+        await act(async () => {
+            store().getState().setViewport(VIEWPORT);
+            store().getState().setCamera({ x: -1800, y: -800, zoom: 1 });
+        });
+        await act(async () => machine.emit('chat.status', { chatId: WRITER.id, info: chatInfoOf(WRITER.id) }));
+        await until(() => kids(WRITER.id).length === 1);
+
+        await act(async () => store().getState().toggleCollapse(team.id));
+        await until(() => pet(WRITER.id) === null);
+        expect(kids(WRITER.id)).toEqual([]);
+    });
+
+    test('kids move with their pet between its node and the bottom of the screen', async () => {
+        attachWith([subagent('reviewer'), subagent('tester')]);
+        useSettings.getState().update({ pets: true });
+        await open();
+        await act(async () => store().getState().setCamera({ x: -1800, y: -800, zoom: 1 }));
+        await act(async () => machine.emit('chat.status', { chatId: WRITER.id, info: chatInfoOf(WRITER.id) }));
+        const roaming = (): Element[] => [...document.querySelectorAll(`[data-pet-roam] [data-pet-kid="${WRITER.id}"]`)];
+        await until(() => kids(WRITER.id).length === 2);
+        expect(roaming()).toEqual([]);
+
+        await act(async () => useSettings.getState().update({ petsPlace: 'screen' }));
+        await until(() => roaming().length === 2);
+        expect(document.querySelectorAll(`[data-pet-kid="${WRITER.id}"]`)).toHaveLength(2);
+
+        await act(async () => useSettings.getState().update({ petsPlace: 'nodes' }));
+        await until(() => roaming().length === 0 && kids(WRITER.id).length === 2);
     });
 });

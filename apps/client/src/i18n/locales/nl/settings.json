@@ -691,6 +691,10 @@
                 "nodes": "Op hun node",
                 "screen": "Onderin het scherm"
             },
+            "subagents": {
+                "label": "Sub-agents",
+                "description": "Voor elke sub-agent die bezig is, loopt er een kleiner figuurtje mee, tot drie."
+            },
             "visitor": {
                 "label": "Bezoeker",
                 "description": "Zolang Pets uit staat, komt er af en toe een figuurtje een paar seconden bij een node langs."

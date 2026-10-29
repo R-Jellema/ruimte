@@ -8,6 +8,7 @@ import { accentColor } from '@/canvas/accents';
 import { useNodeInViewport } from '@/canvas/culling';
 import { visibleRect } from '@/canvas/math';
 import { petLabel } from '@/canvas/pets/figure-support';
+import { KID_HEIGHT, KID_SPACING, kidMoodsOf, petKidsOf } from '@/canvas/pets/kids';
 import { PetFigure } from '@/canvas/pets/PetFigure';
 import {
     PET_HEIGHT,
@@ -28,6 +29,7 @@ import { useEndpointId } from '@/state/keys';
 import { useSessions } from '@/state/sessions';
 import { useSettings } from '@/state/settings';
 import { useSnoozes } from '@/state/snooze';
+import { useTasks } from '@/state/tasks';
 
 const visitor = createVisitor({
     setTimeout: (run, ms) => window.setTimeout(run, ms),
@@ -39,9 +41,10 @@ const visitor = createVisitor({
  * A pet on its node, when an agent is in it. Only its figure takes a press, and not even that where the
  * figure stands on another node (`blocked`) or while a line is being aimed, so a press on that node, or
  * on the canvas for the line, still lands there. The bubble is paint and never takes one; where a node
- * lies over the pet's head (`crowded`) it goes beside the pet, so it never covers that node.
+ * lies over the pet's head (`crowded`) it goes beside the pet, so it never covers that node. The kids of
+ * its sub-agents stand in a row behind it, paint only.
  */
-function Pet({ id }: { id: string }) {
+function Pet({ id, ownPets }: { id: string; ownPets: ReadonlySet<string> }) {
     const { t } = useTranslation('canvas');
     const canvasStore = useCanvasStore();
     const endpointId = useEndpointId();
@@ -52,10 +55,15 @@ function Pet({ id }: { id: string }) {
     const sessions = useSessions((s) => s.byKey);
     const chats = useChats((s) => s.statusByKey);
     const snoozes = useSnoozes((s) => s.byKey);
+    const withKids = useSettings((s) => s.petsSubagents);
+    const tasks = useTasks((s) => s.byEndpoint);
+    const kidKey = useChats((s) => (withKids && node !== undefined ? petKidsOf(node, s.byKey, tasks, endpointId, ownPets) : ''));
+    const kids = kidMoodsOf(kidKey);
     const pet = node === undefined ? null : petOf(node, sessions, chats, endpointId, snoozes);
     const look = usePetLook(pet?.agent, id);
     // A pet off screen keeps no beat; it stands where it was once its node comes back in view.
     const inView = useNodeInViewport(id);
+    const accent = node === undefined ? undefined : accentColor(nodeColorOf(node));
     if (node === undefined || pet === null) {
         return null;
     }
@@ -64,7 +72,24 @@ function Pet({ id }: { id: string }) {
     const label = petLabel(t, node, mood);
     return (
         <div className="absolute" style={{ left: place.x, top: place.y, width: PET_PAINT_WIDTH, height: PET_HEIGHT }}>
-            {inView && <PetFigure look={look} mood={mood} crowded={crowded} accent={accentColor(nodeColorOf(node))} />}
+            {inView &&
+                kids.map((kid, index) => (
+                    <div
+                        key={index}
+                        data-pet-kid={id}
+                        data-pet-mood={kid}
+                        className="absolute"
+                        style={{ left: -(index + 1) * KID_SPACING, top: PET_HEIGHT - KID_HEIGHT }}
+                    >
+                        <PetFigure look={look} mood={kid} crowded={false} accent={accent} small />
+                    </div>
+                ))}
+            {inView && (
+                // Positioned as its kids are, so it stands in front of them.
+                <div className="relative">
+                    <PetFigure look={look} mood={mood} crowded={crowded} accent={accent} />
+                </div>
+            )}
             <Tooltip label={label}>
                 <button
                     type="button"
@@ -92,7 +117,8 @@ function Pet({ id }: { id: string }) {
 
 function NodePets() {
     const ids = useCanvas(petNodeKey);
-    return ids === '' ? null : ids.split('\n').map((id) => <Pet key={id} id={id} />);
+    const own = new Set(ids.split('\n'));
+    return ids === '' ? null : ids.split('\n').map((id) => <Pet key={id} id={id} ownPets={own} />);
 }
 
 /* Now and then, while Pets is off, a pet stands beside a node for a moment and goes again. It takes no press and asks nothing. */

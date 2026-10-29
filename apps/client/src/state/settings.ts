@@ -303,6 +303,8 @@ export interface Settings {
     petsSets: string[];
     /* Whether, while Pets is off, a pet now and then drops by beside a node for a moment. On to start with. */
     petsVisitor: boolean;
+    /* Whether a pet takes a smaller one along for each sub-agent of its chat at work (`canvas/pets/kids.ts`). On to start with, since it only shows once Pets is on. */
+    petsSubagents: boolean;
 }
 
 /* What `RTCPeerConnection` takes for the servers in the setting; none for an empty field. */
@@ -391,7 +393,8 @@ const DEFAULT_SETTINGS: Settings = {
     pets: false,
     petsPlace: 'nodes',
     petsSets: ['buddies'],
-    petsVisitor: true
+    petsVisitor: true,
+    petsSubagents: true
 };
 
 // Rounded as well as clamped: storage can still hold a half pixel, and text renders sharpest on a whole one.
@@ -500,11 +503,12 @@ export function settingsFrom(stored: Partial<Settings>): Settings {
         terminalFont:
             stored.terminalFont === 'editor' ? 'editor' : (MONO_FONTS.find((entry) => entry.id === stored.terminalFont)?.id ?? DEFAULT_SETTINGS.terminalFont),
         canvasRenderDistance: renderDistanceFrom(stored.canvasRenderDistance),
-        // Only a stored `true` brings the pets, and only a stored `false` keeps the visitor away.
+        // Only a stored `true` brings the pets, and only a stored `false` keeps the visitor or the kids away.
         pets: stored.pets === true,
         petsPlace: stored.petsPlace === 'screen' ? 'screen' : 'nodes',
         petsSets: petSetsFrom(stored.petsSets, (stored as Partial<Settings> & { petsSprite?: unknown }).petsSprite),
-        petsVisitor: stored.petsVisitor !== false
+        petsVisitor: stored.petsVisitor !== false,
+        petsSubagents: stored.petsSubagents !== false
     };
 }
 

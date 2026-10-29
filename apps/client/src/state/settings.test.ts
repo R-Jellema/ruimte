@@ -201,6 +201,12 @@ describe('pets', () => {
         expect(settingsFrom({ petsVisitor: 0 as unknown as boolean }).petsVisitor).toBe(true);
     });
 
+    test('take the kids of sub-agents along until a person turns them off', () => {
+        expect(settingsFrom({}).petsSubagents).toBe(true);
+        expect(settingsFrom({ petsSubagents: false }).petsSubagents).toBe(false);
+        expect(settingsFrom({ petsSubagents: 'no' as unknown as boolean }).petsSubagents).toBe(true);
+    });
+
     test('keep pets on their nodes unless a stored choice sends them to the bottom of the screen', () => {
         expect(settingsFrom({}).petsPlace).toBe('nodes');
         expect(settingsFrom({ petsPlace: 'screen' }).petsPlace).toBe('screen');

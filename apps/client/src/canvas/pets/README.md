@@ -18,6 +18,12 @@ the file system, the daemon's folders or a project file.
   so a person tells which pet is whose. Each pose of a built-in figure says where its head is; a
   figure a person added gets none, since nothing says where its head is, and the visitor, which
   belongs to no node, none either.
+- A pet takes a kid along, the same figure at half the size, for each sub-agent of its chat at work,
+  three at most (`kids.ts`): the running rows of kind `subagent` in the thread under the node's own
+  id, the CLI's own and the tasks it gave, but not a task whose node has a pet of its own. The kid of
+  a task that waits for a limit to lift sleeps. On a node they stand in a row behind the pet and take
+  no press. A terminal has none, since nothing of its CLI's sub-agents reaches the client. Settings,
+  Views, Pets, Sub-agents turns them off (`petsSubagents`).
 - A pet paints its canvas only when the picture changes (`petPainter`), so a strip of one frame at
   rest paints once.
 - A click goes to the node (`goToNode`): the camera centers on it and selects it, and Back in the
@@ -49,6 +55,9 @@ still have them, so a node a collapsed group hides has none here either.
   up to. A dock that hides, or a prompt card that comes up over it, sends the pets on it to the floor
   beside it.
 - The obstacles are measured on every beat, in whole pixels, so the ground changes only when one moves.
+- Kids trail their pet a gap behind (`follow`); one ahead of it waits for it to pass, and one cut off
+  from it jumps across. At rest they stand in a row from the pet, going on at its other side where
+  the ground ends. No pet jumps over a kid or keeps clear of one.
 - With reduced motion they only take their place.
 - A click goes to the node, as on a node; the bubble and the bow are the same.
 
